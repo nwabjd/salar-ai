@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import AuditEvent, DeviceSession, PairingCode, User
+from ..models import AuditEvent, Device, DeviceSession, PairingCode, User
 from ..schemas import DesktopProvisionRequest, DeviceSessionResponse, DeviceSessionToken, LoginRequest, PairingCodeResponse, PairingRedeemRequest, TokenResponse, UserResponse
 from ..security import create_access_token, digest_secret, get_current_user, verify_password
 
@@ -48,6 +48,8 @@ def _new_device_session(db: Session, request: Request, user: User, name: str, pl
         last_seen_at=now,
     )
     db.add(record)
+    if platform == "windows":
+        db.add(Device(user_id=user.id, name=name, platform=platform, token_hash=digest_secret(raw), last_seen_at=now))
     db.flush()
     device = DeviceSessionResponse.model_validate(record, from_attributes=True)
     return DeviceSessionToken(access_token=raw, device=device)
@@ -120,5 +122,8 @@ def revoke_device_session(device_id: str, user: User = Depends(get_current_user)
     if record is None:
         raise HTTPException(status_code=404, detail="Device session not found")
     record.revoked_at = datetime.now(timezone.utc)
+    command_device = db.scalar(select(Device).where(Device.token_hash == record.token_hash))
+    if command_device is not None:
+        db.delete(command_device)
     db.add(AuditEvent(user_id=user.id, action="auth.device_revoked", detail_json=json.dumps({"device_id": device_id})))
     db.commit()

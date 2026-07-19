@@ -35,6 +35,17 @@ def test_device_session_authenticates_existing_api(client):
     assert response.json()["email"] == "owner@example.com"
 
 
+def test_provisioned_desktop_is_ready_for_remote_commands(client):
+    token = provision(client).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    devices = client.get("/api/devices", headers=headers)
+    assert devices.status_code == 200
+    assert devices.json()[0]["name"] == "Studio PC"
+    poll = client.get("/api/device/commands/next", headers={"X-Device-Token": token})
+    assert poll.status_code == 200
+    assert poll.json() is None
+
+
 def test_pairing_code_is_single_use(client):
     token = provision(client).json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
@@ -73,3 +84,7 @@ def test_revoked_device_session_is_rejected(client):
     response = client.delete(f"/api/auth/devices/{provisioned['device']['id']}", headers=headers)
     assert response.status_code == 204
     assert client.get("/api/auth/session", headers=headers).status_code == 401
+    assert client.get(
+        "/api/device/commands/next",
+        headers={"X-Device-Token": provisioned["access_token"]},
+    ).status_code == 401
