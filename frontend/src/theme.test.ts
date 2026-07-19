@@ -15,5 +15,6 @@ describe('approved SALAR visual system', () => {
     for (const legacy of ['#edc9bd', '#f0d1c7', '#f5d8cb']) expect(theme).not.toContain(legacy)
     expect(main).not.toContain('type="email"')
     expect(main).not.toContain('Enter SALAR')
+    expect(main).not.toContain('<React.StrictMode>')
   })
 })

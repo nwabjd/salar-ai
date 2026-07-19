@@ -20,7 +20,17 @@ npm run build
 if ($LASTEXITCODE -ne 0) { throw "Frontend build failed" }
 Pop-Location
 
-New-Item -ItemType Directory -Force $Website, $Installer | Out-Null
+$ResolvedDist = [System.IO.Path]::GetFullPath($Dist)
+foreach ($Target in @($Website, $Installer)) {
+  $ResolvedTarget = [System.IO.Path]::GetFullPath($Target)
+  if (-not $ResolvedTarget.StartsWith($ResolvedDist, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refusing to clean release directory outside dist: $ResolvedTarget"
+  }
+  if (Test-Path -LiteralPath $ResolvedTarget) {
+    Remove-Item -LiteralPath $ResolvedTarget -Recurse -Force
+  }
+  New-Item -ItemType Directory -Force $ResolvedTarget | Out-Null
+}
 Copy-Item -Path (Join-Path $Workspace "frontend\dist\*") -Destination $Website -Recurse -Force
 
 Push-Location (Join-Path $Workspace "desktop")

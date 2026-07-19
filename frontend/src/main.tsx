@@ -126,4 +126,4 @@ function SettingsPage({ access, onAccess }: { access: AccessState; onAccess: (st
 function Page({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) { return <div className="page"><span className="eyebrow">SALAR WORKSPACE</span><h1>{title}</h1><p>{subtitle}</p>{children}</div> }
 function Card({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article className="card"><div>{icon}</div><h3>{title}</h3><p>{text}</p></article> }
 
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>)
+createRoot(document.getElementById('root')!).render(<App/>)
