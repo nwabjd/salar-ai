@@ -22,6 +22,7 @@ def client(tmp_path: Path):
         allowed_origins=["https://salar.example.com"],
         storage_dir=tmp_path / "uploads",
         environment="test",
+        provisioning_key="test-provisioning-key",
     )
     app = create_app(settings)
     app.state.coordinator = FakeCoordinator()

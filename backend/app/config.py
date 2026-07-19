@@ -22,4 +22,6 @@ class Settings(BaseSettings):
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "qwen2.5:3b"
     public_api_url: str = "https://api.salar.example.com"
-
+    provisioning_key: str = "salar-local-setup"
+    pairing_code_minutes: int = 5
+    device_session_days: int = 365
