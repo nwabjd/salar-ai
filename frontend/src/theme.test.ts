@@ -24,4 +24,10 @@ describe('approved SALAR visual system', () => {
     expect(main).not.toContain('if (live) return <Live')
     expect(main).toContain('{live && <Live')
   })
+
+  it('does not return scrollIntoView as a React effect cleanup', () => {
+    expect(main).not.toContain("useEffect(() => end.current?.scrollIntoView")
+    expect(main).toContain("useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])")
+  })
+
 })
