@@ -4,7 +4,7 @@ SALAR is a private, multi-device AI assistant. The desktop application, installa
 
 ## What is included
 
-- FastAPI backend with JWT login, SQLite persistence, Ollama coordination, conversations, layered memory, projects, document extraction/search, audit records, and typed device commands.
+- FastAPI backend with revocable device sessions, one-time pairing, recovery authentication, SQLite persistence, Ollama coordination, conversations, layered memory, projects, document extraction/search, audit records, and typed device commands.
 - Responsive React client with the approved Liquid Ether dashboard, exact Magic Rings Live mode, continuous browser speech recognition, document upload, memory, device management, and runtime backend selection.
 - Progressive Web App that can be installed on iPhone from Safari using **Add to Home Screen**.
 - Tauri 2 Windows application with fullscreen first launch, a native safe command allow-list, automatic device registration, and background command polling.
@@ -30,12 +30,14 @@ $env:VITE_API_URL="http://127.0.0.1:8000"
 npm run dev
 ```
 
-The initial development login is `owner@salar.local` / `ChangeMeImmediately!`. Change both values before putting the backend on the internet.
+SALAR Desktop opens directly without an account form. On first setup, open **Settings**, enter the public API address and the one-time provisioning key from your private backend `.env`, then connect the desktop. The key is exchanged for a revocable machine session and is never stored by the client.
+
+To connect the web app or iPhone, choose **Pair another device** in Desktop Settings and enter the displayed six-digit code. The code expires after five minutes and works once. Email/password authentication remains available through the backend API for recovery but is not part of the normal client experience.
 
 ## Deploy on your domain
 
 1. Point two DNS records at the server: for example `salar.example.com` and `api.salar.example.com`.
-2. Copy `.env.example` to `.env`, replace every secret and domain, and set `SALAR_WEB_DOMAIN` / `SALAR_API_DOMAIN`.
+2. Copy `.env.example` to `.env`, replace every secret and domain, and set `SALAR_WEB_DOMAIN` / `SALAR_API_DOMAIN`. Generate `SALAR_PROVISIONING_KEY` with at least 32 random bytes. Rotate it after provisioning your private desktops.
 3. Ensure Ollama runs only on the backend machine or a private network. Do not expose port 11434 publicly.
 4. Build the clients with the real public API URL:
 
