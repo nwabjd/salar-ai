@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+desktop/src-tauri/target/
+backend/data/
+.env
+dist/
+*.log

@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - salar-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [backend]
+    environment:
+      SALAR_WEB_DOMAIN: ${SALAR_WEB_DOMAIN}
+      SALAR_API_DOMAIN: ${SALAR_API_DOMAIN}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ../dist/website:/srv:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  salar-data:
+  caddy-data:
+  caddy-config:

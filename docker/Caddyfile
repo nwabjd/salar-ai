@@ -1,0 +1,10 @@
+{$SALAR_WEB_DOMAIN} {
+  root * /srv
+  encode zstd gzip
+  try_files {path} /index.html
+  file_server
+}
+
+{$SALAR_API_DOMAIN} {
+  reverse_proxy backend:8000
+}
