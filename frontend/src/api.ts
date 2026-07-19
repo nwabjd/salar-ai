@@ -8,7 +8,7 @@ const saved = localStorage.getItem('salar.apiUrl')
 export const DEFAULT_API = (import.meta.env.VITE_API_URL || saved || 'https://api.salar.example.com').replace(/\/$/, '')
 
 export class SalarApi {
-  constructor(public baseUrl = DEFAULT_API, public token = localStorage.getItem('salar.token') || '') {}
+  constructor(public baseUrl = DEFAULT_API, public token = localStorage.getItem('salar.deviceSession') || localStorage.getItem('salar.token') || '') {}
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers)
     if (this.token) headers.set('Authorization', `Bearer ${this.token}`)
@@ -18,6 +18,12 @@ export class SalarApi {
     return response.json()
   }
   async login(email: string, password: string) { const data = await this.request<{access_token:string}>('/api/auth/login', { method:'POST', body:JSON.stringify({email,password}) }); this.token=data.access_token; localStorage.setItem('salar.token', data.access_token); return data }
+  async provisionDesktop(provisioning_key:string,name='SALAR Desktop') { const data=await this.request<{access_token:string;device:Device}>('/api/auth/desktop/provision',{method:'POST',body:JSON.stringify({provisioning_key,name})}); this.token=data.access_token; return data }
+  validateSession() { return this.request<{id:string;email:string}>('/api/auth/session') }
+  createPairingCode() { return this.request<{code:string;expires_at:string}>('/api/auth/pairing',{method:'POST'}) }
+  async redeemPairingCode(code:string,name:string,platform:string) { const data=await this.request<{access_token:string;device:Device}>('/api/auth/pairing/redeem',{method:'POST',body:JSON.stringify({code,name,platform})}); this.token=data.access_token; return data }
+  deviceSessions() { return this.request<(Device & {expires_at:string})[]>('/api/auth/devices') }
+  revokeDeviceSession(id:string) { return this.request<void>(`/api/auth/devices/${id}`,{method:'DELETE'}) }
   conversations() { return this.request<Conversation[]>('/api/conversations') }
   conversation(id: string) { return this.request<Conversation>(`/api/conversations/${id}`) }
   createConversation(title='New conversation') { return this.request<Conversation>('/api/conversations', {method:'POST', body:JSON.stringify({title})}) }

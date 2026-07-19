@@ -1,0 +1,12 @@
+:root {
+  --canvas: #050308;
+  --canvas-live: #03030a;
+  --ink: #f7f4ff;
+  --muted: #aaa4b4;
+  --quiet: #716b7d;
+  --glass: rgba(12, 10, 18, .46);
+  --glass-strong: rgba(8, 7, 13, .76);
+  --line: rgba(255, 255, 255, .10);
+  --line-bright: rgba(255, 255, 255, .18);
+  --shadow: 0 28px 80px rgba(0, 0, 0, .38);
+}
