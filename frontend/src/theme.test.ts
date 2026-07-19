@@ -17,4 +17,11 @@ describe('approved SALAR visual system', () => {
     expect(main).not.toContain('Enter SALAR')
     expect(main).not.toContain('<React.StrictMode>')
   })
+
+  it('uses the supplied Strands loader and preserves both WebGL stages in live mode', () => {
+    expect(main).toContain("import Strands from './effects/Strands.jsx'")
+    expect(main).toContain('<Strands')
+    expect(main).not.toContain('if (live) return <Live')
+    expect(main).toContain('{live && <Live')
+  })
 })

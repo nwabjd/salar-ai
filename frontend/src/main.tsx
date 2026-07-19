@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Brain, ChevronRight, FileText, Globe2, MemoryStick, Menu, Mic2, Monitor, Plus, Send, Settings, Sparkles, Unplug, X } from 'lucide-react'
 import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
+import Strands from './effects/Strands.jsx'
 import { AccessState, clearSession, isDesktop, resolveAccessState, saveSession, storedSession } from './access'
 import { Conversation, DEFAULT_API, Device, DocumentItem, Memory, Message, SalarApi } from './api'
 import './theme.css'
@@ -13,7 +14,10 @@ const api = new SalarApi()
 const previewShell = new URLSearchParams(location.search).get('preview') === 'dashboard'
 
 function Loader() {
-  return <main className="loader"><div className="strand strand-a"/><div className="strand strand-b"/><div className="strand strand-c"/><p>SALAR</p><span>INITIALIZING PRIVATE INTELLIGENCE</span></main>
+  return <main className="loader">
+    <div className="loader-effect"><Strands colors={["#F97316","#7C3AED","#06B6D4"]} count={3} speed={0.5} amplitude={1} waviness={1} thickness={0.7} glow={2.6} taper={3} spread={1} intensity={0.6} saturation={1.5} opacity={1} scale={1.5} glass={false} refraction={1} dispersion={1} glassSize={1}/></div>
+    <div className="loader-copy"><p>SALAR</p><span>INITIALIZING PRIVATE INTELLIGENCE</span></div>
+  </main>
 }
 
 function PairingPortal({ onConnected }: { onConnected: () => void }) {
@@ -73,9 +77,8 @@ function App() {
   }, [access])
   if (!ready) return <Loader/>
   if (!desktop && access === 'pairing') return <PairingPortal onConnected={() => setAccess('connected')}/>
-  if (live) return <Live connected={access === 'connected'} onClose={() => setLive(false)}/>
   const nav = [['home', Sparkles, 'Intelligence'], ['memory', MemoryStick, 'Memory'], ['documents', FileText, 'Documents'], ['devices', Monitor, 'Devices'], ['settings', Settings, 'Settings']] as const
-  return <main className="app-shell">
+  return <><main className={`app-shell${live ? ' live-open' : ''}`}>
     <div className="liquid-stage"><LiquidEther colors={['#5227FF','#FF9FFC','#B497CF']} mouseForce={20} cursorSize={100} isViscous={false} viscous={30} iterationsViscous={32} iterationsPoisson={32} resolution={0.5} isBounce={false} autoDemo autoSpeed={0.5} autoIntensity={2.2} takeoverDuration={0.25} autoResumeDelay={3000} autoRampDuration={0.6}/></div>
     <header className="topbar"><button className="mobile-menu" onClick={() => setMenu(!menu)}><Menu/></button><div className="brand"><div className="salar-glyph">S</div><div><b>SALAR</b><small>PERSONAL INTELLIGENCE</small></div></div><nav className="topnav">{nav.slice(0, 4).map(([id,,label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>{label}</button>)}</nav><button className={`connection ${access}`} onClick={() => setView('settings')}><i/>{access === 'connected' ? 'SECURE LINK' : 'CONNECT'}</button></header>
     <aside className={menu ? 'open' : ''}>{nav.map(([id, Icon, label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => { setView(id); setMenu(false) }}><Icon size={17}/><span>{label}</span></button>)}</aside>
@@ -86,7 +89,7 @@ function App() {
       {view === 'devices' && <Devices connected={access === 'connected'}/>}
       {view === 'settings' && <SettingsPage access={access} onAccess={setAccess}/>} 
     </section>
-  </main>
+  </main>{live && <Live connected={access === 'connected'} onClose={() => setLive(false)}/>}</>
 }
 
 function Chat({ connected, onLive, onConnect }: { connected: boolean; onLive: () => void; onConnect: () => void }) {
