@@ -20,6 +20,8 @@ services:
         value: https://api.salar.cloud
       - key: WA_BRIDGE_PORT
         value: "3100"
+      - key: PORT
+        value: "8000"
       - key: SALAR_BACKEND_URL
         value: http://127.0.0.1:8000
       - key: SALAR_BRIDGE_URL

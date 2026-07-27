@@ -220,8 +220,8 @@ app.post('/logout', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`SALAR WhatsApp Bridge running on port ${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`SALAR WhatsApp Bridge running on port ${PORT} (localhost only)`);
   console.log(`Backend URL: ${BACKEND_URL}`);
   startWhatsApp().catch(e => {
     console.error('WhatsApp start failed:', e);
