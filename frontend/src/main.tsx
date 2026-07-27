@@ -626,7 +626,10 @@ function WhatsApp({ connected }: { connected: boolean }) {
   return <Page title="WhatsApp" subtitle="Connect your WhatsApp to read and send messages through SALAR.">
     {error && <div className="inline-error">{error}</div>}
     {status === 'unknown' && <div className="loading-hint">Connecting to WhatsApp bridge…</div>}
-    {status === 'unreachable' && <div className="notice">WhatsApp bridge not running. Start it with <code>start-whatsapp.bat</code>.</div>}
+    {status === 'unreachable' && <div className="wa-reconnect-section">
+      <p>WhatsApp is not connected. Make sure the WhatsApp bridge is running.</p>
+      <button className="primary" onClick={async () => { setStatus('unknown'); try { const s = await api.whatsappStatus(); setStatus(s.status as any) } catch { setStatus('unreachable') } }}>Try again</button>
+    </div>}
     {status === 'waiting_scan' && <div className="wa-qr-section">
       <p>Open WhatsApp on your phone → <strong>Settings → Linked Devices → Link a Device</strong></p>
       {qrData ? <div className="wa-qr-box"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrData)}`} alt="Scan this QR code" width={220}/></div> : <div className="loading-hint">Generating QR code…</div>}
