@@ -642,7 +642,7 @@ function WhatsApp({ connected }: { connected: boolean }) {
       <small>{autoReply ? 'SALAR will reply to incoming messages automatically' : 'Auto-reply is off'}</small>
     </div>}
     {status === 'connected' && <div className="wa-logout-row">
-      <button className="wa-logout-btn" onClick={async () => { if (confirm('Disconnect this WhatsApp? You will need to scan the QR code again.')) { await api.whatsappLogout(); setStatus('disconnected'); setQrData(''); setChats([]); setMessages([]) } }}>Change WhatsApp account</button>
+      <button className="wa-logout-btn" onClick={async () => { if (confirm('Disconnect this WhatsApp? You will need to scan the QR code again.')) { await api.whatsappLogout(); setStatus('unreachable'); setQrData(''); setChats([]); setMessages([]) } }}>Change WhatsApp account</button>
     </div>}
     {status === 'connected' && passMessages.filter(m => !m.detail.acknowledged).length > 0 && <div className="wa-pass-section">
       <label>Messages for you</label>
