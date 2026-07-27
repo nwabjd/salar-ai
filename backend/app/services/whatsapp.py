@@ -73,3 +73,11 @@ class WhatsAppClient:
         except Exception as e:
             log.warning("WhatsApp contacts fetch failed: %s", e)
             return []
+
+    async def logout(self) -> Dict[str, Any]:
+        try:
+            r = await self._client.post(f"{self.bridge_url}/logout")
+            return r.json()
+        except Exception as e:
+            log.warning("WhatsApp logout failed: %s", e)
+            return {"error": str(e)}

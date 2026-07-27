@@ -121,6 +121,14 @@ async def whatsapp_contacts(request: Request, user: User = Depends(get_current_u
     return await client.get_contacts()
 
 
+@router.post("/api/whatsapp/logout")
+async def whatsapp_logout(request: Request, user: User = Depends(get_current_user)):
+    client = getattr(request.app.state, "whatsapp", None)
+    if not client:
+        raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
+    return await client.logout()
+
+
 @router.get("/api/whatsapp/auto-reply")
 async def get_auto_reply(user: User = Depends(get_current_user)):
     return {"enabled": user.whatsapp_auto_reply}
