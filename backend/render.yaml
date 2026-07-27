@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: salar-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: SALAR_ENVIRONMENT
+        value: production
+      - key: SALAR_JWT_SECRET
+        generateValue: true
+      - key: SALAR_GEMINI_API_KEY
+        sync: false
+      - key: SALAR_GEMINI_MODEL
+        value: gemini-3.1-flash-lite
+      - key: SALAR_ALLOWED_ORIGINS
+        value: '["https://salaar.cloud","https://www.salaar.cloud","https://api.salaar.cloud"]'
+      - key: SALAR_PUBLIC_API_URL
+        value: https://api.salar.cloud
+      - key: WA_BRIDGE_PORT
+        value: "3100"
+      - key: SALAR_BACKEND_URL
+        value: http://127.0.0.1:8000
+      - key: SALAR_BRIDGE_URL
+        value: http://127.0.0.1:3100
+      - key: WA_AUTH_DIR
+        value: /app/data/wa-auth
+    disk:
+      name: salar-data
+      mountPath: /app/data
+      sizeGB: 1

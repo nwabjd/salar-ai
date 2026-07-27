@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.git
+.gitignore
+.env
+.env.*
+*.md
+!requirements.txt
+tests/
+data/
+whatsapp/auth/
+whatsapp/node_modules/
+*.txt

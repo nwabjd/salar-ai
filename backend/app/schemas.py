@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
@@ -62,6 +62,7 @@ class ConversationDetail(ConversationResponse):
 class ChatRequest(BaseModel):
     conversation_id: str
     content: str
+    fast: bool = False
 
 
 class ChatResponse(BaseModel):
