@@ -558,7 +558,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   const label = phase === 'idle' ? 'Starting…' : phase === 'listening' ? 'Listening…' : phase === 'thinking' ? 'Thinking…' : 'Speaking…'
 
   return <main className="live">
-    <div className="rings"><MagicRings color="#fc42ff" colorTwo="#42fcff" ringCount={6} speed={1} attenuation={10} lineThickness={2} baseRadius={0.35} radiusStep={0.1} scaleRate={0.1} blur={0} noiseAmount={0.1} rotation={0} ringGap={1.5} fadeIn={0.7} fadeOut={0.5} followMouse={false} mouseInfluence={0.2} hoverScale={1.2} parallax={0.05} clickBurst={false}/></div>
+    <div className="rings"><MagicRings color="#fc42ff" colorTwo="#42fcff" ringCount={6} speed={1} attenuation={10} lineThickness={2} baseRadius={0.35} radiusStep={0.1} scaleRate={0.1} blur={0} noiseAmount={0.1} rotation={0} ringGap={1.5} fadeIn={0.7} fadeOut={0.5} followMouse={false} mouseInfluence={0.2} hoverScale={1.2} parallax={0.05} clickBurst={false} phase={phase} volume={volume}/></div>
     <button className="close" onClick={handleClose}><X/></button>
     <div className="live-history">
       {history.map((h, i) => <div key={i} className={`live-msg ${h.role}`}>
@@ -566,14 +566,6 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
         <p>{h.text}</p>
       </div>)}
       <div ref={historyEndRef}/>
-    </div>
-    <div className="live-center">
-      <div className={`live-orb ${phase}`} style={{ transform: phase === 'listening' ? `scale(${1 + volume / 80})` : undefined }}>
-        <div className="orb-ring orb-ring-1"/>
-        <div className="orb-ring orb-ring-2"/>
-        <div className="orb-ring orb-ring-3"/>
-        <div className="orb-core"/>
-      </div>
     </div>
     <div className="live-copy">
       <span className="live-label">{label}</span>

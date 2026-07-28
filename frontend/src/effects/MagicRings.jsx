@@ -85,6 +85,8 @@ export default function MagicRings({
   hoverScale = 1.2,
   parallax = 0.05,
   clickBurst = false,
+  phase = '',
+  volume = 0,
 }) {
   const mountRef = useRef(null);
   const propsRef = useRef(null);
@@ -98,7 +100,7 @@ export default function MagicRings({
     color, colorTwo, speed, ringCount, attenuation, lineThickness,
     baseRadius, radiusStep, scaleRate, opacity, noiseAmount,
     rotation, ringGap, fadeIn, fadeOut, followMouse, mouseInfluence,
-    hoverScale, parallax, clickBurst,
+    hoverScale, parallax, clickBurst, phase, volume,
   };
 
   useEffect(() => {
@@ -217,6 +219,32 @@ export default function MagicRings({
       uniforms.uHoverScale.value = p.hoverScale;
       uniforms.uParallax.value = p.parallax;
       uniforms.uBurst.value = p.clickBurst ? burstRef.current : 0;
+
+      if (p.phase && p.phase !== 'idle') {
+        const vol = Math.min(p.volume / 60, 1);
+        if (p.phase === 'listening') {
+          uniforms.uSpeed = uniforms.uSpeed || { value: 1 };
+          uniforms.uTime.value = t * 0.001 * (0.6 + vol * 0.8);
+          uniforms.uScaleRate.value = p.scaleRate * (0.5 + vol * 1.0);
+          uniforms.uNoiseAmount.value = p.noiseAmount * (0.3 + vol * 1.5);
+          uniforms.uLineThickness.value = p.lineThickness * (0.8 + vol * 0.6);
+          uniforms.uRingCount.value = Math.round(p.ringCount * (0.6 + vol * 0.4));
+        } else if (p.phase === 'thinking') {
+          uniforms.uTime.value = t * 0.001 * 2.2;
+          uniforms.uScaleRate.value = p.scaleRate * 1.8;
+          uniforms.uNoiseAmount.value = p.noiseAmount * 2.5;
+          uniforms.uLineThickness.value = p.lineThickness * 1.3;
+          uniforms.uAttenuation.value = p.attenuation * 0.7;
+          uniforms.uRingCount.value = p.ringCount;
+        } else if (p.phase === 'speaking') {
+          const pulse = Math.sin(t * 0.008) * 0.3 + 0.7;
+          uniforms.uTime.value = t * 0.001 * 1.4;
+          uniforms.uScaleRate.value = p.scaleRate * (1.2 + pulse * 0.6);
+          uniforms.uNoiseAmount.value = p.noiseAmount * (0.5 + pulse * 1.0);
+          uniforms.uLineThickness.value = p.lineThickness * (1.1 + pulse * 0.4);
+          uniforms.uRingCount.value = p.ringCount;
+        }
+      }
 
       renderer.render(scene, camera);
     };
