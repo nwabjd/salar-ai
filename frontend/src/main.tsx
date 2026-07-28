@@ -8,6 +8,7 @@ import { Calendar } from 'lucide-react'
 import { FolderOpen } from 'lucide-react'
 import { Code } from 'lucide-react'
 import { CheckSquare, Bell, BookOpen, Zap } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
 import Strands from './effects/Strands.jsx'
@@ -210,6 +211,10 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   const [volume, setVolume] = useState(0)
   const [transcript, setTranscript] = useState('')
   const [liveError, setLiveError] = useState('')
+  const [history, setHistory] = useState<Array<{ role: 'user' | 'salar'; text: string }>>([])
+  const [toolActivity, setToolActivity] = useState('')
+  const [textInput, setTextInput] = useState('')
+  const [showTextInput, setShowTextInput] = useState(false)
   const phaseRef = useRef<'idle' | 'listening' | 'thinking' | 'speaking'>('idle')
   const stoppedRef = useRef(false)
   const conversationId = useRef('')
@@ -226,6 +231,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   const ttsQueueRef = useRef<string[]>([])
   const ttsInFlightRef = useRef(false)
   const sentenceBufRef = useRef('')
+  const historyEndRef = useRef<HTMLDivElement>(null)
 
   function setPhaseFast(p: 'idle' | 'listening' | 'thinking' | 'speaking') {
     phaseRef.current = p
@@ -315,7 +321,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
 
       fixedRecordRef.current = setTimeout(() => {
         if (recorder.state === 'recording') recorder.stop()
-      }, 5000)
+      }, 10000)
 
     }).catch(e => {
       console.error('Mic failed:', e)
@@ -334,6 +340,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
       if (text.trim()) {
         liveTextRef.current = text.trim()
         setTranscript(text.trim())
+        setHistory(prev => [...prev, { role: 'user', text: text.trim() }])
         processUserSpeech(text.trim())
       } else {
         setTranscript('')
@@ -381,6 +388,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     ttsQueueRef.current = []
     ttsInFlightRef.current = false
     sentenceBufRef.current = ''
+    setToolActivity('')
 
     let fullResponse = ''
 
@@ -406,7 +414,10 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
       () => {
         if (stoppedRef.current) return
         flushSentence()
-        if (fullResponse.trim() && ttsQueueRef.current.length === 0 && !ttsInFlightRef.current) {
+        if (fullResponse.trim()) {
+          setHistory(prev => [...prev, { role: 'salar', text: fullResponse.trim() }])
+        }
+        if (ttsQueueRef.current.length === 0 && !ttsInFlightRef.current) {
           ttsQueueRef.current.push(fullResponse.trim())
           drainTtsQueue()
         }
@@ -417,6 +428,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
             return
           }
           setTranscript('')
+          setToolActivity('')
           setPhaseFast('listening')
           startRecording()
         }
@@ -426,14 +438,25 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
         console.error('Live stream error:', err)
         if (!stoppedRef.current) {
           setTranscript('')
+          setToolActivity('')
           setPhaseFast('listening')
           startRecording()
         }
       },
-      undefined,
-      undefined,
+      (toolName, args) => { setToolActivity(`Using ${toolName}…`) },
+      (toolName, result) => { setToolActivity(`Completed ${toolName}`) },
       true,
     )
+  }
+
+  function handleTextSubmit() {
+    if (!textInput.trim()) return
+    const text = textInput.trim()
+    setTextInput('')
+    setHistory(prev => [...prev, { role: 'user', text }])
+    setPhaseFast('thinking')
+    setTranscript(text)
+    processUserSpeech(text)
   }
 
   async function playTtsBlob(blob: Blob): Promise<void> {
@@ -469,6 +492,8 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     stoppedRef.current = false
     setLiveError('')
     setTranscript('')
+    setHistory([])
+    setToolActivity('')
     ensureMic().then(() => {
       if (stoppedRef.current) return
       const data = new Uint8Array(analyserRef.current!.frequencyBinCount)
@@ -520,6 +545,10 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     return () => { stoppedRef.current = true; teardown() }
   }, [connected])
 
+  useEffect(() => {
+    historyEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [history])
+
   function handleClose() {
     stoppedRef.current = true
     teardown()
@@ -531,6 +560,13 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   return <main className="live">
     <div className="rings"><MagicRings color="#fc42ff" colorTwo="#42fcff" ringCount={6} speed={1} attenuation={10} lineThickness={2} baseRadius={0.35} radiusStep={0.1} scaleRate={0.1} blur={0} noiseAmount={0.1} rotation={0} ringGap={1.5} fadeIn={0.7} fadeOut={0.5} followMouse={false} mouseInfluence={0.2} hoverScale={1.2} parallax={0.05} clickBurst={false}/></div>
     <button className="close" onClick={handleClose}><X/></button>
+    <div className="live-history">
+      {history.map((h, i) => <div key={i} className={`live-msg ${h.role}`}>
+        <span className="live-msg-role">{h.role === 'user' ? 'You' : 'SALAR'}</span>
+        <p>{h.text}</p>
+      </div>)}
+      <div ref={historyEndRef}/>
+    </div>
     <div className="live-center">
       <div className={`live-orb ${phase}`} style={{ transform: phase === 'listening' ? `scale(${1 + volume / 80})` : undefined }}>
         <div className="orb-ring orb-ring-1"/>
@@ -541,8 +577,18 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     </div>
     <div className="live-copy">
       <span className="live-label">{label}</span>
+      {toolActivity && <p className="live-tool">{toolActivity}</p>}
       {liveError && <p className="live-heard" style={{color:'#ff6b6b'}}>{liveError}</p>}
       {transcript && <p className="live-heard">{transcript}</p>}
+    </div>
+    <div className="live-controls">
+      <button className="live-text-toggle" onClick={() => setShowTextInput(!showTextInput)} title="Type instead of speak">
+        <MessageSquare size={16}/>
+      </button>
+      {showTextInput && <div className="live-text-input">
+        <input value={textInput} onChange={e => setTextInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleTextSubmit() }} placeholder="Type a message…" disabled={phase === 'thinking' || phase === 'speaking'}/>
+        <button onClick={handleTextSubmit} disabled={!textInput.trim() || phase === 'thinking' || phase === 'speaking'}><Send size={14}/></button>
+      </div>}
     </div>
   </main>
 }
