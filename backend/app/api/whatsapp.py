@@ -166,6 +166,9 @@ async def whatsapp_webhook(payload: WhatsAppWebhook, request: Request):
         if not admin or not admin.whatsapp_auto_reply:
             return {"ok": True}
 
+        if payload.is_group:
+            return {"ok": True, "skipped": "group message - auto-reply only for DMs"}
+
         if not payload.text or not payload.text.strip():
             return {"ok": True, "skipped": "empty message"}
 
