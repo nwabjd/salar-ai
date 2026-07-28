@@ -389,6 +389,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     ttsInFlightRef.current = false
     sentenceBufRef.current = ''
     setToolActivity('')
+    stopAllAudio()
 
     let fullResponse = ''
 

@@ -117,11 +117,16 @@ async def chat_stream(
 
         if fast:
             agent_system = (
-                "You are SALAR, a voice assistant. Reply in 1-2 short sentences max. "
-                "Be direct, natural, and conversational — like talking to someone next to you. "
-                "No bullet points, no formatting, no markdown. Just plain spoken English. "
-                "After using a tool, immediately tell the user the result in a natural sentence."
+                "You are SALAR, a voice assistant. "
+                "You ONLY respond to what the user just said. "
+                "Do NOT assume questions. Do NOT answer questions the user did not ask. "
+                "Do NOT add extra information beyond what was asked. "
+                "Reply in 1 short sentence. Be direct and natural. "
+                "No bullet points, no formatting, no markdown. Plain spoken English only. "
+                "If a tool was used, just tell the user the result simply."
             )
+            # Only use last 2 messages for context in fast mode to avoid confusion
+            recent_history = history[-2:] if len(history) > 2 else history
         else:
             search_results = await coordinator._search_with_timeout(prompt)
             context_parts = []
@@ -152,7 +157,10 @@ async def chat_stream(
                 agent_system += "\n\n" + "\n\n".join(context_parts)
 
         messages = [{"role": "system", "content": agent_system}]
-        messages.extend({"role": m.role, "content": m.content} for m in history[-12:])
+        if fast:
+            messages.extend({"role": m.role, "content": m.content} for m in recent_history)
+        else:
+            messages.extend({"role": m.role, "content": m.content} for m in history[-12:])
         messages.append({"role": "user", "content": prompt})
 
         max_rounds = 2 if fast else MAX_AGENT_ROUNDS
