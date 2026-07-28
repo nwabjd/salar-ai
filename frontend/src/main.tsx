@@ -321,7 +321,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
 
       fixedRecordRef.current = setTimeout(() => {
         if (recorder.state === 'recording') recorder.stop()
-      }, 10000)
+      }, 5000)
 
     }).catch(e => {
       console.error('Mic failed:', e)
@@ -335,7 +335,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     setPhaseFast('thinking')
     setTranscript('...')
     try {
-      const text = await api.stt(blob, true)
+      const text = await api.stt(blob)
       if (stoppedRef.current) return
       if (text.trim()) {
         liveTextRef.current = text.trim()
