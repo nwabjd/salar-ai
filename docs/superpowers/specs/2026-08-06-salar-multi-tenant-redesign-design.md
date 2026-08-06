@@ -169,3 +169,20 @@ Render already mounts a persistent disk at `/app/data`. Per-user dirs live under
 - `frontend/src/main.tsx`, `frontend/src/access.ts`, `frontend/src/api.ts` — chat-only shell, remove pairing.
 - `frontend/src/components/SalaarLanding.tsx`, `frontend/src/lib/supabase.ts` — become the real gate.
 - Tests: `backend/tests/` and frontend tests must stay green; add auth-isolation and quota tests.
+
+## Status: implemented (2026-08-06)
+
+All sections A/B/C/D shipped. Backend `pytest` 84 passed; frontend `vitest` 13 passed; `npm run build` clean (only the pre-existing >500 kB chunk-size warning). Deployed to Render (`salar-backend.onrender.com`) and `https://salaar.cloud`.
+
+### Deployment notes
+
+- **Backend env** (`backend/.env.example`): set `SALAR_SUPABASE_URL`, `SALAR_SUPABASE_JWT_SECRET`, `SALAR_SUPABASE_AUDIENCE=authenticated`, `SALAR_ADMIN_EMAILS=["you@domain.com"]`. `SALAR_PROVISIONING_KEY` and pairing-code vars are removed. `SALAR_ENVIRONMENT=production` on Render disables the dev bootstrap seed.
+- **Frontend env** (`frontend/.env.example`): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are required in production; without them the landing page runs in preview mode.
+- Auth is HS256 JWT verification against the Supabase project's JWT secret (not JWKS fetch). Backend still issues its own app-user JWTs signed with `SALAR_JWT_SECRET`; the WhatsApp bridge receives them in the `X-User-Id` header to key per-user sessions.
+- Quota plan limits come from `SALAR_FREE_MONTHLY_QUOTA` / `SALAR_PRO_MONTHLY_QUOTA` (500 / 5,000) and `User.plan`; admins are exempt. Usage surfaced via `GET /api/billing/usage`.
+
+### Open items (non-blocking)
+
+- **Azure sign-in provider**: Azure provider secret + tenant URL still missing — blocks only that one sign-in method.
+- **PayPal secret**: should be rotated (appeared in chat history and previously in `.env.example`).
+- **WhatsApp re-pairing**: existing bridge sessions were keyed globally; users must re-pair their WhatsApp after the per-user session change.
