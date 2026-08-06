@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 
 import jwt
+from jwt import PyJWKClient
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -16,6 +17,8 @@ from .models import DeviceSession, User
 
 password_hasher = PasswordHash.recommended()
 bearer = HTTPBearer(auto_error=False)
+
+_jwks_clients = {}
 
 
 def hash_password(password: str) -> str:
@@ -88,18 +91,45 @@ def get_optional_user(
 
 
 def verify_supabase_jwt(token: str, settings) -> tuple[str, str]:
-    """Return (sub, email) for a valid Supabase HS256 access token, else raise 401."""
-    if not settings.supabase_url or not settings.supabase_jwt_secret:
+    """Return (sub, email) for a valid Supabase access token, else raise 401.
+
+    Supports both signing modes Supabase issues:
+    - HS256 tokens signed with the project JWT secret (legacy anon/service keys).
+    - ES256 (and RS256) tokens signed with the project's JWKS key, which is the
+      default for access tokens on current projects.
+    """
+    if not settings.supabase_url:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Supabase is not configured")
     try:
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience=settings.supabase_audience,
-            issuer=f"{settings.supabase_url.rstrip('/')}/auth/v1",
-            options={"require": ["exp", "sub", "email"]},
-        )
+        alg = jwt.get_unverified_header(token).get("alg")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+    issuer = f"{settings.supabase_url.rstrip('/')}/auth/v1"
+    try:
+        if alg == "HS256":
+            if not settings.supabase_jwt_secret:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Supabase is not configured")
+            payload = jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience=settings.supabase_audience,
+                issuer=issuer,
+                options={"require": ["exp", "sub", "email"]},
+            )
+        elif alg in ("ES256", "RS256"):
+            jwks_url = f"{issuer}/.well-known/jwks.json"
+            signing_key = _jwks_clients.setdefault(jwks_url, PyJWKClient(jwks_url, cache_keys=True)).get_signing_key_from_jwt(token)
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=[alg],
+                audience=settings.supabase_audience,
+                issuer=issuer,
+                options={"require": ["exp", "sub", "email"]},
+            )
+        else:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unsupported token algorithm")
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
     return str(payload["sub"]), str(payload["email"]).lower()

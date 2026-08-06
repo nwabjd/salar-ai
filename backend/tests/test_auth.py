@@ -49,3 +49,66 @@ def test_profile_requires_bearer_token(client):
     response = client.get("/api/auth/me")
 
     assert response.status_code == 401
+
+
+def test_supabase_exchange_accepts_es256_jwks_token(client, monkeypatch):
+    import base64
+    import time
+
+    import jwt as pyjwt
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    from app import security
+
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    public_key = private_key.public_key()
+    numbers = public_key.public_numbers()
+
+    def _b64_32(n):
+        return base64.urlsafe_b64encode(n.to_bytes(32, "big")).rstrip(b"=").decode()
+
+    jwk = {
+        "kty": "EC",
+        "crv": "P-256",
+        "alg": "ES256",
+        "use": "sig",
+        "kid": "test-kid",
+        "x": _b64_32(numbers.x),
+        "y": _b64_32(numbers.y),
+    }
+
+    class _FakeKey:
+        def __init__(self, key, kid):
+            self.key = key
+            self.kid = kid
+
+    class _FakeJWKClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_signing_key_from_jwt(self, token):
+            return _FakeKey(public_key, "test-kid")
+
+    monkeypatch.setattr(security, "PyJWKClient", _FakeJWKClient)
+
+    settings = client.app.state.settings
+    token = pyjwt.encode(
+        {
+            "sub": "33333333-4444-5555-6666-777777777777",
+            "email": "es256@example.com",
+            "aud": settings.supabase_audience,
+            "iss": f"{settings.supabase_url.rstrip('/')}/auth/v1",
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 3600,
+        },
+        private_key,
+        algorithm="ES256",
+        headers={"kid": "test-kid"},
+    )
+
+    response = client.post("/api/auth/supabase", json={"token": token})
+
+    assert response.status_code == 200
+    profile = client.get("/api/auth/me", headers={"Authorization": f"Bearer {response.json()['access_token']}"})
+    assert profile.status_code == 200
+    assert profile.json()["email"] == "es256@example.com"
