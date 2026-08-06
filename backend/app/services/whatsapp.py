@@ -16,24 +16,27 @@ class WhatsAppClient:
     async def close(self):
         await self._client.aclose()
 
-    async def get_status(self) -> Dict[str, Any]:
+    def _headers(self, user_id: str) -> dict:
+        return {"X-User-Id": str(user_id)}
+
+    async def get_status(self, user_id: str) -> Dict[str, Any]:
         try:
-            r = await self._client.get(f"{self.bridge_url}/status")
+            r = await self._client.get(f"{self.bridge_url}/status", headers=self._headers(user_id))
             return r.json()
         except Exception as e:
             log.warning("WhatsApp bridge status failed: %s", e)
             return {"status": "unreachable", "error": str(e)}
 
-    async def get_qr(self) -> Optional[str]:
+    async def get_qr(self, user_id: str) -> Optional[str]:
         try:
-            r = await self._client.get(f"{self.bridge_url}/qr")
+            r = await self._client.get(f"{self.bridge_url}/qr", headers=self._headers(user_id))
             data = r.json()
             return data.get("qr")
         except Exception as e:
             log.warning("WhatsApp QR fetch failed: %s", e)
             return None
 
-    async def send_message(self, to: str = None, phone: str = None, text: str = "") -> Dict[str, Any]:
+    async def send_message(self, to: str = None, phone: str = None, text: str = "", user_id: str = None) -> Dict[str, Any]:
         if not text:
             return {"error": "text is required"}
         body = {"text": text}
@@ -43,40 +46,41 @@ class WhatsAppClient:
             body["phone"] = phone
         else:
             return {"error": "to or phone is required"}
+        headers = self._headers(user_id) if user_id else {}
         try:
-            r = await self._client.post(f"{self.bridge_url}/send", json=body)
+            r = await self._client.post(f"{self.bridge_url}/send", json=body, headers=headers)
             return r.json()
         except Exception as e:
             log.error("WhatsApp send failed: %s", e)
             return {"error": str(e)}
 
-    async def get_chats(self) -> List[Dict[str, Any]]:
+    async def get_chats(self, user_id: str) -> List[Dict[str, Any]]:
         try:
-            r = await self._client.get(f"{self.bridge_url}/chats")
+            r = await self._client.get(f"{self.bridge_url}/chats", headers=self._headers(user_id))
             return r.json()
         except Exception as e:
             log.warning("WhatsApp chats fetch failed: %s", e)
             return []
 
-    async def get_messages(self, jid: str, limit: int = 20) -> List[Dict[str, Any]]:
+    async def get_messages(self, jid: str, limit: int = 20, user_id: str = None) -> List[Dict[str, Any]]:
         try:
-            r = await self._client.get(f"{self.bridge_url}/messages/{jid}", params={"limit": limit})
+            r = await self._client.get(f"{self.bridge_url}/messages/{jid}", params={"limit": limit}, headers=self._headers(user_id))
             return r.json()
         except Exception as e:
             log.warning("WhatsApp messages fetch failed: %s", e)
             return []
 
-    async def get_contacts(self) -> List[Dict[str, Any]]:
+    async def get_contacts(self, user_id: str) -> List[Dict[str, Any]]:
         try:
-            r = await self._client.get(f"{self.bridge_url}/contacts")
+            r = await self._client.get(f"{self.bridge_url}/contacts", headers=self._headers(user_id))
             return r.json()
         except Exception as e:
             log.warning("WhatsApp contacts fetch failed: %s", e)
             return []
 
-    async def logout(self) -> Dict[str, Any]:
+    async def logout(self, user_id: str) -> Dict[str, Any]:
         try:
-            r = await self._client.post(f"{self.bridge_url}/logout")
+            r = await self._client.post(f"{self.bridge_url}/logout", headers=self._headers(user_id))
             return r.json()
         except Exception as e:
             log.warning("WhatsApp logout failed: %s", e)

@@ -7,10 +7,14 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
+DEFAULT_ROOT: Optional[Path] = None
+
 
 class FileManager:
     def __init__(self, root: str = None):
-        self.root = Path(root) if root else Path.home()
+        root_path = Path(root) if root else (DEFAULT_ROOT or Path.home())
+        self.root = root_path
+        self.root.mkdir(parents=True, exist_ok=True)
 
     def _resolve(self, path: str) -> Path:
         """Resolve and validate a path — prevent traversal attacks."""
@@ -97,8 +101,8 @@ class FileManager:
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """Write content to a file."""
-        target = self._resolve(path)
         try:
+            target = self._resolve(path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
             return {"status": "written", "path": path, "size": len(content)}

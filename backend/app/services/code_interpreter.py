@@ -17,8 +17,20 @@ class CodeInterpreter:
     MAX_OUTPUT = 50000  # chars
     TIMEOUT = 30  # seconds
 
-    def __init__(self):
+    def __init__(self, workspace: str = None):
         self._history: list = []
+        self._workspace = Path(workspace) if workspace else None
+        if self._workspace:
+            self._workspace.mkdir(parents=True, exist_ok=True)
+
+    def _run_env(self) -> dict:
+        env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+        if self._workspace:
+            env["HOME"] = str(self._workspace)
+        return env
+
+    def _run_cwd(self):
+        return str(self._workspace) if self._workspace else None
 
     async def execute_python(self, code: str, timeout: int = None) -> Dict[str, Any]:
         """Execute Python code and return stdout/stderr."""
@@ -35,7 +47,8 @@ class CodeInterpreter:
                 sys.executable, tmp_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                env=self._run_env(),
+                cwd=self._run_cwd(),
             )
             try:
                 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -95,6 +108,8 @@ if (_output.length) process.stdout.write(_output.join('\\n'));
                 "node", tmp_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=self._run_env(),
+                cwd=self._run_cwd(),
             )
             try:
                 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)

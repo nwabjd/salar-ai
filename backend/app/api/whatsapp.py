@@ -5,11 +5,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
-from ..database import get_db
-from ..models import AuditEvent, Conversation, Message, User
-from ..schemas import ChatRequest
+from ..models import AuditEvent, User
 from ..security import get_current_user
 
 log = logging.getLogger(__name__)
@@ -23,6 +20,7 @@ class WhatsAppSendRequest(BaseModel):
 
 
 class WhatsAppWebhook(BaseModel):
+    user_id: Optional[str] = None
     from_: str = Field(alias="from")
     sender_name: str
     text: str
@@ -70,7 +68,7 @@ async def whatsapp_status(request: Request, user: User = Depends(get_current_use
     client = getattr(request.app.state, "whatsapp", None)
     if not client:
         raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
-    return await client.get_status()
+    return await client.get_status(user.id)
 
 
 @router.get("/api/whatsapp/qr")
@@ -78,7 +76,7 @@ async def whatsapp_qr(request: Request, user: User = Depends(get_current_user)):
     client = getattr(request.app.state, "whatsapp", None)
     if not client:
         raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
-    qr = await client.get_qr()
+    qr = await client.get_qr(user.id)
     return {"qr": qr}
 
 
@@ -91,7 +89,7 @@ async def whatsapp_send(
     client = getattr(request.app.state, "whatsapp", None)
     if not client:
         raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
-    result = await client.send_message(to=payload.to, phone=payload.phone, text=payload.text)
+    result = await client.send_message(to=payload.to, phone=payload.phone, text=payload.text, user_id=user.id)
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
@@ -102,7 +100,7 @@ async def whatsapp_chats(request: Request, user: User = Depends(get_current_user
     client = getattr(request.app.state, "whatsapp", None)
     if not client:
         raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
-    return await client.get_chats()
+    return await client.get_chats(user.id)
 
 
 @router.get("/api/whatsapp/messages/{jid:path}")
@@ -110,7 +108,7 @@ async def whatsapp_messages(jid: str, request: Request, limit: int = 20, user: U
     client = getattr(request.app.state, "whatsapp", None)
     if not client:
         raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
-    return await client.get_messages(jid, limit=limit)
+    return await client.get_messages(jid, limit=limit, user_id=user.id)
 
 
 @router.get("/api/whatsapp/contacts")
@@ -118,7 +116,7 @@ async def whatsapp_contacts(request: Request, user: User = Depends(get_current_u
     client = getattr(request.app.state, "whatsapp", None)
     if not client:
         raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
-    return await client.get_contacts()
+    return await client.get_contacts(user.id)
 
 
 @router.post("/api/whatsapp/logout")
@@ -126,7 +124,7 @@ async def whatsapp_logout(request: Request, user: User = Depends(get_current_use
     client = getattr(request.app.state, "whatsapp", None)
     if not client:
         raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
-    return await client.logout()
+    return await client.logout(user.id)
 
 
 @router.get("/api/whatsapp/auto-reply")
@@ -154,16 +152,20 @@ async def set_auto_reply(
 async def whatsapp_webhook(payload: WhatsAppWebhook, request: Request):
     db = request.app.state.SessionLocal()
     try:
+        user_id = payload.user_id
         content = f"[WhatsApp {'group' if payload.is_group else 'DM'} from {payload.sender_name}]: {payload.text}"
-        log.info("WhatsApp webhook: %s", content[:200])
-        db.add(AuditEvent(user_id=None, action="whatsapp.message", detail_json=json.dumps({
+        log.info("WhatsApp webhook (user %s): %s", user_id, content[:200])
+        db.add(AuditEvent(user_id=user_id, action="whatsapp.message", detail_json=json.dumps({
             "from": payload.from_, "sender_name": payload.sender_name,
             "text": payload.text[:500], "is_group": payload.is_group,
         })))
         db.commit()
 
-        admin = db.scalar(select(User).where(User.is_admin == True).limit(1))
-        if not admin or not admin.whatsapp_auto_reply:
+        if not user_id:
+            return {"ok": True}
+
+        owner = db.get(User, user_id)
+        if not owner or not owner.whatsapp_auto_reply:
             return {"ok": True}
 
         if payload.is_group:
@@ -174,7 +176,7 @@ async def whatsapp_webhook(payload: WhatsAppWebhook, request: Request):
 
         asyncio.create_task(_auto_reply(
             request.app.state,
-            admin.id,
+            owner.id,
             payload.from_,
             payload.sender_name,
             payload.text.strip(),
@@ -227,7 +229,7 @@ async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text
 
         whatsapp = getattr(state, "whatsapp", None)
         if whatsapp:
-            await whatsapp.send_message(to=from_jid, text=reply_text)
+            await whatsapp.send_message(to=from_jid, text=reply_text, user_id=user_id)
             log.info("Auto-reply sent to %s (%s): %s", sender_name, from_jid, reply_text[:100])
 
             save_db = state.SessionLocal()

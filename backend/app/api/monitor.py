@@ -4,21 +4,21 @@ import asyncio
 import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from ..security import get_current_user
+from ..security import require_admin
 from ..models import User
 
 router = APIRouter(prefix="/api/monitor", tags=["monitor"])
 
 
 @router.get("/snapshot")
-def snapshot(user: User = Depends(get_current_user)):
+def snapshot(user: User = Depends(require_admin)):
     """Get a single system snapshot."""
     from ..services.monitor import get_snapshot
     return get_snapshot()
 
 
 @router.get("/stream")
-async def stream(user: User = Depends(get_current_user)):
+async def stream(user: User = Depends(require_admin)):
     """SSE stream of system snapshots every 2 seconds."""
     from ..services.monitor import monitor_stream
 
@@ -41,7 +41,7 @@ async def stream(user: User = Depends(get_current_user)):
 
 
 @router.get("/processes")
-def processes(user: User = Depends(get_current_user)):
+def processes(user: User = Depends(require_admin)):
     """List all processes with CPU/memory usage."""
     import psutil
     procs = []

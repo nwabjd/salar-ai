@@ -849,7 +849,7 @@ TOOL_DEFINITIONS = [
 ]
 
 
-async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session=None) -> Dict[str, Any]:
+async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session=None, is_admin: bool = False) -> Dict[str, Any]:
     try:
         if name == "open_app":
             return await _open_app(args.get("app_name", ""))
@@ -870,13 +870,13 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         elif name == "list_devices":
             return await _list_devices(user_id, db_session)
         elif name == "whatsapp_send":
-            return await _whatsapp_send(args.get("to"), args.get("phone"), args.get("text", ""), db_session)
+            return await _whatsapp_send(args.get("to"), args.get("phone"), args.get("text", ""), user_id, db_session)
         elif name == "whatsapp_read":
-            return await _whatsapp_read(args.get("jid", ""), args.get("limit", 10))
+            return await _whatsapp_read(args.get("jid", ""), args.get("limit", 10), user_id)
         elif name == "whatsapp_list_chats":
-            return await _whatsapp_list_chats()
+            return await _whatsapp_list_chats(user_id)
         elif name == "whatsapp_search":
-            return await _whatsapp_search(args.get("query", ""))
+            return await _whatsapp_search(args.get("query", ""), user_id)
         elif name == "email_search":
             return await _email_search(args.get("folder", "INBOX"), args.get("query", "ALL"), args.get("limit", 20), user_id)
         elif name == "email_read":
@@ -904,17 +904,17 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         elif name == "browse_links":
             return await _browse_links(args.get("url", ""))
         elif name == "file_list":
-            return await _file_list(args.get("path", ""))
+            return await _file_list(args.get("path", ""), user_id)
         elif name == "file_read":
-            return await _file_read(args.get("path", ""))
+            return await _file_read(args.get("path", ""), user_id)
         elif name == "file_write":
-            return await _file_write(args.get("path", ""), args.get("content", ""))
+            return await _file_write(args.get("path", ""), args.get("content", ""), user_id)
         elif name == "file_search":
-            return await _file_search(args.get("query", ""), args.get("path", ""))
+            return await _file_search(args.get("query", ""), args.get("path", ""), user_id)
         elif name == "file_info":
-            return await _file_info(args.get("path", ""))
+            return await _file_info(args.get("path", ""), user_id)
         elif name == "code_run":
-            return await _code_run(args.get("code", ""), args.get("language", "python"))
+            return await _code_run(args.get("code", ""), args.get("language", "python"), user_id)
         elif name == "save_memory":
             return await _save_memory(args.get("title", ""), args.get("content", ""), user_id, db_session)
         elif name == "get_current_time":
@@ -977,14 +977,24 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         elif name == "delete_memory":
             return await _delete_memory(args.get("memory_id", ""), user_id)
         elif name == "get_monitor_stats":
+            if not is_admin:
+                return {"error": "Monitor stats require admin privileges"}
             return await _get_monitor_stats()
         elif name == "list_processes":
+            if not is_admin:
+                return {"error": "Process listing requires admin privileges"}
             return await _list_processes_agent()
         elif name == "create_alert_rule":
+            if not is_admin:
+                return {"error": "Alert rules require admin privileges"}
             return await _create_alert_rule(args.get("name", ""), args.get("alert_type", ""), args.get("severity", "warning"), args.get("config", {}))
         elif name == "list_alert_rules":
+            if not is_admin:
+                return {"error": "Alert rules require admin privileges"}
             return await _list_alert_rules()
         elif name == "list_triggered_alerts":
+            if not is_admin:
+                return {"error": "Alert rules require admin privileges"}
             return await _list_triggered_alerts(args.get("limit", 20))
         elif name == "create_workspace":
             return await _create_workspace(args.get("name", ""), args.get("icon", "📁"), user_id)
@@ -1270,12 +1280,12 @@ async def _get_whatsapp_client():
     return WhatsAppClient()
 
 
-async def _whatsapp_send(to: str, phone: str, text: str, db_session=None) -> Dict[str, Any]:
+async def _whatsapp_send(to: str, phone: str, text: str, user_id: str, db_session=None) -> Dict[str, Any]:
     if not text:
         return {"error": "Message text is required"}
     client = await _get_whatsapp_client()
     try:
-        result = await client.send_message(to=to, phone=phone, text=text)
+        result = await client.send_message(to=to, phone=phone, text=text, user_id=user_id)
         return result
     except Exception as e:
         return {"error": str(e)}
@@ -1283,12 +1293,12 @@ async def _whatsapp_send(to: str, phone: str, text: str, db_session=None) -> Dic
         await client.close()
 
 
-async def _whatsapp_read(jid: str, limit: int = 10) -> Dict[str, Any]:
+async def _whatsapp_read(jid: str, limit: int, user_id: str) -> Dict[str, Any]:
     if not jid:
         return {"error": "Chat JID is required"}
     client = await _get_whatsapp_client()
     try:
-        messages = await client.get_messages(jid, limit=limit)
+        messages = await client.get_messages(jid, limit=limit, user_id=user_id)
         return {"jid": jid, "messages": messages, "count": len(messages)}
     except Exception as e:
         return {"error": str(e)}
@@ -1296,10 +1306,10 @@ async def _whatsapp_read(jid: str, limit: int = 10) -> Dict[str, Any]:
         await client.close()
 
 
-async def _whatsapp_list_chats() -> Dict[str, Any]:
+async def _whatsapp_list_chats(user_id: str) -> Dict[str, Any]:
     client = await _get_whatsapp_client()
     try:
-        chats = await client.get_chats()
+        chats = await client.get_chats(user_id)
         return {"chats": chats, "count": len(chats)}
     except Exception as e:
         return {"error": str(e)}
@@ -1307,12 +1317,12 @@ async def _whatsapp_list_chats() -> Dict[str, Any]:
         await client.close()
 
 
-async def _whatsapp_search(query: str) -> Dict[str, Any]:
+async def _whatsapp_search(query: str, user_id: str) -> Dict[str, Any]:
     if not query:
         return {"error": "Search query is required"}
     client = await _get_whatsapp_client()
     try:
-        chats = await client.get_chats()
+        chats = await client.get_chats(user_id)
         results = []
         query_lower = query.lower()
         for chat in chats:
@@ -1320,7 +1330,7 @@ async def _whatsapp_search(query: str) -> Dict[str, Any]:
                 results.append(chat)
         if not results:
             for chat in chats:
-                messages = await client.get_messages(chat["jid"], limit=20)
+                messages = await client.get_messages(chat["jid"], limit=20, user_id=user_id)
                 for msg in messages:
                     if query_lower in (msg.get("text") or "").lower():
                         results.append({"chat": chat["jid"], "sender": msg.get("senderName", ""), "text": msg["text"]})
@@ -1508,13 +1518,14 @@ async def _browse_links(url: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-def _get_file_manager():
-    from .file_manager import FileManager
-    return FileManager()
+def _get_file_manager(user_id: str):
+    from .file_manager import DEFAULT_ROOT, FileManager
+    root = (DEFAULT_ROOT / user_id) if DEFAULT_ROOT else None
+    return FileManager(root=str(root) if root else None)
 
 
-async def _file_list(path: str) -> Dict[str, Any]:
-    fm = _get_file_manager()
+async def _file_list(path: str, user_id: str) -> Dict[str, Any]:
+    fm = _get_file_manager(user_id)
     try:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: fm.list_dir(path))
@@ -1522,10 +1533,10 @@ async def _file_list(path: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _file_read(path: str) -> Dict[str, Any]:
+async def _file_read(path: str, user_id: str) -> Dict[str, Any]:
     if not path:
         return {"error": "Path is required"}
-    fm = _get_file_manager()
+    fm = _get_file_manager(user_id)
     try:
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, lambda: fm.read_file(path))
@@ -1536,10 +1547,10 @@ async def _file_read(path: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _file_write(path: str, content: str) -> Dict[str, Any]:
+async def _file_write(path: str, content: str, user_id: str) -> Dict[str, Any]:
     if not path:
         return {"error": "Path is required"}
-    fm = _get_file_manager()
+    fm = _get_file_manager(user_id)
     try:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: fm.write_file(path, content))
@@ -1547,10 +1558,10 @@ async def _file_write(path: str, content: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _file_search(query: str, path: str) -> Dict[str, Any]:
+async def _file_search(query: str, path: str, user_id: str) -> Dict[str, Any]:
     if not query:
         return {"error": "Search query is required"}
-    fm = _get_file_manager()
+    fm = _get_file_manager(user_id)
     try:
         loop = asyncio.get_event_loop()
         results = await loop.run_in_executor(None, lambda: fm.search(query, path))
@@ -1559,10 +1570,10 @@ async def _file_search(query: str, path: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _file_info(path: str) -> Dict[str, Any]:
+async def _file_info(path: str, user_id: str) -> Dict[str, Any]:
     if not path:
         return {"error": "Path is required"}
-    fm = _get_file_manager()
+    fm = _get_file_manager(user_id)
     try:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: fm.file_info(path))
@@ -1570,11 +1581,13 @@ async def _file_info(path: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _code_run(code: str, language: str) -> Dict[str, Any]:
+async def _code_run(code: str, language: str, user_id: str) -> Dict[str, Any]:
     if not code:
         return {"error": "Code is required"}
     from .code_interpreter import CodeInterpreter
-    interp = CodeInterpreter()
+    from .file_manager import DEFAULT_ROOT
+    workspace = (DEFAULT_ROOT / user_id / "sandbox") if DEFAULT_ROOT else None
+    interp = CodeInterpreter(workspace=str(workspace) if workspace else None)
     return await interp.execute(code, language)
 
 
