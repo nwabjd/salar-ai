@@ -56,7 +56,7 @@ def fake_paypal(monkeypatch):
 
     def fake_post(url, **kwargs):
         calls.append({"url": url, "kwargs": kwargs})
-        if "tokens-bearer" in url:
+        if "oauth2/token" in url:
             return token_response
         return order_response
 
@@ -173,7 +173,7 @@ def test_paypal_checkout_uses_credentials_and_sends_valid_order(paypal_client, f
     assert len(fake_paypal) == 2
     token_call, order_call = fake_paypal
 
-    assert token_call["url"] == "https://api.paypal.com/oauth2/v1/tokens-bearer"
+    assert token_call["url"] == "https://api-m.paypal.com/v1/oauth2/token"
     assert token_call["kwargs"]["data"] == {"grant_type": "client_credentials"}
     assert token_call["kwargs"]["auth"] == ("paypal-test-client", "paypal-test-secret")
 

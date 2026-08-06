@@ -218,7 +218,7 @@ def _paypal_order(request: Request, rec: dict, email: Optional[str], price_id: s
     paypal_secret = request.app.state.settings.paypal_secret
     client_id = request.app.state.settings.paypal_client_id
     token_resp = httpx.post(
-        "https://api.paypal.com/oauth2/v1/tokens-bearer",
+        "https://api-m.paypal.com/v1/oauth2/token",
         auth=(client_id, paypal_secret),
         data={"grant_type": "client_credentials"},
         headers={"Accept": "application/json", "Accept-Language": "en_US"},
@@ -326,7 +326,7 @@ def paypal_capture(request: Request, intent_id: str, db: Session = Depends(get_d
     if not settings.paypal_client_id or not settings.paypal_secret:
         raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="PayPal is not configured.")
     token_resp = httpx.post(
-        "https://api.paypal.com/oauth2/v1/tokens-bearer",
+        "https://api-m.paypal.com/v1/oauth2/token",
         auth=(settings.paypal_client_id, settings.paypal_secret),
         data={"grant_type": "client_credentials"},
         headers={"Accept": "application/json", "Accept-Language": "en_US"},
