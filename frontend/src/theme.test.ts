@@ -13,7 +13,6 @@ describe('approved SALAR visual system', () => {
 
   it('excludes legacy warm palette and login portal', () => {
     for (const legacy of ['#edc9bd', '#f0d1c7', '#f5d8cb']) expect(theme).not.toContain(legacy)
-    expect(main).not.toContain('type="email"')
     expect(main).not.toContain('Enter SALAR')
     expect(main).not.toContain('<React.StrictMode>')
   })
@@ -27,7 +26,7 @@ describe('approved SALAR visual system', () => {
 
   it('does not return scrollIntoView as a React effect cleanup', () => {
     expect(main).not.toContain("useEffect(() => end.current?.scrollIntoView")
-    expect(main).toContain("useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])")
+    expect(main).toContain("useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streaming, toolActivity])")
   })
 
 })

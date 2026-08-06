@@ -1,24 +1,42 @@
-export type AccessState = 'checking' | 'connected' | 'desktop-disconnected' | 'pairing'
+export type AccessState = 'checking' | 'connected' | 'signed-out'
 
 export function isDesktop(): boolean {
   return typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__)
 }
 
-export function resolveAccessState(input: { desktop: boolean; token: string }): AccessState {
+export function resolveAccessState(input: { token: string }): AccessState {
   if (input.token) return 'connected'
-  return input.desktop ? 'desktop-disconnected' : 'pairing'
+  return 'signed-out'
 }
 
-export function storedSession(): string {
+function invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
+  const invoker = (window as any).__TAURI_INTERNALS__?.invoke
+  if (!invoker) return Promise.reject(new Error('Not in Tauri context'))
+  return invoker(cmd, args || {})
+}
+
+export async function storedSession(): Promise<string> {
+  if (isDesktop()) {
+    try {
+      const token = await invoke('load_token') as string
+      if (token) return token
+    } catch { /* fall through */ }
+  }
   return localStorage.getItem('salar.deviceSession') || localStorage.getItem('salar.token') || ''
 }
 
-export function saveSession(token: string): void {
+export async function saveSession(token: string): Promise<void> {
   localStorage.setItem('salar.deviceSession', token)
   localStorage.removeItem('salar.token')
+  if (isDesktop()) {
+    try { await invoke('save_token', { token }) } catch { /* file fallback ok */ }
+  }
 }
 
-export function clearSession(): void {
+export async function clearSession(): Promise<void> {
   localStorage.removeItem('salar.deviceSession')
   localStorage.removeItem('salar.token')
+  if (isDesktop()) {
+    try { await invoke('clear_token') } catch { /* file fallback ok */ }
+  }
 }

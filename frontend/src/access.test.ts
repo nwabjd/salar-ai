@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { resolveAccessState } from './access'
 
 describe('SALAR access state', () => {
-  it('opens an unprovisioned desktop shell without a login wall', () => {
-    expect(resolveAccessState({ desktop: true, token: '' })).toBe('desktop-disconnected')
+  it('connects when a stored session exists', () => {
+    expect(resolveAccessState({ token: 'sds_example' })).toBe('connected')
   })
 
-  it('requires pairing for an unpaired browser', () => {
-    expect(resolveAccessState({ desktop: false, token: '' })).toBe('pairing')
+  it('shows the sign-in gate when no session exists', () => {
+    expect(resolveAccessState({ token: '' })).toBe('signed-out')
   })
 
-  it('connects either platform with a device session', () => {
-    expect(resolveAccessState({ desktop: false, token: 'sds_example' })).toBe('connected')
+  it('returns signed-out after clearing the session', () => {
+    expect(resolveAccessState({ token: '' })).toBe('signed-out')
+    expect(resolveAccessState({ token: 'sds_after' })).toBe('connected')
   })
 })

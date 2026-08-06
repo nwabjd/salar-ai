@@ -10,8 +10,8 @@ export type EmailMessage = { id: string; from: string; to: string; subject: stri
 export type EmailFolder = { folder: string; total: number; unread: number }
 
 const saved = localStorage.getItem('salar.apiUrl')
-if (saved && (saved.includes('api.salar.example.com') || saved.includes('127.0.0.1') || saved.includes('localhost'))) { localStorage.removeItem('salar.apiUrl') }
-export const DEFAULT_API = (import.meta.env.VITE_API_URL || localStorage.getItem('salar.apiUrl') || 'https://api.salaar.cloud').replace(/\/$/, '')
+if (saved && (saved.includes('api.salar.example.com') || saved.includes('127.0.0.1') || saved.includes('localhost') || saved.includes('api.salaar.cloud'))) { localStorage.removeItem('salar.apiUrl') }
+export const DEFAULT_API = (import.meta.env.VITE_API_URL || localStorage.getItem('salar.apiUrl') || 'https://salar-backend.onrender.com').replace(/\/$/, '')
 
 const DEFAULT_TIMEOUT = 30000
 const STREAM_TIMEOUT = 120000
@@ -43,11 +43,15 @@ export class SalarApi {
     }
   }
 
-  async login(email: string, password: string) { const data = await this.request<{access_token:string}>('/api/auth/login', { method:'POST', body:JSON.stringify({email,password}) }); this.token=data.access_token; localStorage.setItem('salar.token', data.access_token); return data }
-  async provisionDesktop(provisioning_key:string,name='SALAR Desktop') { const data=await this.request<{access_token:string;device:Device}>('/api/auth/desktop/provision',{method:'POST',body:JSON.stringify({provisioning_key,name})}); this.token=data.access_token; return data }
-  validateSession() { return this.request<{id:string;email:string}>('/api/auth/session') }
-  createPairingCode() { return this.request<{code:string;expires_at:string}>('/api/auth/pairing',{method:'POST'}) }
-  async redeemPairingCode(code:string,name:string,platform:string) { const data = await this.request<{access_token:string;device:Device}>('/api/auth/pairing/redeem',{method:'POST',body:JSON.stringify({code,name,platform})}); this.token=data.access_token; return data }
+  async supabaseLogin(token: string) {
+    const data = await this.request<{access_token:string;token_type:string}>('/api/auth/supabase', { method: 'POST', body: JSON.stringify({ token }) })
+    this.token = data.access_token
+    return data
+  }
+  validateSession() { return this.request<{id:string;email:string;is_admin:boolean}>('/api/auth/session') }
+  async usage() {
+    return this.request<{ plan: string; limit: number | null; used: number; reset_at: string; exempt: boolean }>('/api/billing/usage')
+  }
   deviceSessions() { return this.request<(Device & {expires_at:string})[]>('/api/auth/devices') }
   revokeDeviceSession(id:string) { return this.request<void>(`/api/auth/devices/${id}`,{method:'DELETE'}) }
   conversations() { return this.request<Conversation[]>('/api/conversations') }
@@ -415,6 +419,20 @@ export class SalarApi {
 
   workflows(): Promise<any[]> { return this.request('/api/workflows') }
   createWorkflow(data: any): Promise<any> { return this.request('/api/workflows', { method: 'POST', body: JSON.stringify(data) }) }
+  billingCheckout(priceId: string, chainId?: number, paypal?: boolean): Promise<any> {
+    return this.request(
+      '/api/billing/checkout',
+      { method: 'POST', body: JSON.stringify({ price_id: priceId, chain_id: chainId ?? 1, paypal: paypal ?? false }) },
+    )
+  }
+  billingVerify(intentId: string, address: string, signature: string): Promise<any> {
+    return this.request(
+      '/api/billing/verify',
+      { method: 'POST', body: JSON.stringify({ intent_id: intentId, address, signature }) },
+    )
+  }
+  billingStatus(): Promise<any> { return this.request('/api/billing/status') }
+  billingPrices(): Promise<any> { return this.request('/api/billing/prices') }
   updateWorkflow(id: string, data: any): Promise<any> { return this.request(`/api/workflows/${id}`, { method: 'PUT', body: JSON.stringify(data) }) }
   deleteWorkflow(id: string): Promise<any> { return this.request(`/api/workflows/${id}`, { method: 'DELETE' }) }
   toggleWorkflow(id: string): Promise<any> { return this.request(`/api/workflows/${id}/toggle`, { method: 'PATCH' }) }

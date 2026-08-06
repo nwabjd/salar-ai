@@ -1,0 +1,535 @@
+/* Auto-generated from salaar-consumer/src/app/globals.css via scripts/scope-landing-css.mjs.
+   All rules are scoped under #salar-landing so they cannot clash with the SALAR app shell. */
+#salar-landing {
+  --ink: #171328;
+  --muted: #716d83;
+  --violet: #7457ff;
+  --violet-deep: #5137d8;
+  --lilac: #b89cff;
+  --cyan: #45deef;
+  --paper: #faf9ff;
+  --line: rgba(71, 51, 128, 0.12);
+  --glass: rgba(255, 255, 255, 0.66);
+  --mouse-x: 50vw;
+  --mouse-y: 30vh;
+}
+
+#salar-landing * { box-sizing: border-box; }
+#salar-landing { scroll-behavior: smooth; }
+#salar-landing {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 10% 3%, rgba(199, 182, 255, .28), transparent 26rem),
+    radial-gradient(circle at 92% 9%, rgba(117, 226, 240, .19), transparent 24rem),
+    #fbfaff;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow-x: hidden;
+}
+#salar-landing button, #salar-landing input, #salar-landing select { font: inherit; }
+#salar-landing button, #salar-landing a { -webkit-tap-highlight-color: transparent; }
+#salar-landing button { color: inherit; }
+#salar-landing a { color: inherit; text-decoration: none; }
+
+#salar-landing .site-shell { position: relative; min-height: 100vh; overflow: hidden; }
+#salar-landing .noise {
+  position: fixed;
+  inset: 0;
+  opacity: .022;
+  pointer-events: none;
+  z-index: 20;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.72'/%3E%3C/svg%3E");
+}
+#salar-landing .cursor-aura {
+  position: fixed;
+  left: var(--mouse-x);
+  top: var(--mouse-y);
+  width: 420px;
+  height: 420px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle, rgba(116, 87, 255, .07), transparent 67%);
+  transition: left .15s ease-out, top .15s ease-out;
+}
+
+#salar-landing .topbar {
+  width: min(1180px, calc(100% - 40px));
+  height: 82px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 30;
+}
+#salar-landing .brand, #salar-landing .modal-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .24em;
+}
+#salar-landing .brand-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: white;
+  font-weight: 850;
+  font-size: 17px;
+  letter-spacing: 0;
+  box-shadow: 0 9px 25px rgba(91, 60, 220, .25), inset 0 1px 1px rgba(255,255,255,.45);
+  background: linear-gradient(145deg, #6e4ff3, #b595ff 56%, #4bdce9);
+}
+#salar-landing .nav-links { display: flex; align-items: center; gap: 34px; }
+#salar-landing .nav-links > a {
+  color: #5e596d;
+  font-size: 13px;
+  font-weight: 600;
+  transition: color .2s ease, transform .2s ease;
+}
+#salar-landing .nav-links > a:hover { color: var(--violet); transform: translateY(-1px); }
+#salar-landing .nav-cta, #salar-landing .primary-button {
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: white;
+  font-weight: 700;
+  background: linear-gradient(135deg, #5d3fe1, #8667ff 54%, #6a4dea);
+  box-shadow: 0 16px 35px rgba(90, 58, 216, .23), inset 0 1px 0 rgba(255,255,255,.28);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+#salar-landing .nav-cta { height: 43px; padding: 0 18px; border-radius: 14px; font-size: 13px; }
+#salar-landing .nav-cta:hover, #salar-landing .primary-button:hover { transform: translateY(-3px); box-shadow: 0 21px 45px rgba(90, 58, 216, .31); }
+#salar-landing .menu-button { display: none; border: 0; background: none; cursor: pointer; }
+
+#salar-landing .hero {
+  width: min(1180px, calc(100% - 40px));
+  min-height: 730px;
+  margin: 0 auto;
+  padding: 52px 0 90px;
+  display: grid;
+  grid-template-columns: 1.02fr .98fr;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+#salar-landing .hero-copy { position: relative; z-index: 3; padding-bottom: 30px; }
+#salar-landing .eyebrow, #salar-landing .section-kicker, #salar-landing .auth-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--violet);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+#salar-landing .eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 6px rgba(69, 222, 239, .13); }
+#salar-landing .hero h1 {
+  max-width: 700px;
+  margin: 23px 0 24px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(58px, 6vw, 88px);
+  font-weight: 500;
+  line-height: .96;
+  letter-spacing: -.055em;
+}
+#salar-landing .hero h1 span, #salar-landing h2 em { color: var(--violet); font-weight: 500; font-style: italic; }
+#salar-landing .hero-lede { max-width: 595px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.75; }
+#salar-landing .hero-actions { margin-top: 33px; display: flex; align-items: center; gap: 24px; }
+#salar-landing .primary-button { min-height: 56px; padding: 0 24px; border-radius: 18px; font-size: 14px; }
+#salar-landing .text-button { color: #514c62; font-size: 14px; font-weight: 700; }
+#salar-landing .text-button span { color: var(--violet); margin-left: 6px; }
+#salar-landing .trust-row { display: flex; flex-wrap: wrap; gap: 21px; margin-top: 36px; color: #777286; font-size: 11px; font-weight: 650; }
+#salar-landing .trust-row span { display: flex; align-items: center; gap: 7px; }
+#salar-landing .trust-row svg { color: #7860dc; }
+
+#salar-landing .reveal-up { opacity: 0; transform: translateY(22px); animation: sl-reveal-up .8s cubic-bezier(.2,.75,.2,1) forwards; }
+#salar-landing .delay-1 { animation-delay: .1s; }
+#salar-landing .delay-2 { animation-delay: .2s; }
+#salar-landing .delay-3 { animation-delay: .3s; }
+#salar-landing .delay-4 { animation-delay: .4s; }
+@keyframes sl-reveal-up { to { opacity: 1; transform: translateY(0); } }
+
+#salar-landing .hero-visual { min-height: 570px; position: relative; display: grid; place-items: center; perspective: 1000px; }
+#salar-landing .hero-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(193, 171, 255, .29), rgba(99, 222, 238, .08) 45%, transparent 70%);
+  filter: blur(8px);
+  animation: sl-breathe 5s ease-in-out infinite;
+}
+#salar-landing .core-wrap { position: relative; width: 232px; height: 232px; display: grid; place-items: center; z-index: 5; animation: sl-core-float 5s ease-in-out infinite; }
+#salar-landing .core-halo { position: absolute; inset: -30px; border-radius: 50%; border: 1px solid rgba(119, 85, 245, .18); box-shadow: 0 0 80px rgba(111, 76, 237, .22); }
+#salar-landing .core {
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  color: white;
+  font-family: Georgia, serif;
+  font-size: 66px;
+  box-shadow: inset -18px -20px 42px rgba(47, 21, 123, .35), inset 16px 17px 32px rgba(255,255,255,.36), 0 35px 75px rgba(97, 61, 218, .37);
+  background: radial-gradient(circle at 34% 25%, #d9c8ff 0, #9c7bff 23%, #6644df 60%, #4530b5 100%);
+}
+#salar-landing .core::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); }
+#salar-landing .core span { position: relative; z-index: 2; text-shadow: 0 5px 22px rgba(34, 14, 101, .45); }
+#salar-landing .core-liquid { position: absolute; width: 220px; height: 120px; top: -45px; left: -20px; transform: rotate(-12deg); border-radius: 45%; background: rgba(255,255,255,.18); filter: blur(4px); animation: sl-liquid 8s linear infinite; }
+#salar-landing .orbit { position: absolute; border-radius: 50%; border: 1px solid rgba(102, 76, 199, .2); z-index: 3; }
+#salar-landing .orbit i { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #7d5ff3; box-shadow: 0 0 15px rgba(91, 64, 220, .65); }
+#salar-landing .orbit-one { width: 360px; height: 360px; animation: sl-spin 17s linear infinite; }
+#salar-landing .orbit-one i:nth-child(1) { top: 26px; left: 77px; }
+#salar-landing .orbit-one i:nth-child(2) { right: 8px; top: 180px; background: var(--cyan); }
+#salar-landing .orbit-one i:nth-child(3) { bottom: 20px; left: 120px; }
+#salar-landing .orbit-two { width: 440px; height: 270px; transform: rotate(31deg); animation: sl-spin-tilted 22s linear infinite reverse; border-color: rgba(69, 213, 229, .18); }
+#salar-landing .orbit-two i:nth-child(1) { left: 35px; top: 33px; background: var(--cyan); }
+#salar-landing .orbit-two i:nth-child(2) { right: 45px; bottom: 28px; }
+#salar-landing .orbit-three { width: 300px; height: 460px; transform: rotate(-48deg); animation: sl-spin-tilted-two 25s linear infinite; }
+#salar-landing .orbit-three i:nth-child(1) { left: 31px; top: 92px; }
+#salar-landing .orbit-three i:nth-child(2) { right: 15px; top: 215px; background: var(--cyan); }
+#salar-landing .orbit-three i:nth-child(3) { left: 88px; bottom: 19px; }
+#salar-landing .floating-card {
+  position: absolute;
+  z-index: 8;
+  min-width: 178px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255,255,255,.75);
+  border-radius: 16px;
+  background: rgba(255,255,255,.67);
+  box-shadow: 0 18px 45px rgba(64, 45, 120, .12);
+  backdrop-filter: blur(18px);
+  animation: sl-card-float 4.5s ease-in-out infinite;
+}
+#salar-landing .floating-card small, #salar-landing .context-card small, #salar-landing .ready-card small { display: block; color: #9892a7; font-size: 9px; margin-bottom: 3px; }
+#salar-landing .floating-card strong { display: block; font-size: 11px; }
+#salar-landing .mini-icon { width: 27px; height: 27px; border-radius: 9px; display: grid; place-items: center; color: white; background: linear-gradient(135deg,#7355eb,#a98eff); }
+#salar-landing .mini-icon.cyan { background: linear-gradient(135deg,#57cde3,#76e7e4); }
+#salar-landing .pulse-dot { width: 12px; height: 12px; border-radius: 50%; background: #7658e7; box-shadow: 0 0 0 7px rgba(118,88,231,.12); }
+#salar-landing .card-one { left: 3%; top: 25%; }
+#salar-landing .card-two { right: -1%; top: 36%; animation-delay: .8s; }
+#salar-landing .card-three { left: 12%; bottom: 14%; animation-delay: 1.4s; }
+@keyframes sl-breathe { 50% { transform: scale(1.08); opacity: .75; } }
+@keyframes sl-core-float { 50% { transform: translateY(-12px) rotate(1.5deg); } }
+@keyframes sl-card-float { 50% { transform: translateY(-8px); } }
+@keyframes sl-spin { to { transform: rotate(360deg); } }
+@keyframes sl-spin-tilted { to { transform: rotate(391deg); } }
+@keyframes sl-spin-tilted-two { to { transform: rotate(312deg); } }
+@keyframes sl-liquid { to { transform: rotate(348deg); } }
+
+#salar-landing .marquee { height: 72px; display: flex; align-items: center; overflow: hidden; border-block: 1px solid var(--line); background: rgba(255,255,255,.38); }
+#salar-landing .marquee-track { width: max-content; display: flex; animation: sl-marquee 28s linear infinite; }
+#salar-landing .marquee-track span { white-space: nowrap; display: inline-flex; align-items: center; gap: 30px; padding-right: 30px; color: #7e788b; font-size: 10px; letter-spacing: .22em; font-weight: 800; }
+#salar-landing .marquee-track i { color: #9378f2; font-size: 12px; }
+@keyframes sl-marquee { to { transform: translateX(-50%); } }
+
+#salar-landing .section { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 130px 0; position: relative; z-index: 2; }
+#salar-landing .section-heading { max-width: 690px; }
+#salar-landing .section-heading.centered { text-align: center; margin: 0 auto 64px; }
+#salar-landing h2 { margin: 17px 0 23px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(43px, 5vw, 67px); font-weight: 500; line-height: 1.03; letter-spacing: -.045em; }
+#salar-landing .section-heading p, #salar-landing .privacy-copy > p { color: var(--muted); font-size: 16px; line-height: 1.72; max-width: 620px; }
+#salar-landing [data-reveal] { opacity: 0; transform: translateY(32px); transition: opacity .75s ease, transform .75s cubic-bezier(.2,.75,.2,1); transition-delay: var(--delay, 0ms); }
+#salar-landing [data-reveal].is-visible { opacity: 1; transform: translateY(0); }
+
+#salar-landing .experience-stage { margin-top: 62px; display: grid; grid-template-columns: 1.4fr .7fr; gap: 22px; }
+#salar-landing .glass-panel { border: 1px solid rgba(255,255,255,.88); background: rgba(255,255,255,.57); backdrop-filter: blur(22px); box-shadow: 0 28px 70px rgba(65,45,122,.1); }
+#salar-landing .conversation-panel { min-height: 510px; border-radius: 32px; padding: 24px; position: relative; overflow: hidden; }
+#salar-landing .conversation-panel::before { content:""; position:absolute; width:260px; height:260px; right:-100px; top:-80px; border-radius:50%; background:rgba(169,143,255,.14); filter:blur(8px); }
+#salar-landing .panel-top { position: relative; display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid var(--line); color:#5c566b; font-size:11px; font-weight:750; }
+#salar-landing .online { display:flex; align-items:center; gap:7px; color:#7a7485; font-weight:600; }
+#salar-landing .online i { width:7px; height:7px; border-radius:50%; background:#56d6b0; box-shadow:0 0 0 4px rgba(86,214,176,.12); }
+#salar-landing .chat-flow { max-width: 600px; margin: 52px auto 100px; }
+#salar-landing .message { border-radius: 21px; font-size: 13px; line-height: 1.6; }
+#salar-landing .user-message { width: fit-content; max-width: 75%; margin-left: auto; padding: 13px 17px; color: white; background: linear-gradient(135deg,#6e50e8,#9b7af5); box-shadow:0 12px 25px rgba(94,65,209,.18); }
+#salar-landing .ai-message { margin-top: 26px; padding: 19px; display:flex; gap:13px; background:rgba(250,249,255,.85); border:1px solid rgba(91,64,163,.09); }
+#salar-landing .ai-avatar { flex:0 0 auto; width:33px; height:33px; border-radius:11px; display:grid; place-items:center; color:white; font-family:Georgia,serif; background:linear-gradient(135deg,#7154e9,#64d9e9); }
+#salar-landing .ai-message strong { font-family:Georgia,serif; font-size:18px; font-weight:500; }
+#salar-landing .ai-message p { margin:7px 0 14px; color:#777181; font-size:12px; }
+#salar-landing .suggestion-chips { display:flex; flex-wrap:wrap; gap:8px; }
+#salar-landing .suggestion-chips span { padding:7px 10px; border-radius:99px; color:#674fd0; background:#f1edff; font-size:10px; font-weight:700; }
+#salar-landing .composer { position:absolute; left:24px; right:24px; bottom:24px; height:61px; padding:0 10px 0 20px; border:1px solid var(--line); border-radius:19px; display:flex; align-items:center; justify-content:space-between; color:#a39dab; font-size:12px; background:rgba(255,255,255,.75); }
+#salar-landing .composer button { width:39px; height:39px; border:0; border-radius:13px; color:white; cursor:pointer; display:grid; place-items:center; background:linear-gradient(135deg,#6648df,#9e80fb); }
+#salar-landing .context-stack { display:grid; gap:22px; }
+#salar-landing .context-card { border-radius:29px; padding:28px; position:relative; overflow:hidden; }
+#salar-landing .context-primary { min-height:350px; }
+#salar-landing .context-primary::after { content:""; position:absolute; width:200px; height:200px; right:-65px; bottom:-75px; border-radius:50%; background:radial-gradient(circle,rgba(87,222,233,.2),transparent 70%); }
+#salar-landing .context-icon { width:46px; height:46px; border-radius:15px; display:grid; place-items:center; color:#694bdf; background:#eee9ff; }
+#salar-landing .context-label { display:block; margin:30px 0 10px; color:#8e879b; font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+#salar-landing .context-card h3 { margin:0; font-family:Georgia,serif; font-size:25px; font-weight:500; }
+#salar-landing .context-card p { color:#797382; font-size:12px; line-height:1.65; }
+#salar-landing .memory-visual { height:58px; margin-top:25px; display:flex; align-items:flex-end; gap:8px; }
+#salar-landing .memory-visual i { width:9px; border-radius:9px; background:linear-gradient(#a68af8,#68dbe9); animation:sl-memory-wave 2.2s ease-in-out infinite; }
+#salar-landing .memory-visual i:nth-child(1){height:20px}#salar-landing .memory-visual i:nth-child(2){height:39px;animation-delay:.15s}#salar-landing .memory-visual i:nth-child(3){height:27px;animation-delay:.3s}#salar-landing .memory-visual i:nth-child(4){height:51px;animation-delay:.45s}#salar-landing .memory-visual i:nth-child(5){height:33px;animation-delay:.6s}#salar-landing .memory-visual i:nth-child(6){height:44px;animation-delay:.75s}
+@keyframes sl-memory-wave { 50% { transform:scaleY(.55); opacity:.55; } }
+#salar-landing .context-mini { min-height:138px; display:flex; align-items:center; justify-content:space-between; }
+#salar-landing .context-mini > div:first-child { display:grid; grid-template-columns:16px 1fr; column-gap:10px; }
+#salar-landing .context-mini small, #salar-landing .context-mini strong { grid-column:2; }
+#salar-landing .context-mini strong { font-size:12px; }
+#salar-landing .status-orb { width:10px; height:10px; border-radius:50%; background:#55d5b1; box-shadow:0 0 0 5px rgba(85,213,177,.14); }
+#salar-landing .wave { height:42px; display:flex; align-items:center; gap:3px; }
+#salar-landing .wave i { width:3px; height:12px; border-radius:3px; background:#8468e8; animation:sl-voice-wave 1.2s ease-in-out infinite; }
+#salar-landing .wave i:nth-child(2), #salar-landing .wave i:nth-child(7){height:23px;animation-delay:.1s}#salar-landing .wave i:nth-child(3), #salar-landing .wave i:nth-child(6){height:34px;animation-delay:.2s}#salar-landing .wave i:nth-child(4), #salar-landing .wave i:nth-child(5){height:18px;animation-delay:.3s}
+@keyframes sl-voice-wave { 50% { transform:scaleY(.45); opacity:.5; } }
+
+#salar-landing .capabilities { padding-top: 115px; }
+#salar-landing .capability-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+#salar-landing .capability-card { min-height:370px; padding:31px; position:relative; overflow:hidden; border-radius:28px; border:1px solid rgba(87,65,151,.1); background:rgba(255,255,255,.5); transition:transform .35s ease, box-shadow .35s ease, background .35s ease; }
+#salar-landing .capability-card:hover { transform:translateY(-8px); box-shadow:0 30px 65px rgba(70,45,135,.12); background:rgba(255,255,255,.78); }
+#salar-landing .capability-number { position:absolute; top:30px; right:30px; color:#c1bbcb; font-size:10px; letter-spacing:.15em; }
+#salar-landing .capability-icon { width:50px; height:50px; display:grid; place-items:center; color:#7354e5; border-radius:16px; background:linear-gradient(145deg,#f0ebff,#ecfbfd); }
+#salar-landing .capability-card h3 { margin:75px 0 14px; font-family:Georgia,serif; font-size:25px; font-weight:500; }
+#salar-landing .capability-card p { color:#7b7584; font-size:13px; line-height:1.7; }
+#salar-landing .capability-line { position:absolute; left:31px; right:31px; bottom:31px; height:2px; transform-origin:left; transform:scaleX(.18); background:linear-gradient(90deg,#7657e7,#59dbe8); transition:transform .4s ease; }
+#salar-landing .capability-card:hover .capability-line { transform:scaleX(1); }
+
+#salar-landing .privacy { min-height:700px; display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:100px; }
+#salar-landing .privacy-visual { min-height:480px; display:grid; place-items:center; position:relative; }
+#salar-landing .shield-rings i { position:absolute; inset:50%; transform:translate(-50%,-50%); border-radius:50%; border:1px solid rgba(113,82,220,.16); }
+#salar-landing .shield-rings i:nth-child(1){width:220px;height:220px;animation:sl-ring-pulse 3s ease-in-out infinite}#salar-landing .shield-rings i:nth-child(2){width:330px;height:330px;animation:sl-ring-pulse 3s .6s ease-in-out infinite}#salar-landing .shield-rings i:nth-child(3){width:450px;height:450px;animation:sl-ring-pulse 3s 1.2s ease-in-out infinite}
+#salar-landing .shield-core { width:130px; height:150px; display:grid; place-items:center; position:relative; z-index:2; color:white; clip-path:polygon(50% 0,94% 16%,89% 65%,50% 100%,11% 65%,6% 16%); background:linear-gradient(145deg,#6244dc,#a384fa 58%,#54d7e9); filter:drop-shadow(0 28px 27px rgba(88,56,198,.25)); animation:sl-core-float 5s ease-in-out infinite; }
+#salar-landing .privacy-pill { position:absolute; z-index:3; padding:10px 13px; border:1px solid rgba(255,255,255,.9); border-radius:13px; color:#716a7f; font-size:10px; font-weight:700; background:rgba(255,255,255,.72); box-shadow:0 14px 35px rgba(69,43,133,.1); backdrop-filter:blur(12px); animation:sl-card-float 4.5s ease-in-out infinite; }
+#salar-landing .p-one{left:3%;top:30%}#salar-landing .p-two{right:0;top:24%;animation-delay:.7s}#salar-landing .p-three{right:9%;bottom:20%;animation-delay:1.2s}
+@keyframes sl-ring-pulse { 50% { opacity:.4; transform:translate(-50%,-50%) scale(1.04); } }
+#salar-landing .privacy-copy { max-width:530px; }
+#salar-landing .privacy-points { display:grid; gap:15px; margin-top:31px; color:#625d6d; font-size:12px; font-weight:650; }
+#salar-landing .privacy-points span { display:flex; align-items:center; gap:10px; }
+#salar-landing .privacy-points svg { color:#7054df; }
+
+#salar-landing .final-cta { width:min(1180px,calc(100% - 40px)); min-height:550px; margin-bottom:70px; padding:100px 40px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; overflow:hidden; color:white; border-radius:44px; background:radial-gradient(circle at 50% 100%,rgba(94,223,233,.2),transparent 35%), linear-gradient(135deg,#36206f,#5a3bbf 48%,#3a2b84); box-shadow:0 35px 90px rgba(60,38,126,.25); }
+#salar-landing .final-cta h2 { margin-bottom:18px; }
+#salar-landing .final-cta h2 em { color:#d5c4ff; }
+#salar-landing .final-cta p { max-width:610px; color:rgba(255,255,255,.7); line-height:1.65; }
+#salar-landing .section-kicker.light { color:#9cecf2; }
+#salar-landing .light-button { margin-top:25px; color:#48318e; background:white; box-shadow:0 18px 40px rgba(22,10,59,.25); }
+#salar-landing .final-cta small { margin-top:15px; color:rgba(255,255,255,.48); font-size:10px; }
+#salar-landing .cta-orb { position:absolute; border-radius:50%; filter:blur(2px); border:1px solid rgba(255,255,255,.12); }
+#salar-landing .orb-left { width:380px;height:380px;left:-190px;top:-60px;box-shadow:inset -40px -40px 90px rgba(116,83,235,.2); }
+#salar-landing .orb-right { width:430px;height:430px;right:-230px;bottom:-170px;box-shadow:inset 30px 30px 90px rgba(69,222,239,.16); }
+
+#salar-landing footer { width:min(1180px,calc(100% - 40px)); min-height:145px; margin:0 auto; padding:25px 0 50px; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:35px; position:relative; z-index:2; border-top:1px solid var(--line); }
+#salar-landing .footer-brand { grid-row:span 2; }
+#salar-landing footer p { margin:0; color:#8c8797; font-size:11px; }
+#salar-landing .footer-links { display:flex; gap:22px; justify-content:flex-end; }
+#salar-landing .footer-links a, #salar-landing .footer-links button { border:0; padding:0; background:none; cursor:pointer; color:#766f82; font-size:11px; }
+#salar-landing .copyright { color:#aca6b5; font-size:10px; grid-column:2/4; }
+
+#salar-landing .modal-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:20px; background:rgba(26,18,50,.38); backdrop-filter:blur(18px); animation:sl-fade-in .25s ease; }
+#salar-landing .auth-modal { width:min(620px,100%); max-height:calc(100vh - 40px); overflow-y:auto; position:relative; padding:35px 52px 43px; border:1px solid rgba(255,255,255,.85); border-radius:32px; background:rgba(253,252,255,.94); box-shadow:0 45px 120px rgba(34,20,75,.35); animation:sl-modal-in .45s cubic-bezier(.2,.8,.2,1); scrollbar-width:thin; }
+#salar-landing .modal-progress { position:absolute; top:0; left:30px; right:30px; height:3px; overflow:hidden; border-radius:0 0 5px 5px; background:#ebe7f2; }
+#salar-landing .modal-progress span { display:block; height:100%; border-radius:5px; transition:width .5s ease; background:linear-gradient(90deg,#6546df,#ac8df8,#57dbe8); }
+#salar-landing .modal-close { position:absolute; top:24px; right:24px; width:38px; height:38px; border:1px solid var(--line); border-radius:13px; display:grid; place-items:center; cursor:pointer; color:#7b7487; background:white; }
+#salar-landing .modal-brand { margin-bottom:38px; }
+#salar-landing .auth-view { animation:sl-view-in .4s ease; }#salar-landing .auth-view h2 { margin:13px 0 13px; font-size:46px; line-height:1.02; }
+#salar-landing .auth-view > p { margin:0 0 27px; color:#777181; font-size:13px; line-height:1.62; }
+#salar-landing .social-grid { display:grid; gap:10px; }
+#salar-landing .social-grid button, #salar-landing .email-auth-button { width:100%; min-height:53px; border:1px solid rgba(72,53,123,.13); border-radius:16px; display:flex; align-items:center; cursor:pointer; background:white; transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
+#salar-landing .social-grid button { justify-content:center; gap:12px; font-size:12px; font-weight:700; }
+#salar-landing .social-grid button:hover, #salar-landing .email-auth-button:hover { transform:translateY(-2px); border-color:rgba(112,81,222,.3); box-shadow:0 11px 27px rgba(67,44,125,.08); }
+#salar-landing .social-grid button:disabled { opacity:.55; cursor:wait; }
+#salar-landing .divider { height:37px; display:flex; align-items:center; gap:12px; color:#a09aa9; font-size:10px; }
+#salar-landing .divider::before, #salar-landing .divider::after { content:""; flex:1; height:1px; background:var(--line); }
+#salar-landing .email-auth-button { padding:0 17px; gap:12px; font-size:12px; font-weight:700; }
+#salar-landing .email-auth-button svg:last-child { margin-left:auto; color:#6d51dc; }
+#salar-landing .demo-badge { width:fit-content; margin:15px auto 0; padding:7px 10px; border-radius:99px; color:#684fd0; font-size:9px; font-weight:800; background:#efeaff; }
+#salar-landing .legal-copy { margin:18px 0 0!important; text-align:center; color:#aaa4b0!important; font-size:9px!important; }
+#salar-landing .back-button, #salar-landing .resend-button { border:0; padding:0; cursor:pointer; color:#7055d6; font-size:10px; font-weight:750; background:none; }
+#salar-landing .back-button { display:block; margin-bottom:24px; }
+#salar-landing .field-label, #salar-landing .two-fields label span, #salar-landing .select-label > span { display:block; margin-bottom:8px; color:#5b5667; font-size:10px; font-weight:800; }
+#salar-landing .input-shell { height:56px; padding:0 17px; display:flex; align-items:center; gap:11px; border:1px solid rgba(73,54,127,.16); border-radius:16px; background:white; }
+#salar-landing .input-shell svg { color:#8a7ca8; }
+#salar-landing .input-shell input, #salar-landing .two-fields input, #salar-landing .select-label select { width:100%; border:0; outline:0; color:#2f2a3d; background:transparent; }
+#salar-landing .input-shell input::placeholder, #salar-landing .two-fields input::placeholder { color:#aaa4b2; }
+#salar-landing .modal-primary { width:100%; min-height:56px; margin-top:18px; border:0; border-radius:17px; display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; color:white; font-size:12px; font-weight:800; background:linear-gradient(135deg,#5e3fdf,#8868f6); box-shadow:0 15px 32px rgba(83,52,198,.22); transition:transform .2s ease,box-shadow .2s ease; }
+#salar-landing .modal-primary:hover { transform:translateY(-2px); box-shadow:0 19px 38px rgba(83,52,198,.3); }
+#salar-landing .modal-primary:disabled { opacity:.62; cursor:wait; transform:none; }
+#salar-landing .form-error, #salar-landing .form-message { margin-top:13px; padding:10px 12px; border-radius:11px; font-size:10px; line-height:1.4; }
+#salar-landing .form-error { color:#a63254; background:#fff0f4; }
+#salar-landing .form-message { color:#496b68; background:#ebfaf7; }
+#salar-landing .otp-row { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+#salar-landing .otp-row input { width:100%; aspect-ratio:1; border:1px solid rgba(78,56,139,.16); border-radius:15px; outline:0; text-align:center; font-size:22px; font-weight:750; color:#5e43c9; background:white; transition:border-color .2s ease,box-shadow .2s ease; }
+#salar-landing .otp-row input:focus { border-color:#8569e9; box-shadow:0 0 0 4px rgba(119,87,226,.1); }
+#salar-landing .auth-view > .resend-button { display:block; margin:15px auto 0; }
+#salar-landing .two-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+#salar-landing .two-fields label, #salar-landing .select-label { display:block; }
+#salar-landing .two-fields input, #salar-landing .select-label select { height:53px; padding:0 14px; border:1px solid rgba(73,54,127,.16); border-radius:15px; background:white; }
+#salar-landing .select-label { margin-top:15px; }
+#salar-landing .select-label select { appearance:none; background:white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='m1 1 5 5 5-5' stroke='%23735a9e' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 16px center; }
+#salar-landing .companion-view { padding-bottom:4px; }
+#salar-landing .companion-options { display:grid; gap:9px; }
+#salar-landing .companion-option { width:100%; padding:15px; display:flex; align-items:flex-start; gap:13px; text-align:left; cursor:pointer; border:1px solid rgba(74,54,125,.12); border-radius:17px; background:white; transition:border-color .2s ease,transform .2s ease,background .2s ease; }
+#salar-landing .companion-option:hover { transform:translateY(-2px); }
+#salar-landing .companion-option.selected { border-color:#8061e8; background:#f8f5ff; box-shadow:0 10px 26px rgba(83,54,172,.08); }
+#salar-landing .selection-dot { flex:0 0 auto; width:17px; height:17px; padding:3px; margin-top:2px; border:1.5px solid #bbb1cd; border-radius:50%; }
+#salar-landing .selection-dot i { display:block; width:100%; height:100%; border-radius:50%; }
+#salar-landing .companion-option.selected .selection-dot { border-color:#7658df; }
+#salar-landing .companion-option.selected .selection-dot i { background:#7658df; }
+#salar-landing .companion-copy { display:block; }
+#salar-landing .companion-copy small { display:block; color:#8b8398; font-size:8px; text-transform:uppercase; letter-spacing:.12em; }
+#salar-landing .companion-copy strong { display:block; margin:3px 0 4px; font-family:Georgia,serif; font-size:18px; font-weight:500; }
+#salar-landing .companion-copy p { margin:0; color:#7e7787; font-size:10px; line-height:1.48; }
+#salar-landing .trait-row { display:flex; gap:6px; margin-top:8px; }
+#salar-landing .trait-row i { padding:4px 7px; border-radius:99px; color:#6c52cf; font-size:8px; font-style:normal; background:#ece7ff; }
+#salar-landing .complete-view { text-align:center; }
+#salar-landing .success-core { width:112px; height:112px; margin:0 auto 24px; position:relative; display:grid; place-items:center; border-radius:50%; color:white; font-family:Georgia,serif; font-size:42px; background:radial-gradient(circle at 35% 25%,#c8b8ff,#7859e9 58%,#4f35ba); box-shadow:0 24px 50px rgba(83,53,191,.28); animation:sl-core-float 4s ease-in-out infinite; }
+#salar-landing .success-core i { position:absolute; inset:-14px; border:1px solid rgba(111,82,219,.2); border-radius:50%; animation:sl-ring-pulse 2.8s ease-in-out infinite; }
+#salar-landing .success-core i:last-child { inset:-28px; animation-delay:.7s; }
+#salar-landing .ready-card { min-height:68px; margin-top:15px; padding:13px 16px; display:flex; align-items:center; gap:13px; text-align:left; border:1px solid var(--line); border-radius:17px; background:white; }
+#salar-landing .ready-card div { flex:1; }
+#salar-landing .ready-card strong { display:block; font-family:Georgia,serif; font-size:17px; font-weight:500; }
+#salar-landing .ready-card svg { color:#6e53d9; }
+@keyframes sl-fade-in { from { opacity:0; } }
+@keyframes sl-fade-out { to { opacity:0; } }
+@keyframes sl-modal-in { from { opacity:0; transform:translateY(20px) scale(.97); } }
+@keyframes sl-modal-out { to { opacity:0; transform:translateY(20px) scale(.97); } }
+@keyframes sl-view-in { from { opacity:0; transform:translateX(8px); } }
+@keyframes sl-view-out { to { opacity:0; transform:translateX(8px); } }
+#salar-landing .view-transition {
+  animation: sl-view-in .35s ease;
+}
+#salar-landing .modal-fade-in { animation: sl-fade-in .2s ease; }
+#salar-landing .modal-scale-in { animation: sl-modal-in .45s cubic-bezier(.2,.8,.2,1); }
+#salar-landing .skeleton { border-radius:8px; background:linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%); background-size:200% 100%; animation:sl-shimmer 1.4s ease-in-out infinite; }
+@keyframes sl-shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+#salar-landing .kbd { display:inline-flex; align-items:center; padding:2px 8px; font-size:11px; font-weight:600; color:#5b45b3; background:#f0edff; border:1px solid #dcd7f5; border-radius:5px; }
+
+@media (max-width: 980px) {
+  #salar-landing .hero { grid-template-columns:1fr; padding-top:60px; text-align:center; }
+  #salar-landing .hero-copy { display:flex; flex-direction:column; align-items:center; }
+  #salar-landing .hero-visual { min-height:560px; margin-top:20px; }
+  #salar-landing .experience-stage { grid-template-columns:1fr; }
+  #salar-landing .context-stack { grid-template-columns:1fr 1fr; }
+  #salar-landing .context-mini { min-height:350px; flex-direction:column; align-items:flex-start; justify-content:center; }
+  #salar-landing .privacy { grid-template-columns:1fr; gap:30px; }
+  #salar-landing .privacy-copy { max-width:650px; margin:0 auto; text-align:center; }
+  #salar-landing .privacy-points { width:fit-content; margin-inline:auto; text-align:left; }
+}
+
+@media (max-width: 760px) {
+  #salar-landing .topbar { height:72px; }
+  #salar-landing .menu-button { display:grid; place-items:center; width:42px; height:42px; }
+  #salar-landing .nav-links { position:absolute; top:65px; left:0; right:0; padding:18px; display:none; flex-direction:column; align-items:stretch; gap:0; border:1px solid rgba(255,255,255,.9); border-radius:20px; background:rgba(255,255,255,.94); box-shadow:0 20px 45px rgba(51,33,103,.15); backdrop-filter:blur(20px); }
+  #salar-landing .nav-links.open { display:flex; }
+  #salar-landing .nav-links > a { padding:13px; }
+  #salar-landing .nav-cta { margin-top:8px; }
+  #salar-landing .hero { min-height:auto; padding-top:48px; }
+  #salar-landing .hero h1 { font-size:54px; }
+  #salar-landing .hero-lede { font-size:15px; }
+  #salar-landing .hero-actions { flex-direction:column; gap:18px; }
+  #salar-landing .trust-row { justify-content:center; }
+  #salar-landing .hero-visual { min-height:480px; transform:scale(.88); margin-inline:-30px; }
+  #salar-landing .card-two { right:0; }
+  #salar-landing .section { padding:90px 0; }
+  #salar-landing h2 { font-size:43px; }
+  #salar-landing .capability-grid { grid-template-columns:1fr; }
+  #salar-landing .capability-card { min-height:310px; }
+  #salar-landing .context-stack { grid-template-columns:1fr; }
+  #salar-landing .context-mini { min-height:150px; flex-direction:row; align-items:center; }
+  #salar-landing .privacy-visual { min-height:420px; transform:scale(.85); margin-inline:-30px; }
+  #salar-landing .final-cta { border-radius:30px; padding:80px 24px; }
+  #salar-landing footer { grid-template-columns:1fr; text-align:center; justify-items:center; gap:18px; }
+  #salar-landing .footer-brand { grid-row:auto; }
+  #salar-landing .footer-links { justify-content:center; }
+  #salar-landing .copyright { grid-column:auto; }
+  #salar-landing .auth-modal { padding:32px 24px 35px; border-radius:25px; }
+  #salar-landing .auth-view h2 { font-size:39px; }
+  #salar-landing .modal-brand { margin-bottom:30px; }
+}
+
+@media (max-width: 470px) {
+  #salar-landing .hero h1 { font-size:46px; }
+  #salar-landing .hero-visual { transform:scale(.73); min-height:420px; margin-inline:-80px; }
+  #salar-landing .trust-row { display:grid; }
+  #salar-landing h2 { font-size:38px; }
+  #salar-landing .conversation-panel { min-height:540px; padding:17px; }
+  #salar-landing .composer { left:17px;right:17px;bottom:17px; }
+  #salar-landing .privacy-visual { transform:scale(.72); margin-inline:-80px; min-height:370px; }
+  #salar-landing .auth-modal { max-height:calc(100vh - 20px); }
+  #salar-landing .auth-view h2 { font-size:34px; }
+  #salar-landing .two-fields { grid-template-columns:1fr; }
+  #salar-landing .otp-row { gap:5px; }
+  #salar-landing .otp-row input { border-radius:11px; font-size:18px; }
+  #salar-landing .companion-copy p { display:none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #salar-landing *, #salar-landing *::before, #salar-landing *::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}
+
+/* ---- integration overrides ---- */
+#salar-landing {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+#salar-landing .site-shell { min-height: 100%; }
+#salar-landing .enter-app-button {
+  height: 43px;
+  padding: 0 18px;
+  border: 1px solid rgba(71, 51, 128, 0.18);
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #5e596d;
+  background: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease, transform .2s ease;
+}
+ #salar-landing .enter-app-button:hover { border-color: rgba(112, 81, 222, 0.4); color: var(--violet); transform: translateY(-1px); }
+
+/* ---- pricing ---- */
+#salar-landing .pricing { padding:100px 0; text-align:center; }
+#salar-landing .pricing .section-kicker { font-size:12px; letter-spacing:.2em; }
+#salar-landing .pricing h2 { font-size:42px; max-width:720px; margin:24px auto 16px; }
+#salar-landing .pricing h2 span { color:var(--violet); }
+#salar-landing .pricing-lede { color:var(--muted); max-width:620px; margin:0 auto 56px; font-size:16px; line-height:1.72; }
+#salar-landing .pricing-grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:2-base;
+  max-width:1100px;
+  margin:0 auto;
+}
+#salar-landing .price-card {
+  border:1px solid var(--line);
+  border-radius:22px;
+  padding:32px;
+  background:rgba(245,244,255,.06);
+  box-shadow:0 1px rgba(255,255,255,.04),inset 0 1px rgba(255,255,255,.05);
+  display:flex;
+  flex-direction:column;
+  transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease;
+}
+#salar-landing .price-card:hover { border-color:rgba(112,81,222,.3); transform:translateY(-4px); box-shadow:0 18px 42px rgba(90,58,216,.08); }
+#salar-landing .price-card.featured { border-color:var(--violet); background:rgba(112,81,222,.06); box-shadow:0 22px 52px rgba(90,58,216,.18); }
+#salar-landing .price-name { font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+#salar-landing .price-line { font-size:44px; font-weight:800; margin:18px 0; display:flex; align-items:baseline; gap:6px; }
+#salar-landing .price-amount { line-height:1; }
+#salar-landing .price-period { color:var(--muted); font-size:18px; font-weight:500; }
+#salar-landing .price-sub { color:var(--muted); font-size:13.5px; line-height:1.64; margin-top:14px; }
+#salar-landing .price-features { list-style:none; margin:26px 0; padding:0; display:flex;flex-direction:column;gap:14px; text-align:left; flex:1; }
+#salar-landing .price-features li { display:inline-flex; align-items:center; gap:8px; color:var(--ink); font-size:14.5px; }
+#salar-landing .price-cta { width:100%; margin-top:auto; }
+#salar-landing .price-cta.secondary-button { border:1px solid var(--line); background:rgba(245,244,255,.06); }
+#salar-landing .pricing-note { color:var(--muted); font-size:12.5px; max-width:620px; margin:40px auto 0; line-height:1.7; }
+#salar-landing .pricing-error { color:#e56b6b; font-size:13px; max-width:620px; margin:20px auto 0; line-height:1.6; }
+@media (max-width:470px){
+  #salar-landing .pricing-grid{grid-template-columns:1fr;}
+  #salar-landing .pricing h2{font-size:36px;}
+  #salar-landing .pricing{padding:70px 16px;}
+}

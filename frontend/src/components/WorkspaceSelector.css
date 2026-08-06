@@ -1,0 +1,13 @@
+.ws-selector{position:relative}
+.ws-current{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:9px;background:rgba(0,0,0,.18);color:var(--ink);font-size:10px;cursor:pointer;letter-spacing:.04em}
+.ws-current:hover{background:rgba(255,255,255,.06)}
+.ws-current small{color:var(--muted);font-size:8px}
+.ws-dropdown{position:absolute;top:100%;left:0;min-width:200px;margin-top:6px;padding:6px;border:1px solid var(--line);border-radius:12px;background:rgba(12,10,20,.95);backdrop-filter:blur(20px);z-index:100;display:flex;flex-direction:column;gap:2px}
+.ws-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;cursor:pointer;text-align:left;color:var(--ink);font-size:10px;transition:background 120ms}
+.ws-item:hover{background:rgba(255,255,255,.06)}
+.ws-item.active{background:rgba(82,39,255,.15)}
+.ws-item small{margin-left:auto;color:var(--muted);font-size:8px}
+.ws-create{border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
+.ws-create-form{display:flex;gap:4px;padding:6px}
+.ws-create-form input{flex:1;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.18);color:var(--ink);font-size:9px}
+.ws-create-form button{padding:5px 10px;border:0;border-radius:7px;background:var(--accent,#5227FF);color:#fff;font-size:9px;cursor:pointer}
