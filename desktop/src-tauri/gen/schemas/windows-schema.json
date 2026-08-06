@@ -177,6 +177,30 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Allows clearing auth tokens",
+          "type": "string",
+          "const": "allow-clear-token",
+          "markdownDescription": "Allows clearing auth tokens"
+        },
+        {
+          "description": "Allows executing device commands",
+          "type": "string",
+          "const": "allow-execute-device-command",
+          "markdownDescription": "Allows executing device commands"
+        },
+        {
+          "description": "Allows loading auth tokens",
+          "type": "string",
+          "const": "allow-load-token",
+          "markdownDescription": "Allows loading auth tokens"
+        },
+        {
+          "description": "Allows saving auth tokens",
+          "type": "string",
+          "const": "allow-save-token",
+          "markdownDescription": "Allows saving auth tokens"
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

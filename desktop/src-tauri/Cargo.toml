@@ -19,4 +19,5 @@ tauri = { version = "2", features = [] }
 url = "2"
 open = "5"
 sysinfo = "0.37"
+dirs = "6"
 

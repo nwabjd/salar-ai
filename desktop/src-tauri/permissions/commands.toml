@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-execute-device-command"
+description = "Allows executing device commands"
+commands.allow = ["execute_device_command"]
+
+[[permission]]
+identifier = "allow-save-token"
+description = "Allows saving auth tokens"
+commands.allow = ["save_token"]
+
+[[permission]]
+identifier = "allow-load-token"
+description = "Allows loading auth tokens"
+commands.allow = ["load_token"]
+
+[[permission]]
+identifier = "allow-clear-token"
+description = "Allows clearing auth tokens"
+commands.allow = ["clear_token"]

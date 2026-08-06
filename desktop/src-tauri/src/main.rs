@@ -1,1 +1,3 @@
-fn main() { salar_desktop_lib::run() }
+fn main() {
+    salar_desktop_lib::run()
+}

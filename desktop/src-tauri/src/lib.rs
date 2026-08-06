@@ -1,7 +1,34 @@
 use serde_json::{json, Value};
-use std::{collections::HashMap, fs, process::Command};
+use std::{collections::HashMap, fs, path::PathBuf, process::Command};
 use sysinfo::System;
+use tauri::Manager;
 use url::Url;
+
+fn data_dir() -> PathBuf {
+    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+    path.push("SALAR");
+    let _ = fs::create_dir_all(&path);
+    path
+}
+
+#[tauri::command]
+fn save_token(token: String) -> Result<(), String> {
+    let path = data_dir().join("session.token");
+    fs::write(&path, &token).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn load_token() -> Result<String, String> {
+    let path = data_dir().join("session.token");
+    fs::read_to_string(&path).map_err(|_| "No token found".into())
+}
+
+#[tauri::command]
+fn clear_token() -> Result<(), String> {
+    let path = data_dir().join("session.token");
+    let _ = fs::remove_file(&path);
+    Ok(())
+}
 
 #[tauri::command]
 fn execute_device_command(kind: String, payload: Value) -> Result<Value, String> {
@@ -46,7 +73,38 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![execute_device_command])
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.clear_all_browsing_data();
+                let cleanup_js = r#"
+                    (async function(){
+                        try {
+                            if (localStorage.getItem('_swc') === '1') return;
+                            localStorage.setItem('_swc', '1');
+                            if (!('serviceWorker' in navigator)) return;
+                            var regs = await navigator.serviceWorker.getRegistrations();
+                            if (regs.length === 0) return;
+                            for (var i = 0; i < regs.length; i++) await regs[i].unregister();
+                            var names = await caches.keys();
+                            for (var i = 0; i < names.length; i++) await caches.delete(names[i]);
+                            var base = location.href.split('?')[0];
+                            location.href = base + '?_swc=' + Date.now();
+                        } catch(e) { console.error('SW cleanup failed', e); }
+                    })();
+                "#;
+                let _ = window.eval(cleanup_js);
+                let win = window.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    let win2 = win.clone();
+                    let _ = win.run_on_main_thread(move || {
+                        let _ = win2.eval(cleanup_js);
+                    });
+                });
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![execute_device_command, save_token, load_token, clear_token])
         .run(tauri::generate_context!())
         .expect("error while running SALAR");
 }

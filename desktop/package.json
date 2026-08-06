@@ -2,6 +2,12 @@
   "name": "salar-desktop",
   "private": true,
   "version": "1.0.0",
-  "scripts": { "dev": "tauri dev", "build": "tauri build", "icon": "tauri icon" },
-  "devDependencies": { "@tauri-apps/cli": "latest" }
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icon": "tauri icon"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "latest"
+  }
 }

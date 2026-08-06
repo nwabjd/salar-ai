@@ -18,7 +18,8 @@
       "minHeight": 640,
       "fullscreen": true,
       "decorations": true,
-      "resizable": true
+      "resizable": true,
+      "additionalBrowserArgs": "--disable-features=ServiceWorker,msWebOOUI,msPdfOOUI,msSmartScreenProtection"
     }],
     "withGlobalTauri": true,
     "security": { "csp": null }
