@@ -11,6 +11,7 @@ from ..models import AuditEvent, Conversation, Document, Memory, Message, User
 from ..schemas import ChatRequest
 from ..security import get_current_user
 from ..services.agent import TOOL_DEFINITIONS, execute_tool
+from .deps import check_quota
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["agent"])
@@ -51,6 +52,7 @@ async def agent_chat(
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    quota: dict = Depends(check_quota),
 ):
     conversation = db.scalar(
         select(Conversation)
@@ -90,7 +92,7 @@ async def agent_chat(
                 tool_args = fc.get("args", {})
                 log.info("Agent tool call: %s(%s)", tool_name, json.dumps(tool_args)[:200])
 
-                tool_result = await execute_tool(tool_name, tool_args, user.id, db)
+                tool_result = await execute_tool(tool_name, tool_args, user.id, db, is_admin=user.is_admin)
                 tools_used.append({"tool": tool_name, "args": tool_args, "result": tool_result})
 
                 messages.append({"role": "model", "content": [{"functionCall": fc}]})

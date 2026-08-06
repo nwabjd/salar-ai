@@ -12,6 +12,7 @@ from ..models import AuditEvent, Conversation, Document, Memory, Message, User
 from ..schemas import ChatRequest, ChatResponse, ConversationCreate, ConversationDetail, ConversationResponse
 from ..security import get_current_user
 from .agent import TOOL_DEFINITIONS, execute_tool
+from .deps import check_quota
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ async def chat(
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    quota: dict = Depends(check_quota),
 ):
     conversation = owned_conversation(db, user.id, payload.conversation_id)
     prompt = payload.content.strip()
@@ -96,6 +98,7 @@ async def chat_stream(
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    quota: dict = Depends(check_quota),
 ):
     conversation = owned_conversation(db, user.id, payload.conversation_id)
     prompt = payload.content.strip()
@@ -178,7 +181,7 @@ async def chat_stream(
 
                         yield f"data: {json.dumps({'type': 'tool_call', 'tool': tool_name, 'args': tool_args})}\n\n"
 
-                        tool_result = await execute_tool(tool_name, tool_args, user.id, save_db)
+                        tool_result = await execute_tool(tool_name, tool_args, user.id, save_db, is_admin=user.is_admin)
                         tools_used.append({"tool": tool_name, "args": tool_args, "result": tool_result})
 
                         yield f"data: {json.dumps({'type': 'tool_result', 'tool': tool_name, 'result': tool_result})}\n\n"

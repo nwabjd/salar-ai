@@ -29,7 +29,6 @@ def paypal_client(tmp_path):
         allowed_origins=["https://salar.example.com"],
         storage_dir=tmp_path / "uploads",
         environment="test",
-        provisioning_key="test-provisioning-key",
         paypal_client_id="paypal-test-client",
         paypal_secret="paypal-test-secret",
     )
@@ -140,8 +139,9 @@ def test_status_requires_auth(client):
     assert response.status_code == 401
 
 
-def test_status_returns_free_plan_for_bootstrap_user(client, auth_headers):
-    response = client.get("/api/billing/status", headers=auth_headers)
+def test_status_returns_free_plan_for_new_user(client, exchange):
+    headers = exchange("freeuser@example.com")
+    response = client.get("/api/billing/status", headers=headers)
 
     assert response.status_code == 200
     body = response.json()
@@ -227,10 +227,11 @@ def test_verify_paypal_intent_is_rejected(paypal_client, fake_paypal):
     assert response.status_code == 400
 
 
-def test_verify_wallet_signature_upgrades_plan(client, auth_headers):
+def test_verify_wallet_signature_upgrades_plan(client, exchange):
     from eth_account import Account
     from eth_account.messages import encode_defunct
 
+    headers = exchange("buyer@example.com")
     acct = Account.create()
     created = client.post(
         "/api/billing/checkout",
@@ -246,7 +247,7 @@ def test_verify_wallet_signature_upgrades_plan(client, auth_headers):
             "intent_id": created["intent_id"],
             "address": acct.address,
             "signature": signed.signature.hex(),
-            "email": "owner@example.com",
+            "email": "buyer@example.com",
         },
     )
 
@@ -255,7 +256,7 @@ def test_verify_wallet_signature_upgrades_plan(client, auth_headers):
     assert body["verified"] is True
     assert body["plan"] == "pro"
 
-    status = client.get("/api/billing/status", headers=auth_headers).json()
+    status = client.get("/api/billing/status", headers=headers).json()
     assert status["plan"] == "pro"
     assert status["limit"] == 5000
 

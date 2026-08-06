@@ -20,8 +20,9 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..security import get_optional_user
+from ..security import get_current_user, get_optional_user
 from ..models import User
+from .deps import quota_status
 
 router = APIRouter(prefix = "/api/billing", tags = ["billing"])
 
@@ -348,18 +349,16 @@ def billing_status(
     """Return the current user's plan, quota limit, and usage count."""
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-    settings = request.app.state.settings
-    limit = settings.pro_monthly_quota if user.plan == PLAN_PRO or user.plan == PLAN_TEAM else settings.free_monthly_quota
-    from ..models import Conversation, Message
-    usage = (
-        db.query(Message)
-        .join(Conversation)
-        .filter(Conversation.user_id == user.id)
-        .count()
-    )
+    quota = quota_status(db, user, request.app.state.settings)
     return {
-        "plan": user.plan,
-        "limit": limit,
-        "usage": usage,
+        "plan": quota["plan"],
+        "limit": quota["limit"],
+        "usage": quota["used"],
+        "reset_at": quota["reset_at"],
         "payment_methods": ["wallet", "paypal"],
     }
+
+
+@router.get("/usage")
+def usage(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return quota_status(db, user, request.app.state.settings)
