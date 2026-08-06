@@ -4,7 +4,7 @@ import { Calendar, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, 
 import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
 import Strands from './effects/Strands.jsx'
-import { AccessState, clearSession, storedSession } from './access'
+import { AccessState, clearSession, saveSession, storedSession } from './access'
 import { supabase } from './lib/supabase'
 import { Conversation, Message, SalarApi } from './api'
 import { PricingPage } from './components/PricingPage'
@@ -14,6 +14,19 @@ import './landing.css'
 import SalaarLanding from './components/SalaarLanding'
 
 const api = new SalarApi()
+
+async function reBridgeIfPossible(): Promise<boolean> {
+  if (!supabase) return false
+  try {
+    const { data } = await supabase.auth.getSession()
+    if (!data.session?.access_token) return false
+    const result = await api.supabaseLogin(data.session.access_token)
+    await saveSession(result.access_token)
+    return true
+  } catch {
+    return false
+  }
+}
 
 type Usage = { plan: string; limit: number | null; used: number; reset_at: string; exempt: boolean }
 
@@ -43,8 +56,14 @@ function App() {
         await api.validateSession()
         if (!stopped) setAccess('connected')
       } catch {
-        await clearSession(); api.token = ''
-        if (!stopped) setAccess('signed-out')
+        const healed = await reBridgeIfPossible()
+        if (stopped) return
+        if (healed) {
+          setAccess('connected')
+        } else {
+          await clearSession(); api.token = ''
+          setAccess('signed-out')
+        }
       }
     })
     return () => { stopped = true }
@@ -62,13 +81,23 @@ function App() {
   useEffect(() => {
     if (access !== 'connected') return
     let stopped = false
+    let failures = 0
     async function check() {
-      try { await api.validateSession() }
-      catch (reason) {
+      try {
+        await api.validateSession()
+        failures = 0
+      } catch (reason) {
         const msg = String(reason)
         if (msg.includes('401') || msg.includes('Authentication') || msg.includes('invalid') || msg.includes('expired')) {
-          await clearSession(); api.token = ''
-          if (!stopped) { setAccess('signed-out'); setUsage(null) }
+          const healed = await reBridgeIfPossible()
+          if (stopped) return
+          if (healed) {
+            failures = 0
+          } else if (++failures >= 2) {
+            await clearSession(); api.token = ''
+            setAccess('signed-out'); setUsage(null)
+            return
+          }
         }
       }
       if (!stopped) setTimeout(check, 5000)
