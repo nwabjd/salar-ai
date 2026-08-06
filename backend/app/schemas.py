@@ -138,17 +138,3 @@ class CommandResult(BaseModel):
     data: Dict[str, Any] = {}
 
 
-class DeviceSessionResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: str
-    name: str
-    platform: str
-    last_seen_at: Optional[datetime]
-    created_at: datetime
-    expires_at: datetime
-
-
-class DeviceSessionToken(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    device: DeviceSessionResponse

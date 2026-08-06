@@ -51,8 +51,6 @@ export class SalarApi {
   async usage() {
     return this.request<{ plan: string; limit: number | null; used: number; reset_at: string; exempt: boolean }>('/api/billing/usage')
   }
-  deviceSessions() { return this.request<(Device & {expires_at:string})[]>('/api/auth/devices') }
-  revokeDeviceSession(id:string) { return this.request<void>(`/api/auth/devices/${id}`,{method:'DELETE'}) }
   conversations() { return this.request<Conversation[]>('/api/conversations') }
   conversation(id: string) { return this.request<Conversation>(`/api/conversations/${id}`) }
   createConversation(title='New conversation') { return this.request<Conversation>('/api/conversations', {method:'POST', body:JSON.stringify({title})}) }

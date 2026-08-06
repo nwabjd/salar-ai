@@ -37,7 +37,6 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-3.1-flash-lite"
     public_api_url: str = "https://api.salar.example.com"
-    device_session_days: int = 365
     bridge_url: str = "http://127.0.0.1:3100"
 
     stripe_secret_key: Optional[str] = None

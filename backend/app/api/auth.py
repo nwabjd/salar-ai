@@ -1,15 +1,13 @@
-import json
 import secrets
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import AuditEvent, Device, DeviceSession, User
-from ..schemas import DeviceSessionResponse, DeviceSessionToken, SupabaseExchangeRequest, TokenResponse, UserResponse
-from ..security import create_access_token, digest_secret, get_current_user, hash_password, verify_supabase_jwt
+from ..models import AuditEvent, User
+from ..schemas import SupabaseExchangeRequest, TokenResponse, UserResponse
+from ..security import create_access_token, get_current_user, hash_password, verify_supabase_jwt
 
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -44,21 +42,3 @@ def me(user: User = Depends(get_current_user)):
 @router.get("/session", response_model=UserResponse)
 def validate_session(user: User = Depends(get_current_user)):
     return user
-
-
-@router.get("/devices", response_model=list[DeviceSessionResponse])
-def list_device_sessions(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return list(db.scalars(select(DeviceSession).where(DeviceSession.user_id == user.id, DeviceSession.revoked_at.is_(None)).order_by(DeviceSession.created_at.desc())))
-
-
-@router.delete("/devices/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
-def revoke_device_session(device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    record = db.scalar(select(DeviceSession).where(DeviceSession.id == device_id, DeviceSession.user_id == user.id))
-    if record is None:
-        raise HTTPException(status_code=404, detail="Device session not found")
-    record.revoked_at = datetime.now(timezone.utc)
-    command_device = db.scalar(select(Device).where(Device.token_hash == record.token_hash))
-    if command_device is not None:
-        db.delete(command_device)
-    db.add(AuditEvent(user_id=user.id, action="auth.device_revoked", detail_json=json.dumps({"device_id": device_id})))
-    db.commit()

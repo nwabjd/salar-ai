@@ -26,8 +26,7 @@ export async function storedSession(): Promise<string> {
 }
 
 export async function saveSession(token: string): Promise<void> {
-  localStorage.setItem('salar.deviceSession', token)
-  localStorage.removeItem('salar.token')
+  localStorage.setItem('salar.token', token)
   if (isDesktop()) {
     try { await invoke('save_token', { token }) } catch { /* file fallback ok */ }
   }
