@@ -178,11 +178,11 @@ All sections A/B/C/D shipped. Backend `pytest` 84 passed; frontend `vitest` 13 p
 
 - **Backend env** (`backend/.env.example`): set `SALAR_SUPABASE_URL`, `SALAR_SUPABASE_JWT_SECRET`, `SALAR_SUPABASE_AUDIENCE=authenticated`, `SALAR_ADMIN_EMAILS=["you@domain.com"]`. `SALAR_PROVISIONING_KEY` and pairing-code vars are removed. `SALAR_ENVIRONMENT=production` on Render disables the dev bootstrap seed.
 - **Frontend env** (`frontend/.env.example`): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are required in production; without them the landing page runs in preview mode.
-- Auth is HS256 JWT verification against the Supabase project's JWT secret (not JWKS fetch). Backend still issues its own app-user JWTs signed with `SALAR_JWT_SECRET`; the WhatsApp bridge receives them in the `X-User-Id` header to key per-user sessions.
+- Auth is ES256/RS256 verification against the project's JWKS endpoint (`<supabase_url>/auth/v1/.well-known/jwks.json`) via a cached `PyJWKClient`; the legacy HS256 JWT secret is an optional fallback. `cryptography` is pinned so ES256 works on `python:3.9-slim`. Backend still issues its own app-user JWTs signed with `SALAR_JWT_SECRET`; the WhatsApp bridge receives them in the `X-User-Id` header to key per-user sessions.
 - Quota plan limits come from `SALAR_FREE_MONTHLY_QUOTA` / `SALAR_PRO_MONTHLY_QUOTA` (500 / 5,000) and `User.plan`; admins are exempt. Usage surfaced via `GET /api/billing/usage`.
 
 ### Open items (non-blocking)
 
-- **Azure sign-in provider**: Azure provider secret + tenant URL still missing — blocks only that one sign-in method.
+- **Azure sign-in provider**: now configured in the Supabase project (client id, secret, tenant URL) — verified via the Management API on 2026-08-06.
 - **PayPal secret**: should be rotated (appeared in chat history and previously in `.env.example`).
 - **WhatsApp re-pairing**: existing bridge sessions were keyed globally; users must re-pair their WhatsApp after the per-user session change.
