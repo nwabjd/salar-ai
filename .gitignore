@@ -8,5 +8,7 @@ frontend/dist/
 desktop/src-tauri/target/
 backend/data/
 .env
+.env.local
+.env.*.local
 dist/
 *.log

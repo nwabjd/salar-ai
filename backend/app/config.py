@@ -37,3 +37,13 @@ class Settings(BaseSettings):
     pairing_code_minutes: int = 5
     device_session_days: int = 365
     bridge_url: str = "http://127.0.0.1:3100"
+
+    stripe_secret_key: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None
+    stripe_price_pro: Optional[str] = None
+    stripe_price_team: Optional[str] = None
+    paypal_client_id: Optional[str] = None
+    paypal_secret: Optional[str] = None
+    payment_wallet_address: str = "0x0000000000000000000000000000000000000000"
+    free_monthly_quota: int = 500
+    pro_monthly_quota: int = 5000

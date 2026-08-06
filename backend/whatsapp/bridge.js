@@ -63,8 +63,15 @@ async function startWhatsApp() {
         console.log('Connection closed, reconnecting...');
         setTimeout(() => startWhatsApp(), 3000);
       } else {
-        console.log('Logged out. Delete auth/ and restart to re-pair.');
+        console.log('Logged out — clearing session and re-pairing...');
         connectionStatus = 'logged_out';
+        qrCode = null;
+        try {
+          fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        } catch (e) {
+          console.error('Failed to clear auth dir:', e.message);
+        }
+        setTimeout(() => startWhatsApp(), 1500);
       }
     }
 

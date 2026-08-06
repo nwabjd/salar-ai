@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 
 import jwt
+from typing import Optional
+
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pwdlib import PasswordHash
@@ -69,3 +71,17 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
+
+
+def get_optional_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Resolve the authenticated user or return None (no 401)."""
+    if credentials is None:
+        return None
+    try:
+        return get_current_user(request, credentials, db)
+    except HTTPException:
+        return None
