@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import hashlib
+import logging
 
 import jwt
 from jwt import PyJWKClient
@@ -17,6 +18,8 @@ from .models import DeviceSession, User
 
 password_hasher = PasswordHash.recommended()
 bearer = HTTPBearer(auto_error=False)
+
+logger = logging.getLogger("salar.security")
 
 _jwks_clients = {}
 
@@ -130,7 +133,8 @@ def verify_supabase_jwt(token: str, settings) -> tuple[str, str]:
             )
         else:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unsupported token algorithm")
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as exc:
+        logger.warning("supabase token verification failed for alg=%s: %s", alg, exc)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
     return str(payload["sub"]), str(payload["email"]).lower()
 

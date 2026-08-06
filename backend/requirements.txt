@@ -4,6 +4,7 @@ sqlalchemy>=2.0,<3
 pydantic-settings>=2.4,<3
 email-validator>=2.2,<3
 PyJWT>=2.9,<3
+cryptography>=42,<51
 pwdlib[argon2]>=0.2,<1
 python-multipart>=0.0.9,<1
 httpx>=0.27,<1
