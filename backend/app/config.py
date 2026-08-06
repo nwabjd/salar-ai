@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{_data_dir / 'salar.db'}"
     jwt_secret: str = "change-this-development-secret-before-deployment"
     token_minutes: int = 720
+    supabase_url: Optional[str] = None
+    supabase_jwt_secret: Optional[str] = None
+    supabase_audience: str = "authenticated"
+    admin_emails: List[str] = Field(default_factory=list)
     bootstrap_email: str = "owner@salar.local"
     bootstrap_password: str = "ChangeMeImmediately!"
     allowed_origins: List[str] = Field(
@@ -33,8 +37,6 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-3.1-flash-lite"
     public_api_url: str = "https://api.salar.example.com"
-    provisioning_key: str = "salar-local-setup"
-    pairing_code_minutes: int = 5
     device_session_days: int = 365
     bridge_url: str = "http://127.0.0.1:3100"
 

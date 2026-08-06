@@ -56,6 +56,10 @@ def create_app(settings: Settings = None) -> FastAPI:
         log.info("SALAR backend starting...")
         active_settings.storage_dir.mkdir(parents=True, exist_ok=True)
 
+        from .services.file_manager import DEFAULT_ROOT
+        DEFAULT_ROOT = active_settings.storage_dir / "users"
+        DEFAULT_ROOT.mkdir(parents=True, exist_ok=True)
+
         try:
             Base.metadata.create_all(engine)
             log.info("Database ready")
@@ -63,24 +67,25 @@ def create_app(settings: Settings = None) -> FastAPI:
             log.error("Database init failed: %s", e)
             raise
 
-        try:
-            with session_factory() as db:
-                email = active_settings.bootstrap_email.lower()
-                existing = db.scalar(select(User).where(User.email == email))
-                if existing is None:
-                    db.add(
-                        User(
-                            email=email,
-                            password_hash=hash_password(active_settings.bootstrap_password),
-                            is_admin=True,
+        if active_settings.environment != "production":
+            try:
+                with session_factory() as db:
+                    email = active_settings.bootstrap_email.lower()
+                    existing = db.scalar(select(User).where(User.email == email))
+                    if existing is None:
+                        db.add(
+                            User(
+                                email=email,
+                                password_hash=hash_password(active_settings.bootstrap_password),
+                                is_admin=True,
+                            )
                         )
-                    )
-                    db.commit()
-                    log.info("Bootstrap user created: %s", email)
-                else:
-                    log.info("Bootstrap user exists: %s", email)
-        except Exception as e:
-            log.error("Bootstrap user setup failed: %s", e)
+                        db.commit()
+                        log.info("Bootstrap user created: %s", email)
+                    else:
+                        log.info("Bootstrap user exists: %s", email)
+            except Exception as e:
+                log.error("Bootstrap user setup failed: %s", e)
 
         if not hasattr(app.state, "coordinator"):
             try:

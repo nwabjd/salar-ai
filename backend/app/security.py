@@ -85,3 +85,27 @@ def get_optional_user(
         return get_current_user(request, credentials, db)
     except HTTPException:
         return None
+
+
+def verify_supabase_jwt(token: str, settings) -> tuple[str, str]:
+    """Return (sub, email) for a valid Supabase HS256 access token, else raise 401."""
+    if not settings.supabase_url or not settings.supabase_jwt_secret:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Supabase is not configured")
+    try:
+        payload = jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            audience=settings.supabase_audience,
+            issuer=f"{settings.supabase_url.rstrip('/')}/auth/v1",
+            options={"require": ["exp", "sub", "email"]},
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+    return str(payload["sub"]), str(payload["email"]).lower()
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user

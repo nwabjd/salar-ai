@@ -1,12 +1,11 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
+class SupabaseExchangeRequest(BaseModel):
+    token: str
 
 
 class TokenResponse(BaseModel):
@@ -139,17 +138,6 @@ class CommandResult(BaseModel):
     data: Dict[str, Any] = {}
 
 
-class DesktopProvisionRequest(BaseModel):
-    provisioning_key: str
-    name: str = "SALAR Desktop"
-
-
-class PairingRedeemRequest(BaseModel):
-    code: str = Field(pattern=r"^\d{6}$")
-    name: str
-    platform: str = "web"
-
-
 class DeviceSessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -164,8 +152,3 @@ class DeviceSessionToken(BaseModel):
     access_token: str
     token_type: str = "bearer"
     device: DeviceSessionResponse
-
-
-class PairingCodeResponse(BaseModel):
-    code: str
-    expires_at: datetime
