@@ -9,9 +9,8 @@ export type EmailAccount = { address: string; password: string; imap_host?: stri
 export type EmailMessage = { id: string; from: string; to: string; subject: string; date: string }
 export type EmailFolder = { folder: string; total: number; unread: number }
 
-const saved = localStorage.getItem('salar.apiUrl')
-if (saved && (saved.includes('api.salar.example.com') || saved.includes('127.0.0.1') || saved.includes('localhost') || saved.includes('api.salaar.cloud'))) { localStorage.removeItem('salar.apiUrl') }
-export const DEFAULT_API = (import.meta.env.VITE_API_URL || localStorage.getItem('salar.apiUrl') || 'https://salar-backend.onrender.com').replace(/\/$/, '')
+localStorage.removeItem('salar.apiUrl')
+export const DEFAULT_API = (import.meta.env.VITE_API_URL || 'https://salar-backend.onrender.com').replace(/\/$/, '')
 
 const DEFAULT_TIMEOUT = 30000
 const STREAM_TIMEOUT = 120000

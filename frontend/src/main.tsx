@@ -5,6 +5,7 @@ import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
 import Strands from './effects/Strands.jsx'
 import { AccessState, clearSession, storedSession } from './access'
+import { supabase } from './lib/supabase'
 import { Conversation, Message, SalarApi } from './api'
 import { PricingPage } from './components/PricingPage'
 import './theme.css'
@@ -34,11 +35,17 @@ function App() {
 
   useEffect(() => {
     let stopped = false
-    storedSession().then(token => {
+    storedSession().then(async token => {
       if (stopped) return
       if (!token) { setAccess('signed-out'); return }
       api.token = token
-      setAccess('connected')
+      try {
+        await api.validateSession()
+        if (!stopped) setAccess('connected')
+      } catch {
+        await clearSession(); api.token = ''
+        if (!stopped) setAccess('signed-out')
+      }
     })
     return () => { stopped = true }
   }, [])
@@ -71,6 +78,7 @@ function App() {
   }, [access])
 
   async function handleSignOut() {
+    if (supabase) await supabase.auth.signOut()
     await clearSession()
     api.token = ''
     setUsage(null)

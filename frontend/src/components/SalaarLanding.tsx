@@ -257,40 +257,33 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
 
   useEffect(() => {
     if (!supabase) return;
+    let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      const session = data.session;
+    async function handleSession(session: { user?: any; access_token?: string | null } | null) {
       const user = session?.user;
-      if (!user) return;
+      if (!user || !session?.access_token) return;
       attachWalletAddress(user);
-      void bridgeToBackend(session);
       setEmail(user.email ?? "");
       setFirstName((user.user_metadata?.first_name as string) ?? "");
       setLastName((user.user_metadata?.last_name as string) ?? "");
       if (user.user_metadata?.onboarding_complete) {
-        onEnterApp?.();
+        const bridged = await bridgeToBackend(session);
+        if (!mounted) return;
+        if (bridged) {
+          onEnterApp?.();
+        } else {
+          setError("Signed in, but the Salaar backend could not be reached. Please try again in a moment.");
+        }
         return;
       }
       setStep("profile");
       setModalOpen(true);
-    });
+    }
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) return;
-      attachWalletAddress(session.user);
-      void bridgeToBackend(session);
-      setEmail(session.user.email ?? "");
-      setFirstName((session.user.user_metadata?.first_name as string) ?? "");
-      setLastName((session.user.user_metadata?.last_name as string) ?? "");
-      if (session.user.user_metadata?.onboarding_complete) {
-        onEnterApp?.();
-        return;
-      }
-      setStep("profile");
-      setModalOpen(true);
-    });
+    supabase.auth.getSession().then(({ data }) => { void handleSession(data.session) });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => { void handleSession(session) });
 
-    return () => data.subscription.unsubscribe();
+    return () => { mounted = false; data.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
@@ -547,6 +540,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
       <main className="site-shell">
         <div className="cursor-aura" aria-hidden="true" />
         <div className="noise" aria-hidden="true" />
+        {error && <div className="landing-notice" role="alert">{error}</div>}
 
         <header className="topbar">
           <a href="#top" className="brand" aria-label="Salaar home">

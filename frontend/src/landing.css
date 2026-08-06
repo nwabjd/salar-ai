@@ -53,6 +53,24 @@
   transition: left .15s ease-out, top .15s ease-out;
 }
 
+#salar-landing .landing-notice {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: min(92vw, 560px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: #fff1f0;
+  border: 1px solid #ffc7c2;
+  color: #b3261e;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(23, 19, 40, .12);
+}
+
 #salar-landing .topbar {
   width: min(1180px, calc(100% - 40px));
   height: 82px;
