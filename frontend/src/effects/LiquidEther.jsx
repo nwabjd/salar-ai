@@ -1105,7 +1105,6 @@ export default function LiquidEther({
     mouseForce,
     resolution,
     viscous,
-    colors,
     autoDemo,
     autoSpeed,
     autoIntensity,
