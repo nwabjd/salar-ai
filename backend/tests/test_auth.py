@@ -36,13 +36,22 @@ def test_supabase_exchange_rejects_expired_token(client, supabase_token):
 
 
 def test_first_login_admin_from_admin_emails(client, supabase_token):
+    response = client.post("/api/auth/supabase", json={"token": supabase_token(email="nwabjd@gmail.com")})
+
+    assert response.status_code == 200
+    profile = client.get("/api/auth/me", headers={"Authorization": f"Bearer {response.json()['access_token']}"})
+    assert profile.status_code == 200
+    assert profile.json()["email"] == "nwabjd@gmail.com"
+    assert profile.json()["is_admin"] is True
+
+
+def test_existing_user_demoted_when_not_admin_email(client, supabase_token):
     response = client.post("/api/auth/supabase", json={"token": supabase_token(email="admin@example.com")})
 
     assert response.status_code == 200
     profile = client.get("/api/auth/me", headers={"Authorization": f"Bearer {response.json()['access_token']}"})
     assert profile.status_code == 200
-    assert profile.json()["email"] == "admin@example.com"
-    assert profile.json()["is_admin"] is True
+    assert profile.json()["is_admin"] is False
 
 
 def test_profile_requires_bearer_token(client):

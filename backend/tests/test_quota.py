@@ -94,19 +94,19 @@ def test_pro_user_uses_pro_limit(client, exchange):
     assert blocked.json()["detail"]["limit"] == 3
 
 
-def test_admin_exempt_from_quota(client, auth_headers):
+def test_admin_exempt_from_quota(client, admin_headers):
     client.app.state.settings.free_monthly_quota = 1
     with client.app.state.SessionLocal() as db:
-        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        user = db.scalar(select(User).where(User.email == "nwabjd@gmail.com"))
         seed_conv = Conversation(user_id=user.id, title="seed")
         db.add(seed_conv)
         db.flush()
         for i in range(5):
             db.add(Message(conversation_id=seed_conv.id, role="user", content=f"s{i}"))
         db.commit()
-    conv_id = create_conversation(client, auth_headers)
+    conv_id = create_conversation(client, admin_headers)
 
-    resp = client.post("/api/chat", json={"conversation_id": conv_id, "content": "admin"}, headers=auth_headers)
+    resp = client.post("/api/chat", json={"conversation_id": conv_id, "content": "admin"}, headers=admin_headers)
     assert resp.status_code == 200
 
 

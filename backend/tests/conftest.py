@@ -74,7 +74,7 @@ def auth_headers(client: TestClient, supabase_token):
 
 @pytest.fixture()
 def admin_headers(client: TestClient, supabase_token):
-    return _exchange(client, supabase_token(email="admin@example.com", sub="22222222-3333-4444-5555-666666666666"))
+    return _exchange(client, supabase_token(email="nwabjd@gmail.com", sub="22222222-3333-4444-5555-666666666666"))
 
 
 @pytest.fixture()

@@ -12,7 +12,7 @@ Flow:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from typing import Optional
@@ -86,6 +86,10 @@ class VerifyRequest(BaseModel):
     address: str
     signature: str
     email: Optional[EmailStr] = None
+
+
+class SetPlanRequest(BaseModel):
+    plan: Literal["free", "pro", "team"]
 
 
 # ---- in-memory intent store (replace with DB/Redis in production) ---------
@@ -362,3 +366,21 @@ def billing_status(
 @router.get("/usage")
 def usage(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return quota_status(db, user, request.app.state.settings)
+
+
+@router.post("/plan")
+def set_plan(
+    body: SetPlanRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Directly set the user's plan (self-service Free downgrade, or admin set)."""
+    if not user.is_admin and body.plan != "free":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Paid plans require checkout.",
+        )
+    user.plan = body.plan
+    db.commit()
+    return {"plan": user.plan, "exempt": user.is_admin}

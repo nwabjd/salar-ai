@@ -12,21 +12,27 @@ from ..security import create_access_token, get_current_user, hash_password, ver
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
+ADMIN_EMAIL = "nwabjd@gmail.com"
+
 
 @router.post("/supabase", response_model=TokenResponse)
 def supabase_login(payload: SupabaseExchangeRequest, request: Request, db: Session = Depends(get_db)):
     settings = request.app.state.settings
     _sub, email = verify_supabase_jwt(payload.token, settings)
+    is_admin = email.lower() == ADMIN_EMAIL
     user = db.scalar(select(User).where(User.email == email))
     if user is None:
         user = User(
             email=email,
-            is_admin=email in settings.admin_emails,
+            is_admin=is_admin,
             password_hash=hash_password(secrets.token_urlsafe(32)),
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+    elif user.is_admin != is_admin:
+        user.is_admin = is_admin
+        db.commit()
     db.add(AuditEvent(user_id=user.id, action="auth.supabase_login", detail_json="{}"))
     db.commit()
     return TokenResponse(
