@@ -148,7 +148,19 @@ def test_status_returns_free_plan_for_new_user(client, exchange):
     assert body["plan"] == "free"
     assert body["limit"] == 500
     assert body["usage"] == 0
+    assert body["exempt"] is False
+    assert body["is_admin"] is False
     assert "wallet" in body["payment_methods"]
+
+
+def test_status_marks_admin_as_exempt(client, admin_headers):
+    response = client.get("/api/billing/status", headers=admin_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["exempt"] is True
+    assert body["is_admin"] is True
+    assert body["plan"] in ("free", "pro", "team")
 
 
 def test_paypal_checkout_creates_order_when_configured(paypal_client, fake_paypal):

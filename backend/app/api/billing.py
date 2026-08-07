@@ -359,6 +359,8 @@ def billing_status(
         "limit": quota["limit"],
         "usage": quota["used"],
         "reset_at": quota["reset_at"],
+        "exempt": quota["exempt"],
+        "is_admin": user.is_admin,
         "payment_methods": ["wallet", "paypal"],
     }
 
