@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Calendar, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, Send, Sparkles, X, MessageSquare } from 'lucide-react'
 import LiquidEther from './effects/LiquidEther.jsx'
@@ -122,7 +122,7 @@ function App() {
     <header className="topbar">
       <div className="brand"><div className="salar-glyph">S</div><div><b>SALAR</b><small>PERSONAL INTELLIGENCE</small></div></div>
       <nav className="topnav">
-        {usage && <button className="usage-chip" onClick={() => setShowPricing(true)} title="Plan & billing"><Sparkles size={12}/><b>{usage.used.toLocaleString()}</b> / {usage.limit === null ? 'unlimited' : usage.limit.toLocaleString()} <small>{usage.plan.toUpperCase()}</small></button>}
+        {usage && <button className="usage-chip" onClick={() => setShowPricing(true)} title="Plan & billing"><Sparkles size={12}/><b>{usage.used.toLocaleString()}</b> / {usage.limit === null ? 'unlimited' : usage.limit.toLocaleString()} <small>{usage.exempt ? 'ADMIN' : usage.plan.toUpperCase()}</small></button>}
       </nav>
       <div className="topbar-actions">
         <button className="connection" onClick={() => setLive(true)}><Mic2 size={13}/> LIVE</button>
@@ -132,7 +132,7 @@ function App() {
     <section className="workspace chat-workspace">
       <div className="chat-column"><Chat connected onLive={() => setLive(true)}/></div>
       <StatusRail/>
-      {showPricing && <div className="pricing-overlay"><button className="pricing-close" onClick={() => setShowPricing(false)} aria-label="Close plan & billing"><X/></button><PricingPage connected/></div>}
+      {showPricing && <div className="pricing-overlay"><button className="pricing-close" onClick={() => setShowPricing(false)} aria-label="Close plan & billing"><X/></button><PricingPage connected onClose={() => setShowPricing(false)}/></div>}
     </section>
   </main>{live && <Live connected onClose={() => setLive(false)}/>}</>
 }
@@ -581,7 +581,7 @@ function UsageRail({ usage }: { usage: Usage | null }) {
   return <div className="rail-card usage-rail">
     <div className="rail-head">
       <span className="rail-title"><Sparkles size={14}/>Usage</span>
-      <span className="plan-badge">{plan}</span>
+      <span className="plan-badge">{usage?.exempt ? 'Admin' : plan}</span>
     </div>
     <div className="rail-value">{label}</div>
     <div className="usage-rail-bar"><i style={{ width: `${pct}%` }}/></div>
@@ -592,11 +592,29 @@ function UsageRail({ usage }: { usage: Usage | null }) {
 function StatusRail() {
   const [whatsapp, setWhatsapp] = useState('Checking…')
   const [whatsappDot, setWhatsappDot] = useState('#88818f')
+  const [waStatus, setWaStatus] = useState('')
+  const [waQr, setWaQr] = useState<string | null>(null)
+  const [waQrLoading, setWaQrLoading] = useState(false)
   const [calendarToday, setCalendarToday] = useState('…')
   const [memories, setMemories] = useState('…')
   const [documents, setDocuments] = useState('…')
   const [devices, setDevices] = useState('…')
   const [usage, setUsage] = useState<Usage | null>(null)
+
+  const loadQr = useCallback(async () => {
+    if (!waStatus) return
+    try {
+      setWaQrLoading(true)
+      const qr = await api.whatsappQR()
+      setWaQr(qr.image || null)
+    } catch {
+      setWaQr(null)
+    } finally {
+      setWaQrLoading(false)
+    }
+  }, [waStatus])
+
+  useEffect(() => { if (waStatus === 'waiting_scan' || waStatus === 'logged_out') loadQr() }, [waStatus, loadQr])
 
   useEffect(() => {
     let stopped = false
@@ -610,6 +628,7 @@ function StatusRail() {
         const map: Record<string, string> = { connected: 'Connected', waiting_scan: 'Needs QR scan', logged_out: 'Re-link required', unreachable: 'Bridge offline' }
         setWhatsapp(map[st] || 'Not linked')
         setWhatsappDot(st === 'connected' ? '#70e5aa' : st === 'waiting_scan' || st === 'logged_out' ? '#f5c15c' : '#88818f')
+        setWaStatus(st)
       }
       if (c.status === 'fulfilled') setCalendarToday(`${c.value.events?.length ?? 0} today`)
       if (m.status === 'fulfilled') setMemories(`${m.value.length} memories`)
@@ -624,7 +643,15 @@ function StatusRail() {
 
   return <aside className="status-rail">
     <UsageRail usage={usage}/>
-    <StatusCard title="WhatsApp" hint={whatsapp} dot={whatsappDot} icon={<MessageCircle size={14}/>}/>
+    <div className="rail-card whatsapp-card">
+      <div className="rail-head">
+        <span className="rail-title"><MessageCircle size={14}/>WhatsApp</span>
+        {whatsappDot && <i className="rail-dot" style={{ background: whatsappDot }}/>}
+      </div>
+      <div className="rail-value">{whatsapp}</div>
+      {waStatus === 'waiting_scan' && waQr && <img className="wa-qr" src={waQr} alt="WhatsApp QR code"/>}
+      {(waStatus === 'waiting_scan' || waStatus === 'logged_out') && <button className="wa-qr-btn" onClick={loadQr} disabled={waQrLoading}>{waQrLoading ? 'Loading…' : waQr ? 'Refresh QR' : 'Show QR'}</button>}
+    </div>
     <StatusCard title="Calendar" hint={calendarToday} icon={<Calendar size={14}/>}/>
     <StatusCard title="Memory" hint={memories} icon={<MemoryStick size={14}/>}/>
     <StatusCard title="Knowledge" hint={documents} icon={<FileText size={14}/>}/>

@@ -1,6 +1,7 @@
 import makeWASocket, { DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } from '@whiskeysockets/baileys';
 import express from 'express';
 import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
 import pino from 'pino';
 import { Boom } from '@hapi/boom';
 import fs from 'fs';
@@ -209,8 +210,14 @@ app.get('/status', async (req, res) => {
 app.get('/qr', async (req, res) => {
   const session = await ensureSession(req, res);
   if (!session) return;
-  if (!session.qr) return res.json({ qr: null, status: session.status });
-  res.json({ qr: session.qr, status: session.status });
+  if (!session.qr) return res.json({ qr: null, status: session.status, image: null });
+  let image = null;
+  try {
+    image = await QRCode.toDataURL(session.qr, { width: 320, margin: 2 });
+  } catch (e) {
+    console.error(`[WA] QR image generation failed:`, e.message);
+  }
+  res.json({ qr: session.qr, status: session.status, image });
 });
 
 app.post('/send', async (req, res) => {

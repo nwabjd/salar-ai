@@ -111,7 +111,9 @@ function PriceCard({
   features,
   priceId,
   busyId,
+  choosing,
   onCheckout,
+  onPickMethod,
   featured,
 }: {
   name: string;
@@ -121,7 +123,9 @@ function PriceCard({
   features: string[];
   priceId: string;
   busyId: string;
+  choosing: boolean;
   onCheckout: (priceId: string) => void;
+  onPickMethod: (priceId: string, method: "wallet" | "paypal") => void;
   featured?: boolean;
 }) {
   const isBusy = busyId === priceId;
@@ -140,13 +144,27 @@ function PriceCard({
           <li key={f}><Icon.Check size={15} /> {f}</li>
         ))}
       </ul>
-      <button
-        className={`price-cta ${featured ? "primary-button" : "secondary-button"}`}
-        onClick={() => onCheckout(priceId)}
-        disabled={isBusy}
-      >
-        {isBusy ? "Starting…" : featured ? `Get ${name}` : `Try ${name}`}
-      </button>
+      {choosing ? (
+        <div className="price-methods">
+          <button className="price-cta primary-button" onClick={() => onPickMethod(priceId, "wallet")} disabled={isBusy}>
+            {isBusy ? "Connecting wallet…" : "Pay with crypto wallet"}
+          </button>
+          <button className="price-cta secondary-button" onClick={() => onPickMethod(priceId, "paypal")} disabled={isBusy}>
+            {isBusy ? "Opening PayPal…" : "Pay with PayPal"}
+          </button>
+          <button className="price-cta price-cancel" onClick={() => onCheckout(priceId)} disabled={isBusy}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          className={`price-cta ${featured ? "primary-button" : "secondary-button"}`}
+          onClick={() => onCheckout(priceId)}
+          disabled={isBusy}
+        >
+          {isBusy ? "Starting…" : featured ? `Get ${name}` : `Try ${name}`}
+        </button>
+      )}
     </div>
   );
 }
@@ -227,6 +245,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
   const [selectedCompanion, setSelectedCompanion] = useState<CompanionId>("navigator");
   const [busy, setBusy] = useState(false);
   const [pricingBusyId, setPricingBusyId] = useState<string>("");
+  const [choosingPriceId, setChoosingPriceId] = useState<string>("");
   const [pricingError, setPricingError] = useState<string>("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -304,14 +323,31 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
     setMenuOpen(false);
   }
 
-  async function handleCheckout(priceId: string) {
+  const PLAN_NAMES: Record<string, string> = { price_free: "Free", price_pro: "Pro", price_team: "Team" };
+
+  async function handleCheckout(priceId: string, method?: "wallet" | "paypal") {
     setPricingError("");
+    // Free plan has no payment — go straight to signup.
+    if (priceId === "price_free") {
+      launchSignup();
+      return;
+    }
+    // First click asks which payment method to use.
+    if (!method) {
+      setChoosingPriceId(choosingPriceId === priceId ? "" : priceId);
+      return;
+    }
+    setChoosingPriceId("");
     setPricingBusyId(priceId);
     try {
-      const data = await api.billingCheckout(priceId);
+      const data = await api.billingCheckout(priceId, undefined, method === "paypal");
       // PayPal flow — redirect to the approval URL.
       if (data?.kind === "paypal" && data?.approval_url) {
         window.location.assign(data.approval_url);
+        return;
+      }
+      if (method === "paypal") {
+        setPricingError("PayPal checkout is not configured yet. Try the crypto wallet instead.");
         return;
       }
       // Wallet-native flow.
@@ -328,7 +364,8 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
       });
       const verified = await api.billingVerify(data.intent_id, from, signature);
       if (verified?.verified) {
-        setMessage(`Your ${data.amount === "0" ? "Free" : "Pro"} plan is active — refresh to see your new limits.`);
+        const planName = PLAN_NAMES[priceId] || "Pro";
+        setMessage(`Your ${planName} plan is active — refresh to see your new limits.`);
         setModalOpen(false);
       } else {
         setPricingError("Signature verified but the upgrade could not be applied.");
@@ -706,18 +743,22 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
               features={["Full web + mobile companion", "Local & encrypted memory", "5 devices", "Standard models", "Community support"]}
               priceId="price_free"
               busyId={pricingBusyId}
+              choosing={choosingPriceId === "price_free"}
               onCheckout={handleCheckout}
+              onPickMethod={handleCheckout}
               featured={false}
             />
             <PriceCard
               name="Pro"
               price="$12"
               period="/mo"
-              sub="Billed annually at $120. Cancel anytime."
+              sub="Billed monthly at $12. Cancel anytime."
               features={["Everything in Free", "Advanced agents & automations", "Priority models", "Unlimited devices", "Priority support"]}
               priceId="price_pro"
               busyId={pricingBusyId}
+              choosing={choosingPriceId === "price_pro"}
               onCheckout={handleCheckout}
+              onPickMethod={handleCheckout}
               featured={true}
             />
             <PriceCard
@@ -728,7 +769,9 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
               features={["Everything in Pro", "Shared workspace", "Team tasks", "Group calendar sync", "Dedicated onboarding"]}
               priceId="price_team"
               busyId={pricingBusyId}
+              choosing={choosingPriceId === "price_team"}
               onCheckout={handleCheckout}
+              onPickMethod={handleCheckout}
               featured={false}
             />
           </div>

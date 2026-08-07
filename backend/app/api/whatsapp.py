@@ -76,8 +76,7 @@ async def whatsapp_qr(request: Request, user: User = Depends(get_current_user)):
     client = getattr(request.app.state, "whatsapp", None)
     if not client:
         raise HTTPException(status_code=503, detail="WhatsApp bridge not configured")
-    qr = await client.get_qr(user.id)
-    return {"qr": qr}
+    return await client.get_qr(user.id)
 
 
 @router.post("/api/whatsapp/send")

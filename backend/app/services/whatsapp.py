@@ -27,14 +27,13 @@ class WhatsAppClient:
             log.warning("WhatsApp bridge status failed: %s", e)
             return {"status": "unreachable", "error": str(e)}
 
-    async def get_qr(self, user_id: str) -> Optional[str]:
+    async def get_qr(self, user_id: str) -> Dict[str, Any]:
         try:
             r = await self._client.get(f"{self.bridge_url}/qr", headers=self._headers(user_id))
-            data = r.json()
-            return data.get("qr")
+            return r.json()
         except Exception as e:
             log.warning("WhatsApp QR fetch failed: %s", e)
-            return None
+            return {"qr": None, "status": "unreachable", "image": None}
 
     async def send_message(self, to: str = None, phone: str = None, text: str = "", user_id: str = None) -> Dict[str, Any]:
         if not text:

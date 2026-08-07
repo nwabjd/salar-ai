@@ -18,11 +18,12 @@ function Page({ title, subtitle, children }: { title: string; subtitle: string; 
   )
 }
 
-export function PricingPage({ connected }: { connected: boolean }) {
+export function PricingPage({ connected, onClose }: { connected: boolean; onClose?: () => void }) {
   const [billing, setBilling] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [note, setNote] = useState('')
+  const [choosing, setChoosing] = useState<string | null>(null)
 
   useEffect(() => {
     if (!connected) { setLoading(false); return }
@@ -32,12 +33,31 @@ export function PricingPage({ connected }: { connected: boolean }) {
       .finally(() => setLoading(false))
   }, [connected])
 
-  async function checkout(priceId: string) {
-    setBusy(priceId)
+  async function checkout(priceId: string, method?: 'wallet' | 'paypal') {
+    const rec = PLANS.find(p => p.priceId === priceId)
+    if (!rec) return
+    if (rec.plan === 'free') {
+      setBusy(priceId)
+      setNote('')
+      try {
+        await api.billingSetPlan('free')
+        setNote("You're on the Free plan.")
+        setBilling(await api.billingStatus())
+      } catch (err: any) {
+        setNote(err?.message || 'Could not switch plans.')
+      } finally {
+        setBusy('')
+      }
+      return
+    }
+    if (!method) { setChoosing(choosing === priceId ? null : priceId); return }
+    setChoosing(null)
+    setBusy(`${priceId}:${method}`)
     setNote('')
     try {
-      const data = await api.billingCheckout(priceId)
+      const data = await api.billingCheckout(priceId, undefined, method === 'paypal')
       if (data?.kind === 'paypal' && data?.approval_url) { window.location.assign(data.approval_url); return }
+      if (method === 'paypal') { setNote('PayPal is not configured yet. Try the crypto wallet instead.'); return }
       const eth = (window as any).ethereum
       if (!eth) { setNote('No wallet detected. Install MetaMask or another Ethereum wallet, or choose PayPal.'); return }
       const accounts = await eth.request({ method: 'eth_requestAccounts' })
@@ -45,7 +65,7 @@ export function PricingPage({ connected }: { connected: boolean }) {
       const signature = await eth.request({ method: 'personal_sign', params: [from, data.message] })
       const verified = await api.billingVerify(data.intent_id, from, signature)
       if (verified?.verified) {
-        setNote(`You're on the ${data.amount === '0' ? 'Free' : 'Pro'} plan.`)
+        setNote(`You're on the ${rec.name} plan.`)
         setBilling(await api.billingStatus())
       } else {
         setNote('Signature verified but the upgrade could not be applied.')
@@ -57,23 +77,27 @@ export function PricingPage({ connected }: { connected: boolean }) {
     }
   }
 
-  const limit = billing?.limit ?? 500
+  const exempt = billing?.exempt ?? false
+  const limit = billing?.limit ?? null
   const usage = billing?.usage ?? 0
   const pct = limit ? Math.min(100, Math.round((usage / limit) * 100)) : 0
   const plan = billing?.plan ?? 'free'
+  const planName = plan === 'free' ? 'Free' : plan === 'pro' ? 'Pro' : 'Team'
 
   return (
     <Page title="Plan & billing" subtitle="Manage your Salaar plan and monitor usage.">
+      {onClose && <button className="billing-back" onClick={onClose}>← Back</button>}
       <div className="billing-card">
         <div className="billing-meta">
           <div>
             <span className="eyebrow">CURRENT PLAN</span>
-            <h2 className="plan-name">{plan === 'free' ? 'Free' : plan === 'pro' ? 'Pro' : 'Team'}</h2>
+            <h2 className="plan-name">{exempt ? 'Admin (unlimited)' : planName}</h2>
           </div>
           <div className="usage-meter">
-            <div className="usage-label"><span>{usage.toLocaleString()} / {limit.toLocaleString()} messages</span><span>{pct}%</span></div>
+            <div className="usage-label"><span>{usage.toLocaleString()} / {limit === null ? 'unlimited' : limit.toLocaleString()} messages</span><span>{limit === null ? '∞' : `${pct}%`}</span></div>
             <div className="usage-bar"><i style={{ width: `${pct}%` }} /></div>
-            {plan === 'free' && <small>Free plans are limited to {limit.toLocaleString()} messages/month. Upgrade for unlimited.</small>}
+            {!exempt && plan === 'free' && <small>Free plans are limited to {limit?.toLocaleString()} messages/month. Upgrade for unlimited.</small>}
+            {exempt && <small>Admin accounts are exempt from monthly limits.</small>}
           </div>
         </div>
         {loading && <div className="loading-hint">Loading…</div>}
@@ -84,21 +108,30 @@ export function PricingPage({ connected }: { connected: boolean }) {
       <div className="grid grid-billing">
         {PLANS.map(p => {
           const current = plan === p.plan
+          const isChoosing = choosing === p.priceId
           return (
             <article className={`card billing-tier${p.featured ? ' featured' : ''}${current ? ' current' : ''}`} key={p.plan}>
               <div><h3>{p.name}</h3>{p.featured && <span className="badge">Popular</span>}</div>
-              <div className="price">{p.price}<small>{p.period}</small></div>
+              <div className="price">{p.price}<small> {p.period}</small></div>
               <p>{p.blurb}</p>
               <ul>
                 {p.features.map(f => <li key={f}>✓ {f}</li>)}
               </ul>
-              <button
-                className={`btn${p.featured ? ' btn-primary' : ' btn-ghost'}`}
-                onClick={() => checkout(p.priceId)}
-                disabled={current || busy === p.priceId}
-              >
-                {current ? 'Current plan' : busy === p.priceId ? 'Starting…' : p.cta}
-              </button>
+              {isChoosing ? (
+                <div className="method-row">
+                  <button className="btn" onClick={() => checkout(p.priceId, 'wallet')} disabled={!!busy}>Pay with crypto wallet</button>
+                  <button className="btn" onClick={() => checkout(p.priceId, 'paypal')} disabled={!!busy}>Pay with PayPal</button>
+                  <button className="btn method-cancel" onClick={() => setChoosing(null)} disabled={!!busy}>Cancel</button>
+                </div>
+              ) : (
+                <button
+                  className={`btn${p.featured ? ' btn-primary' : ' btn-ghost'}`}
+                  onClick={() => checkout(p.priceId)}
+                  disabled={current || !!busy}
+                >
+                  {current ? 'Current plan' : busy ? 'Starting…' : p.cta}
+                </button>
+              )}
             </article>
           )
         })}

@@ -173,7 +173,7 @@ export class SalarApi {
     return this.request('/api/whatsapp/status')
   }
 
-  whatsappQR(): Promise<{ qr: string }> {
+  whatsappQR(): Promise<{ qr: string | null; image: string | null; status: string }> {
     return this.request('/api/whatsapp/qr')
   }
 
@@ -429,6 +429,7 @@ export class SalarApi {
     )
   }
   billingStatus(): Promise<any> { return this.request('/api/billing/status') }
+  billingSetPlan(plan: string): Promise<any> { return this.request('/api/billing/plan', { method: 'POST', body: JSON.stringify({ plan }) }) }
   billingPrices(): Promise<any> { return this.request('/api/billing/prices') }
   updateWorkflow(id: string, data: any): Promise<any> { return this.request(`/api/workflows/${id}`, { method: 'PUT', body: JSON.stringify(data) }) }
   deleteWorkflow(id: string): Promise<any> { return this.request(`/api/workflows/${id}`, { method: 'DELETE' }) }

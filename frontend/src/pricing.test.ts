@@ -35,9 +35,22 @@ describe('pricing + wallet/paypal checkout surface', () => {
     expect(landing).toContain('api.billingVerify')
   })
 
+  it('lets the free plan skip checkout and open signup directly', () => {
+    expect(landing).toContain('if (priceId === "price_free")')
+    expect(landing).toContain('launchSignup()')
+  })
+
+  it('shows a payment-method chooser (wallet vs PayPal) for paid plans', () => {
+    expect(landing).toContain('onPickMethod={handleCheckout}')
+    expect(landing).toContain('Pay with crypto wallet')
+    expect(landing).toContain('Pay with PayPal')
+    expect(landing).toContain('choosingPriceId')
+  })
+
   it('styles the pricing grid and cards in landing.css', () => {
     expect(css).toContain('.pricing-grid')
     expect(css).toContain('.price-card')
     expect(css).toContain('.price-cta')
+    expect(css).toContain('.price-methods')
   })
 })

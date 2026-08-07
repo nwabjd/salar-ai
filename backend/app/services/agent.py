@@ -161,6 +161,14 @@ TOOL_DEFINITIONS = [
                 }
             },
             {
+                "name": "whatsapp_qr",
+                "description": "Get the WhatsApp pairing QR code image (data URL) and current connection status for the user. Use this when the user asks to see or scan the WhatsApp QR code, or to link/pair WhatsApp. The returned 'image' is a data URL that can be rendered or shown. If no QR is available yet, it returns status 'connecting' or 'connected'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
                 "name": "save_memory",
                 "description": "Save an important fact or decision to SALAR's long-term memory.",
                 "parameters": {
@@ -877,6 +885,8 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
             return await _whatsapp_list_chats(user_id)
         elif name == "whatsapp_search":
             return await _whatsapp_search(args.get("query", ""), user_id)
+        elif name == "whatsapp_qr":
+            return await _whatsapp_qr(user_id)
         elif name == "email_search":
             return await _email_search(args.get("folder", "INBOX"), args.get("query", "ALL"), args.get("limit", 20), user_id)
         elif name == "email_read":
@@ -1336,6 +1346,17 @@ async def _whatsapp_search(query: str, user_id: str) -> Dict[str, Any]:
                         results.append({"chat": chat["jid"], "sender": msg.get("senderName", ""), "text": msg["text"]})
                         break
         return {"query": query, "results": results, "count": len(results)}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        await client.close()
+
+
+async def _whatsapp_qr(user_id: str) -> Dict[str, Any]:
+    client = await _get_whatsapp_client()
+    try:
+        info = await client.get_qr(user_id)
+        return info
     except Exception as e:
         return {"error": str(e)}
     finally:

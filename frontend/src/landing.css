@@ -544,6 +544,10 @@
 #salar-landing .price-features li { display:inline-flex; align-items:center; gap:8px; color:var(--ink); font-size:14.5px; }
 #salar-landing .price-cta { width:100%; margin-top:auto; }
 #salar-landing .price-cta.secondary-button { border:1px solid var(--line); background:rgba(245,244,255,.06); }
+#salar-landing .price-methods { display:flex; flex-direction:column; gap:10px; margin-top:auto; }
+#salar-landing .price-methods .price-cta { margin-top:0; }
+#salar-landing .price-cancel { border:none; background:transparent; color:var(--muted); font-size:13px; }
+#salar-landing .price-cancel:hover { color:var(--ink); }
 #salar-landing .pricing-note { color:var(--muted); font-size:12.5px; max-width:620px; margin:40px auto 0; line-height:1.7; }
 #salar-landing .pricing-error { color:#e56b6b; font-size:13px; max-width:620px; margin:20px auto 0; line-height:1.6; }
 @media (max-width:470px){
