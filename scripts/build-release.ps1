@@ -8,8 +8,12 @@ $Website = Join-Path $Dist "website"
 $Installer = Join-Path $Dist "installer"
 
 Push-Location (Join-Path $Workspace "backend")
+$PreviousPythonPath = $env:PYTHONPATH
+$env:PYTHONPATH = (Get-Location).Path
+if (-not $env:SALAR_GEMINI_API_KEY) { $env:SALAR_GEMINI_API_KEY = "release-test-placeholder" }
 python -m pytest -q
 if ($LASTEXITCODE -ne 0) { throw "Backend tests failed" }
+if ($null -eq $PreviousPythonPath) { Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue } else { $env:PYTHONPATH = $PreviousPythonPath }
 Pop-Location
 
 Push-Location (Join-Path $Workspace "frontend")
