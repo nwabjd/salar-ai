@@ -1,14 +1,16 @@
-/** 24kHz PCM capture and playback for SALAR Live. */
+/** 16kHz PCM capture and 24kHz PCM playback for SALAR Live. */
 class SalarAudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super()
-    this.targetRate = 24000
+    this.captureRate = 16000
+    this.playbackRate = 24000
+    this.captureFrameSize = 640
     this.capture = []
     this.playback = []
     this.playbackIndex = 0
     this.wasPlaying = false
     this.port.onmessage = ({ data }) => {
-      if (data.type === 'playback' && data.samples) this.playback.push(this.resample(data.samples, this.targetRate, sampleRate))
+      if (data.type === 'playback' && data.samples) this.playback.push(this.resample(data.samples, this.playbackRate, sampleRate))
       if (data.type === 'stop') {
         this.playback = []
         this.playbackIndex = 0
@@ -26,10 +28,10 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
   }
 
   captureInput(input) {
-    const resampled = this.resample(input, sampleRate, this.targetRate)
+    const resampled = this.resample(input, sampleRate, this.captureRate)
     for (const value of resampled) this.capture.push(value)
-    while (this.capture.length >= 2400) {
-      const frame = this.capture.splice(0, 2400)
+    while (this.capture.length >= this.captureFrameSize) {
+      const frame = this.capture.splice(0, this.captureFrameSize)
       const samples = new Int16Array(frame.length)
       let energy = 0
       for (let index = 0; index < frame.length; index += 1) {
