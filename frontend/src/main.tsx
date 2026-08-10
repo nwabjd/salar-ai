@@ -717,6 +717,9 @@ function StatusRail() {
   const [waStatus, setWaStatus] = useState('')
   const [waQr, setWaQr] = useState<string | null>(null)
   const [waQrLoading, setWaQrLoading] = useState(false)
+  const [waAutoReply, setWaAutoReply] = useState<boolean | null>(null)
+  const [waAutoReplySaving, setWaAutoReplySaving] = useState(false)
+  const [waAutoReplyError, setWaAutoReplyError] = useState('')
   const [calendarToday, setCalendarToday] = useState('…')
   const [memories, setMemories] = useState('…')
   const [documents, setDocuments] = useState('…')
@@ -741,8 +744,8 @@ function StatusRail() {
   useEffect(() => {
     let stopped = false
     const loadAll = async () => {
-      const [w, c, m, d, v, u] = await Promise.allSettled([
-        api.whatsappStatus(), api.calendarToday(), api.memories(), api.documents(), api.devices(), api.usage(),
+      const [w, a, c, m, d, v, u] = await Promise.allSettled([
+        api.whatsappStatus(), api.whatsappAutoReplyGet(), api.calendarToday(), api.memories(), api.documents(), api.devices(), api.usage(),
       ])
       if (stopped) return
       if (w.status === 'fulfilled') {
@@ -752,6 +755,8 @@ function StatusRail() {
         setWhatsappDot(st === 'connected' ? '#70e5aa' : st === 'waiting_scan' || st === 'logged_out' ? '#f5c15c' : '#88818f')
         setWaStatus(st)
       }
+      if (a.status === 'fulfilled') setWaAutoReply(a.value.enabled)
+      else setWaAutoReply(null)
       if (c.status === 'fulfilled') setCalendarToday(`${c.value.events?.length ?? 0} today`)
       if (m.status === 'fulfilled') setMemories(`${m.value.length} memories`)
       if (d.status === 'fulfilled') setDocuments(`${d.value.length} documents`)
@@ -763,6 +768,21 @@ function StatusRail() {
     return () => { stopped = true; clearInterval(timer) }
   }, [])
 
+  const toggleWaAutoReply = useCallback(async () => {
+    if (waStatus !== 'connected' || waAutoReply === null || waAutoReplySaving) return
+    const nextEnabled = !waAutoReply
+    setWaAutoReplySaving(true)
+    setWaAutoReplyError('')
+    try {
+      const result = await api.whatsappAutoReplySet(nextEnabled)
+      setWaAutoReply(result.enabled)
+    } catch (reason) {
+      setWaAutoReplyError(reason instanceof Error ? reason.message : 'Could not update auto reply')
+    } finally {
+      setWaAutoReplySaving(false)
+    }
+  }, [waStatus, waAutoReply, waAutoReplySaving])
+
   return <aside className="status-rail">
     <UsageRail usage={usage}/>
     <div className="rail-card whatsapp-card">
@@ -771,6 +791,25 @@ function StatusRail() {
         {whatsappDot && <i className="rail-dot" style={{ background: whatsappDot }}/>}
       </div>
       <div className="rail-value">{whatsapp}</div>
+      <div className="wa-autoreply-control">
+        <div>
+          <strong>Auto reply</strong>
+          <small>{waStatus === 'connected' ? "Reply professionally as JD's assistant" : 'Connect WhatsApp to use auto reply'}</small>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-label="WhatsApp auto reply"
+          aria-checked={waAutoReply === true}
+          className={`wa-auto-switch${waAutoReply ? ' active' : ''}`}
+          onClick={toggleWaAutoReply}
+          disabled={waStatus !== 'connected' || waAutoReply === null || waAutoReplySaving}
+        >
+          <span aria-hidden="true"><i /></span>
+          {waAutoReplySaving ? 'Saving…' : waAutoReply ? 'On' : 'Off'}
+        </button>
+      </div>
+      {waAutoReplyError && <p className="wa-autoreply-error" role="alert">{waAutoReplyError}</p>}
       {waStatus === 'waiting_scan' && waQr && <img className="wa-qr" src={waQr} alt="WhatsApp QR code"/>}
       {(waStatus === 'waiting_scan' || waStatus === 'logged_out') && <button className="wa-qr-btn" onClick={loadQr} disabled={waQrLoading}>{waQrLoading ? 'Loading…' : waQr ? 'Refresh QR' : 'Show QR'}</button>}
     </div>
