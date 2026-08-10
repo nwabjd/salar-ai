@@ -36,21 +36,29 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
     this.captureRate = 16000
     this.playbackRate = 24000
     this.captureFrameSize = 640
+    this.minimumPlaybackBuffer = Math.round(sampleRate * 0.08)
     this.captureResampler = new StreamingLinearResampler(sampleRate, this.captureRate)
     this.playbackResampler = new StreamingLinearResampler(this.playbackRate, sampleRate)
     this.capture = []
     this.playback = []
+    this.queuedPlaybackSamples = 0
     this.playbackIndex = 0
+    this.playbackStarted = false
     this.wasPlaying = false
     this.port.onmessage = ({ data }) => {
       if (data.type === 'playback' && data.samples) {
         const playbackSamples = this.pcm16ToFloat(data.samples)
         const resampled = this.playbackResampler.push(playbackSamples)
-        if (resampled.length) this.playback.push(resampled)
+        if (resampled.length) {
+          this.playback.push(resampled)
+          this.queuedPlaybackSamples += resampled.length
+        }
       }
       if (data.type === 'stop') {
         this.playback = []
+        this.queuedPlaybackSamples = 0
         this.playbackIndex = 0
+        this.playbackStarted = false
         this.wasPlaying = false
         this.playbackResampler.reset()
       }
@@ -83,6 +91,10 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
 
   renderPlayback(output) {
     output.fill(0)
+    if (!this.playbackStarted) {
+      if (this.queuedPlaybackSamples < this.minimumPlaybackBuffer) return
+      this.playbackStarted = true
+    }
     let energy = 0
     let written = 0
     while (written < output.length && this.playback.length) {
@@ -93,6 +105,7 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
       output.set(slice, written)
       for (const value of slice) energy += value * value
       written += count
+      this.queuedPlaybackSamples -= count
       this.playbackIndex += count
       if (this.playbackIndex >= frame.length) {
         this.playback.shift()
@@ -104,6 +117,7 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
       this.port.postMessage({ type: 'playback_volume', volume: Math.min(1, Math.sqrt(energy / written) * 4) })
     } else if (this.wasPlaying) {
       this.wasPlaying = false
+      this.playbackStarted = false
       this.port.postMessage({ type: 'playback_drained' })
     }
   }

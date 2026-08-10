@@ -9,6 +9,7 @@ describe('SALAR Live audio worklet contract', () => {
     let Processor: new () => {
       playback: Float32Array[]
       port: { onmessage: (event: { data: { type: string; samples: Int16Array } }) => void }
+      process: (inputs: Float32Array[][], outputs: Float32Array[][]) => boolean
     }
     class AudioWorkletProcessorStub {
       port = { onmessage: () => {}, postMessage: () => {} }
@@ -56,6 +57,22 @@ describe('SALAR Live audio worklet contract', () => {
     }
     expect(output.length).toBe(44_099)
     expect(Math.sqrt(squaredError / output.length)).toBeLessThan(0.005)
+  })
+
+  it('prebuffers mobile playback so ordinary network jitter does not create audio gaps', () => {
+    const processor = createProcessor(48_000)
+    const packet = Int16Array.from({ length: 1_200 }, (_, index) => (
+      Math.round(Math.sin(2 * Math.PI * 440 * index / 24_000) * 0.7 * 32_767)
+    ))
+    const firstOutput = new Float32Array(128)
+    processor.port.onmessage({ data: { type: 'playback', samples: packet } })
+    processor.process([], [[firstOutput]])
+    expect(firstOutput.every((sample) => sample === 0)).toBe(true)
+
+    const secondOutput = new Float32Array(128)
+    processor.port.onmessage({ data: { type: 'playback', samples: packet } })
+    processor.process([], [[secondOutput]])
+    expect(secondOutput.some((sample) => sample !== 0)).toBe(true)
   })
 
   it('clears queued playback on interruption', () => {
