@@ -21,14 +21,25 @@ def gemini_live_url(api_key: str) -> str:
 def build_setup(model: str, voice: str = "Kore", handle: str = "") -> Dict:
     setup = {
         "model": f"models/{model}",
-        "responseModalities": ["AUDIO"],
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "inputAudioTranscription": {},
         "outputAudioTranscription": {},
-        "speechConfig": {
-            "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}
+        "generationConfig": {
+            "responseModalities": ["AUDIO"],
+            "speechConfig": {
+                "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}
+            },
+            "thinkingConfig": {"thinkingLevel": "minimal"},
         },
-        "thinkingConfig": {"thinkingLevel": "low"},
+        "realtimeInputConfig": {
+            "automaticActivityDetection": {
+                "disabled": False,
+                "startOfSpeechSensitivity": "START_SENSITIVITY_HIGH",
+                "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
+                "prefixPaddingMs": 20,
+                "silenceDurationMs": 300,
+            }
+        },
         "contextWindowCompression": {"slidingWindow": {}},
         "sessionResumption": {**({"handle": handle} if handle else {})},
     }

@@ -11,11 +11,21 @@ def test_setup_requests_native_audio_transcripts_and_session_management():
     message = build_setup("gemini-3.1-flash-live-preview", "Kore")
     setup = message["setup"]
     assert setup["model"] == "models/gemini-3.1-flash-live-preview"
-    assert setup["responseModalities"] == ["AUDIO"]
+    assert "responseModalities" not in setup
+    assert setup["generationConfig"]["responseModalities"] == ["AUDIO"]
     assert setup["inputAudioTranscription"] == {}
     assert setup["outputAudioTranscription"] == {}
-    assert setup["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"] == "Kore"
-    assert setup["thinkingConfig"] == {"thinkingLevel": "low"}
+    assert setup["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"] == "Kore"
+    assert setup["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+    assert setup["realtimeInputConfig"] == {
+        "automaticActivityDetection": {
+            "disabled": False,
+            "startOfSpeechSensitivity": "START_SENSITIVITY_HIGH",
+            "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
+            "prefixPaddingMs": 20,
+            "silenceDurationMs": 300,
+        }
+    }
     assert setup["contextWindowCompression"] == {"slidingWindow": {}}
     assert setup["sessionResumption"] == {}
 
