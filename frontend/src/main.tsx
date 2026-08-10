@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Calendar, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, Send, Sparkles, X, MessageSquare } from 'lucide-react'
 import LiquidEther from './effects/LiquidEther.jsx'
@@ -14,8 +14,11 @@ import './styles.css'
 import './landing.css'
 import './cosmic-landing.css'
 import SalaarLanding from './components/SalaarLanding'
+import { initialLiveState, liveReducer } from './live/realtime-state'
+import { RealtimeVoiceClient } from './live/realtime-client'
 
 const api = new SalarApi()
+const LegacyRings = MagicRings
 
 const sessionCoordinator = createSessionCoordinator({
   loadBackendToken: storedSession,
@@ -204,6 +207,74 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
 }
 
 function Live({ connected, onClose }: { connected: boolean; onClose: () => void }) {
+  const [state, dispatch] = useReducer(liveReducer, initialLiveState)
+  const [volume, setVolume] = useState(0)
+  const [textInput, setTextInput] = useState('')
+  const [showTextInput, setShowTextInput] = useState(false)
+  const clientRef = useRef<RealtimeVoiceClient | null>(null)
+  const historyEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!connected) return
+    const client = new RealtimeVoiceClient({
+      token: api.token,
+      voice: 'marin',
+      onEvent: dispatch,
+      onVolume: setVolume,
+    })
+    clientRef.current = client
+    client.start().catch((reason) => {
+      dispatch({ type: 'error', error: reason instanceof Error ? reason.message : 'Could not start Live voice' })
+    })
+    return () => {
+      client.stop()
+      if (clientRef.current === client) clientRef.current = null
+    }
+  }, [connected])
+
+  useEffect(() => {
+    historyEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [state.history])
+
+  function handleClose() {
+    clientRef.current?.stop()
+    onClose()
+  }
+
+  function handleTextSubmit() {
+    const text = textInput.trim()
+    if (!text || state.phase === 'thinking' || state.phase === 'speaking') return
+    dispatch({ type: 'input_transcript_completed', text })
+    dispatch({ type: 'speech_stopped' })
+    clientRef.current?.sendText(text)
+    setTextInput('')
+    setShowTextInput(false)
+  }
+
+  const ringPhase = state.phase === 'connecting' || state.phase === 'error' ? 'idle' : state.phase
+  const label = state.phase === 'connecting' ? 'Connecting…' : state.phase === 'listening' ? 'Listening…' : state.phase === 'thinking' ? 'Thinking…' : state.phase === 'speaking' ? 'Speaking…' : 'Live unavailable'
+  const activeTranscript = state.phase === 'speaking' ? state.outputTranscript : state.inputTranscript
+
+  return <main className="live">
+    <div className="rings"><MagicRings color="#fc42ff" colorTwo="#42fcff" ringCount={6} speed={1} attenuation={10} lineThickness={2} baseRadius={0.35} radiusStep={0.1} scaleRate={0.1} blur={0} noiseAmount={0.1} rotation={0} ringGap={1.5} fadeIn={0.7} fadeOut={0.5} followMouse={false} mouseInfluence={0.2} hoverScale={1.2} parallax={0.05} clickBurst={false} phase={ringPhase} volume={volume}/></div>
+    <button className="close" onClick={handleClose} aria-label="Close Live mode"><X/></button>
+    <div className="live-history">
+      {state.history.map((item, index) => <div key={`${item.role}-${index}`} className={`live-msg ${item.role}`}><span className="live-msg-role">{item.role === 'user' ? 'You' : 'SALAR'}</span><p>{item.text}</p></div>)}
+      <div ref={historyEndRef}/>
+    </div>
+    <div className="live-copy">
+      <span className="live-label">{label}</span>
+      {state.error && <p className="live-heard" style={{ color: '#ff6b6b' }}>{state.error}</p>}
+      {activeTranscript && <p className="live-heard">{activeTranscript}</p>}
+    </div>
+    <div className="live-controls">
+      <button className="live-text-toggle" onClick={() => setShowTextInput((open) => !open)} title="Type instead of speak"><MessageSquare size={16}/></button>
+      {showTextInput && <div className="live-text-input"><input value={textInput} onChange={(event) => setTextInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') handleTextSubmit() }} placeholder="Type a message…" disabled={state.phase === 'thinking' || state.phase === 'speaking'}/><button onClick={handleTextSubmit} disabled={!textInput.trim() || state.phase === 'thinking' || state.phase === 'speaking'}><Send size={14}/></button></div>}
+    </div>
+  </main>
+}
+
+function LegacyLive({ connected, onClose }: { connected: boolean; onClose: () => void }) {
   const [phase, setPhase] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle')
   const [volume, setVolume] = useState(0)
   const [transcript, setTranscript] = useState('')
@@ -577,7 +648,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   const label = phase === 'idle' ? 'Starting…' : phase === 'listening' ? 'Listening…' : phase === 'thinking' ? 'Thinking…' : 'Speaking…'
 
   return <main className="live">
-    <div className="rings"><MagicRings color="#fc42ff" colorTwo="#42fcff" ringCount={6} speed={1} attenuation={10} lineThickness={2} baseRadius={0.35} radiusStep={0.1} scaleRate={0.1} blur={0} noiseAmount={0.1} rotation={0} ringGap={1.5} fadeIn={0.7} fadeOut={0.5} followMouse={false} mouseInfluence={0.2} hoverScale={1.2} parallax={0.05} clickBurst={false} phase={phase} volume={volume}/></div>
+    <div className="rings"><LegacyRings color="#fc42ff" colorTwo="#42fcff" ringCount={6} speed={1} attenuation={10} lineThickness={2} baseRadius={0.35} radiusStep={0.1} scaleRate={0.1} blur={0} noiseAmount={0.1} rotation={0} ringGap={1.5} fadeIn={0.7} fadeOut={0.5} followMouse={false} mouseInfluence={0.2} hoverScale={1.2} parallax={0.05} clickBurst={false} phase={phase} volume={volume}/></div>
     <button className="close" onClick={handleClose}><X/></button>
     <div className="live-history">
       {history.map((h, i) => <div key={i} className={`live-msg ${h.role}`}>

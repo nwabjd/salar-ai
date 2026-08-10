@@ -4,20 +4,19 @@ import { describe, expect, it } from 'vitest'
 const main = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
 
 describe('Live voice mode contract', () => {
-  it('mounts the orb only inside Live and exposes every phase label', () => {
-    const live = main.slice(main.indexOf('function Live('), main.indexOf('function StatusCard('))
+  it('mounts the orb only inside active Live and exposes every realtime phase label', () => {
+    const live = main.slice(main.indexOf('function Live('), main.indexOf('function LegacyLive('))
     expect(live).toContain('<MagicRings')
     expect(main.match(/<MagicRings/g)).toHaveLength(1)
-    for (const label of ['Starting', 'Listening', 'Thinking', 'Speaking']) expect(live).toContain(label)
+    for (const label of ['Connecting', 'Listening', 'Thinking', 'Speaking']) expect(live).toContain(label)
   })
 
-  it('drives speaking volume from TTS output and cleans it up', () => {
-    expect(main).toContain('outputFrameRef')
-    expect(main).toContain('ctx.createAnalyser()')
-    expect(main).toContain('source.connect(outputAnalyser)')
-    expect(main).toContain('cancelAnimationFrame(outputFrameRef.current)')
-    expect(main).toContain("phaseRef.current === 'listening'")
-    expect(main).toContain('getTracks().forEach(t => t.stop())')
-    expect(main).toContain('audioCtxRef.current.close()')
+  it('uses the Realtime client instead of the chunked recorder pipeline', () => {
+    const live = main.slice(main.indexOf('function Live('), main.indexOf('function LegacyLive('))
+    expect(live).toContain('new RealtimeVoiceClient')
+    expect(live).toContain('onEvent: dispatch')
+    expect(live).not.toContain('MediaRecorder')
+    expect(live).not.toContain('api.stt')
+    expect(live).not.toContain('api.tts')
   })
 })
