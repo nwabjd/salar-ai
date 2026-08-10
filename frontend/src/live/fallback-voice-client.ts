@@ -212,7 +212,7 @@ export class FallbackVoiceClient {
       frame = requestAnimationFrame(sample)
     }
     await new Promise<void>((resolve) => {
-      source.onended = resolve
+      source.onended = () => resolve()
       source.start()
       frame = requestAnimationFrame(sample)
     })

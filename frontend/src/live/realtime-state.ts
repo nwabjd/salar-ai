@@ -1,4 +1,4 @@
-export type LivePhase = 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error'
+export type LivePhase = 'connecting' | 'reconnecting' | 'listening' | 'thinking' | 'speaking' | 'error'
 export type LiveHistoryItem = { role: 'user' | 'salar'; text: string }
 
 export type LiveState = {
@@ -12,7 +12,7 @@ export type LiveState = {
 }
 
 export type LiveEvent =
-  | { type: 'ready' | 'speech_started' | 'speech_stopped' | 'audio' | 'response_done' | 'playback_drained' }
+  | { type: 'ready' | 'reconnecting' | 'speech_started' | 'speech_stopped' | 'audio' | 'response_done' | 'playback_drained' }
   | { type: 'input_transcript_delta' | 'input_transcript_completed' | 'output_transcript_delta' | 'output_transcript_completed'; text: string }
   | { type: 'error'; error: string }
 
@@ -38,6 +38,8 @@ export function liveReducer(state: LiveState, event: LiveEvent): LiveState {
   switch (event.type) {
     case 'ready':
       return { ...state, phase: 'listening', error: '' }
+    case 'reconnecting':
+      return { ...state, phase: 'reconnecting', error: '' }
     case 'speech_started':
       return { ...state, phase: 'listening', outputTranscript: '', responseDone: false, playbackPending: false }
     case 'speech_stopped':

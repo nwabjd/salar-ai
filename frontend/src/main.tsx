@@ -15,7 +15,9 @@ import './landing.css'
 import './cosmic-landing.css'
 import SalaarLanding from './components/SalaarLanding'
 import { initialLiveState, liveReducer } from './live/realtime-state'
-import { RealtimeVoiceClient } from './live/realtime-client'
+import { GeminiLiveClient } from './live/gemini-live-client'
+import { FallbackVoiceClient } from './live/fallback-voice-client'
+import { HybridVoiceClient } from './live/hybrid-voice-client'
 
 const api = new SalarApi()
 const LegacyRings = MagicRings
@@ -211,17 +213,24 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   const [volume, setVolume] = useState(0)
   const [textInput, setTextInput] = useState('')
   const [showTextInput, setShowTextInput] = useState(false)
-  const clientRef = useRef<RealtimeVoiceClient | null>(null)
+  const clientRef = useRef<HybridVoiceClient | null>(null)
   const historyEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!connected) return
-    const client = new RealtimeVoiceClient({
+    let client: HybridVoiceClient
+    const native = new GeminiLiveClient({
       token: api.token,
-      voice: 'marin',
       onEvent: dispatch,
       onVolume: setVolume,
+      onFallback: () => {
+        void client.activateFallback().catch((reason) => {
+          dispatch({ type: 'error', error: reason instanceof Error ? reason.message : 'Fallback voice unavailable' })
+        })
+      },
     })
+    const fallback = new FallbackVoiceClient({ token: api.token, api, onEvent: dispatch, onVolume: setVolume })
+    client = new HybridVoiceClient(native, fallback)
     clientRef.current = client
     client.start().catch((reason) => {
       dispatch({ type: 'error', error: reason instanceof Error ? reason.message : 'Could not start Live voice' })
@@ -251,8 +260,8 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     setShowTextInput(false)
   }
 
-  const ringPhase = state.phase === 'connecting' || state.phase === 'error' ? 'idle' : state.phase
-  const label = state.phase === 'connecting' ? 'Connecting…' : state.phase === 'listening' ? 'Listening…' : state.phase === 'thinking' ? 'Thinking…' : state.phase === 'speaking' ? 'Speaking…' : 'Live unavailable'
+  const ringPhase = state.phase === 'connecting' || state.phase === 'reconnecting' || state.phase === 'error' ? 'idle' : state.phase
+  const label = state.phase === 'connecting' ? 'Connecting…' : state.phase === 'reconnecting' ? 'Reconnecting…' : state.phase === 'listening' ? 'Listening…' : state.phase === 'thinking' ? 'Thinking…' : state.phase === 'speaking' ? 'Speaking…' : 'Live unavailable'
   const activeTranscript = state.phase === 'speaking' ? state.outputTranscript : state.inputTranscript
 
   return <main className="live">

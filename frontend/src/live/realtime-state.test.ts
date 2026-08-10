@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { initialLiveState, liveReducer } from './realtime-state'
 
 describe('Live Realtime state', () => {
+  it('shows a reconnecting state without losing the session', () => {
+    const state = liveReducer({ ...initialLiveState, phase: 'listening' }, { type: 'reconnecting' })
+    expect(state.phase).toBe('reconnecting')
+    expect(state.error).toBe('')
+  })
+
   it('waits for both response completion and drained playback before listening again', () => {
     let state = liveReducer(initialLiveState, { type: 'ready' })
     state = liveReducer(state, { type: 'speech_stopped' })
