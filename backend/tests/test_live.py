@@ -2,7 +2,12 @@ import jwt
 import pytest
 from fastapi import HTTPException
 
-from app.api.live import _build_session_update, _translate_openai_event
+from app.api.live import (
+    _build_session_update,
+    _openai_headers,
+    _openai_realtime_url,
+    _translate_openai_event,
+)
 from app.config import Settings
 from app.security import decode_backend_token
 
@@ -26,6 +31,16 @@ def test_session_update_uses_native_audio_semantic_vad_and_noise_reduction():
         'interrupt_response': True,
     }
     assert session['audio']['output']['voice'] == 'marin'
+    assert 'model' not in session
+
+
+def test_ga_realtime_connection_does_not_request_retired_beta_shape():
+    assert _openai_realtime_url('gpt-realtime') == (
+        'wss://api.openai.com/v1/realtime?model=gpt-realtime'
+    )
+    assert _openai_headers('server-secret') == {
+        'Authorization': 'Bearer server-secret',
+    }
 
 
 @pytest.mark.parametrize(

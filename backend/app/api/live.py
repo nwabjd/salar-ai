@@ -3,6 +3,7 @@ import json
 import logging
 from contextlib import suppress
 from typing import Optional
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
@@ -28,7 +29,6 @@ def _build_session_update(model: str, voice: str = "marin") -> dict:
         "type": "session.update",
         "session": {
             "type": "realtime",
-            "model": model,
             "instructions": SYSTEM_PROMPT,
             "output_modalities": ["audio"],
             "audio": {
@@ -51,6 +51,16 @@ def _build_session_update(model: str, voice: str = "marin") -> dict:
             "max_output_tokens": 1024,
         },
     }
+
+
+def _openai_realtime_url(model: str) -> str:
+    return f"{OPENAI_REALTIME_URL}?{urlencode({'model': model})}"
+
+
+def _openai_headers(api_key: str) -> dict[str, str]:
+    # The GA Realtime API rejects the retired `OpenAI-Beta: realtime=v1`
+    # protocol shape with `invalid_request_error.beta_api_shape_disabled`.
+    return {"Authorization": f"Bearer {api_key}"}
 
 
 def _translate_openai_event(message: dict) -> Optional[dict]:
@@ -108,14 +118,24 @@ async def _proxy_openai(client_ws: WebSocket, upstream, model: str, voice: str) 
 
     async def forward_to_client() -> None:
         async for raw in upstream:
-            translated = _translate_openai_event(json.loads(raw))
+            source = json.loads(raw)
+            translated = _translate_openai_event(source)
             if translated:
                 await client_ws.send_json(translated)
+            if source.get("type") == "error":
+                error = source.get("error") or {}
+                log.error(
+                    "OpenAI Realtime event error type=%s code=%s",
+                    error.get("type", "unknown"),
+                    error.get("code", "upstream_error"),
+                )
+                return
 
     tasks = [asyncio.create_task(forward_to_openai()), asyncio.create_task(forward_to_client())]
     done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     for task in pending:
         task.cancel()
+    await asyncio.gather(*pending, return_exceptions=True)
     for task in done:
         with suppress(WebSocketDisconnect, asyncio.CancelledError):
             task.result()
@@ -147,11 +167,9 @@ async def live_ws(websocket: WebSocket):
     try:
         import websockets
 
-        headers = {
-            "Authorization": f"Bearer {settings.openai_api_key}",
-            "OpenAI-Beta": "realtime=v1",
-        }
-        async with websockets.connect(OPENAI_REALTIME_URL, extra_headers=headers, max_size=2**22) as upstream:
+        headers = _openai_headers(settings.openai_api_key)
+        url = _openai_realtime_url(settings.openai_realtime_model)
+        async with websockets.connect(url, extra_headers=headers, max_size=2**22) as upstream:
             await _proxy_openai(websocket, upstream, settings.openai_realtime_model, voice)
     except WebSocketDisconnect:
         log.info("Live client disconnected")

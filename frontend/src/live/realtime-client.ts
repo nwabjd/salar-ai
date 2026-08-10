@@ -20,6 +20,10 @@ export function pcm16ToBase64(samples: Int16Array): string {
   return btoa(binary)
 }
 
+export function shouldReportUnexpectedClose(closed: boolean, receivedServerError: boolean): boolean {
+  return !closed && !receivedServerError
+}
+
 function base64ToPcm16(value: string): Int16Array {
   const binary = atob(value)
   const bytes = new Uint8Array(binary.length)
@@ -40,11 +44,13 @@ export class RealtimeVoiceClient {
   private audioContext: AudioContext | null = null
   private worklet: AudioWorkletNode | null = null
   private closed = false
+  private receivedServerError = false
 
   constructor(private readonly options: ClientOptions) {}
 
   async start(): Promise<void> {
     this.closed = false
+    this.receivedServerError = false
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
     })
@@ -67,7 +73,9 @@ export class RealtimeVoiceClient {
       }
       socket.onerror = () => reject(new Error('Live voice connection failed'))
       socket.onclose = () => {
-        if (!this.closed) this.options.onEvent({ type: 'error', error: 'Live voice disconnected' })
+        if (shouldReportUnexpectedClose(this.closed, this.receivedServerError)) {
+          this.options.onEvent({ type: 'error', error: 'Live voice disconnected' })
+        }
       }
       socket.onmessage = (message) => this.handleSocketMessage(message.data)
     })
@@ -113,6 +121,7 @@ export class RealtimeVoiceClient {
     }
     if (message.type === 'speech_started') this.worklet?.port.postMessage({ type: 'stop' })
     if (message.type === 'error') {
+      this.receivedServerError = true
       this.options.onEvent({ type: 'error', error: typeof message.error === 'string' ? message.error : 'Live voice error' })
       return
     }
