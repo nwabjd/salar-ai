@@ -7,3 +7,11 @@
   width: 100%;
   height: 100%;
 }
+
+@media (max-width: 640px) {
+  .magic-rings-container { min-width: 320px; min-height: 320px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magic-rings-container { opacity: .88; }
+}

@@ -268,6 +268,8 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   const chunksRef = useRef<Blob[]>([])
   const liveTextRef = useRef('')
   const playingRef = useRef(false)
+  const outputFrameRef = useRef<number | null>(null)
+  const outputSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const ttsQueueRef = useRef<string[]>([])
   const ttsInFlightRef = useRef(false)
   const sentenceBufRef = useRef('')
@@ -276,18 +278,19 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   function setPhaseFast(p: 'idle' | 'listening' | 'thinking' | 'speaking') {
     phaseRef.current = p
     setPhase(p)
+    if (p === 'thinking' || p === 'idle') setVolume(0)
   }
 
   function teardown() {
     stoppedRef.current = true
     if (monitorRef.current) { clearInterval(monitorRef.current); monitorRef.current = null }
     cleanupRecording()
+    stopAllAudio()
     if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
       audioCtxRef.current.close().catch(() => {})
     }
     audioCtxRef.current = null
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
-    stopAllAudio()
   }
 
   function cleanupRecording() {
@@ -302,6 +305,16 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
 
   function stopAllAudio() {
     playingRef.current = false
+    if (outputFrameRef.current !== null) {
+      cancelAnimationFrame(outputFrameRef.current)
+      outputFrameRef.current = null
+    }
+    if (outputSourceRef.current) {
+      try { outputSourceRef.current.stop() } catch {}
+      outputSourceRef.current.disconnect()
+      outputSourceRef.current = null
+    }
+    setVolume(0)
     ttsQueueRef.current = []
     ttsInFlightRef.current = false
     sentenceBufRef.current = ''
@@ -515,16 +528,36 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
       if (stoppedRef.current) return
 
       const source = ctx.createBufferSource()
+      const outputAnalyser = ctx.createAnalyser()
+      outputAnalyser.fftSize = 256
       source.buffer = audioBuf
-      source.connect(ctx.destination)
+      source.connect(outputAnalyser)
+      outputAnalyser.connect(ctx.destination)
+      outputSourceRef.current = source
+      const outputData = new Uint8Array(outputAnalyser.frequencyBinCount)
+      const sampleOutput = () => {
+        if (!playingRef.current || stoppedRef.current) return
+        outputAnalyser.getByteFrequencyData(outputData)
+        let sum = 0
+        for (let i = 0; i < outputData.length; i++) sum += outputData[i]
+        setVolume(sum / outputData.length)
+        outputFrameRef.current = requestAnimationFrame(sampleOutput)
+      }
       await new Promise<void>((res) => {
         source.onended = () => res()
         source.start(0)
+        outputFrameRef.current = requestAnimationFrame(sampleOutput)
       })
     } catch (e) {
       console.error('TTS playback failed:', e)
     } finally {
       playingRef.current = false
+      if (outputFrameRef.current !== null) {
+        cancelAnimationFrame(outputFrameRef.current)
+        outputFrameRef.current = null
+      }
+      outputSourceRef.current = null
+      setVolume(0)
     }
   }
 
@@ -544,21 +577,9 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
         let sum = 0
         for (let i = 0; i < data.length; i++) sum += data[i]
         const avg = sum / data.length
-        setVolume(avg)
-
-        if (phaseRef.current === 'speaking' && playingRef.current && avg > 15) {
-          stopAllAudio()
-          if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
-          if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-            audioCtxRef.current.close().catch(() => {})
-          }
-          audioCtxRef.current = null
-          setPhaseFast('listening')
-          startRecording()
-          return
-        }
 
         if (phaseRef.current === 'listening' && recorderRef.current?.state === 'recording') {
+          setVolume(avg)
           if (avg > 10) {
             if (silenceRef.current) { clearTimeout(silenceRef.current); silenceRef.current = null }
           } else if (!silenceRef.current) {
