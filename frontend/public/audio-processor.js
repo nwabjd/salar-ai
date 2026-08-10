@@ -1,10 +1,43 @@
 /** 16kHz PCM capture and 24kHz PCM playback for SALAR Live. */
+class StreamingLinearResampler {
+  constructor(fromRate, toRate) {
+    this.ratio = fromRate / toRate
+    this.position = 0
+    this.pending = new Float32Array(0)
+  }
+
+  push(input) {
+    if (!input.length) return new Float32Array(0)
+    const combined = new Float32Array(this.pending.length + input.length)
+    combined.set(this.pending)
+    combined.set(input, this.pending.length)
+    const output = []
+    while (this.position < combined.length - 1) {
+      const left = Math.floor(this.position)
+      const mix = this.position - left
+      output.push(combined[left] * (1 - mix) + combined[left + 1] * mix)
+      this.position += this.ratio
+    }
+    const consumed = Math.floor(this.position)
+    this.pending = combined.slice(consumed)
+    this.position -= consumed
+    return Float32Array.from(output)
+  }
+
+  reset() {
+    this.position = 0
+    this.pending = new Float32Array(0)
+  }
+}
+
 class SalarAudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super()
     this.captureRate = 16000
     this.playbackRate = 24000
     this.captureFrameSize = 640
+    this.captureResampler = new StreamingLinearResampler(sampleRate, this.captureRate)
+    this.playbackResampler = new StreamingLinearResampler(this.playbackRate, sampleRate)
     this.capture = []
     this.playback = []
     this.playbackIndex = 0
@@ -12,12 +45,14 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
     this.port.onmessage = ({ data }) => {
       if (data.type === 'playback' && data.samples) {
         const playbackSamples = this.pcm16ToFloat(data.samples)
-        this.playback.push(this.resample(playbackSamples, this.playbackRate, sampleRate))
+        const resampled = this.playbackResampler.push(playbackSamples)
+        if (resampled.length) this.playback.push(resampled)
       }
       if (data.type === 'stop') {
         this.playback = []
         this.playbackIndex = 0
         this.wasPlaying = false
+        this.playbackResampler.reset()
       }
     }
   }
@@ -31,7 +66,7 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
   }
 
   captureInput(input) {
-    const resampled = this.resample(input, sampleRate, this.captureRate)
+    const resampled = this.captureResampler.push(input)
     for (const value of resampled) this.capture.push(value)
     while (this.capture.length >= this.captureFrameSize) {
       const frame = this.capture.splice(0, this.captureFrameSize)
@@ -81,20 +116,6 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
     return output
   }
 
-  resample(input, fromRate, toRate) {
-    if (fromRate === toRate) return new Float32Array(input)
-    const size = Math.max(1, Math.round(input.length * toRate / fromRate))
-    const output = new Float32Array(size)
-    const ratio = fromRate / toRate
-    for (let index = 0; index < size; index += 1) {
-      const position = index * ratio
-      const left = Math.floor(position)
-      const right = Math.min(left + 1, input.length - 1)
-      const mix = position - left
-      output[index] = input[left] * (1 - mix) + input[right] * mix
-    }
-    return output
-  }
 }
 
 registerProcessor('salar-audio', SalarAudioProcessor)
