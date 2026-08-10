@@ -87,7 +87,7 @@ export class GeminiLiveClient {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
     })
     this.audioContext = new AudioContext({ latencyHint: 'interactive' })
-    await this.audioContext.audioWorklet.addModule('/audio-processor.js')
+    await this.audioContext.audioWorklet.addModule(new URL('./audio-processor.js', import.meta.url).href)
     if (this.audioContext.state === 'suspended') await this.audioContext.resume()
 
     const source = this.audioContext.createMediaStreamSource(this.stream)

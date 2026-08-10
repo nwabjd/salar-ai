@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   pcm16ToBase64,
@@ -7,6 +8,12 @@ import {
 } from './gemini-live-client'
 
 describe('Realtime client helpers', () => {
+  it('loads the AudioWorklet through Vite fingerprinting for installed iOS web apps', () => {
+    const clientSource = readFileSync('src/live/gemini-live-client.ts', 'utf8')
+    expect(clientSource).toContain("new URL('./audio-processor.js', import.meta.url).href")
+    expect(clientSource).not.toContain("addModule('/audio-processor.js')")
+  })
+
   it('derives secure and local websocket URLs', () => {
     expect(realtimeWebSocketUrl('https://salar.example.com')).toBe('wss://salar.example.com/ws/live')
     expect(realtimeWebSocketUrl('http://127.0.0.1:8000/')).toBe('ws://127.0.0.1:8000/ws/live')

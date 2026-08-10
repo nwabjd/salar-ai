@@ -3,7 +3,7 @@ import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 
 describe('SALAR Live audio worklet contract', () => {
-  const source = readFileSync('public/audio-processor.js', 'utf8')
+  const source = readFileSync('src/live/audio-processor.js', 'utf8')
 
   function createProcessor(deviceSampleRate: number) {
     let Processor: new () => {
