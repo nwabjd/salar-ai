@@ -31,14 +31,46 @@ function base64ToPcm16(value: string): Int16Array {
   return new Int16Array(bytes.buffer)
 }
 
-type ClientOptions = {
-  token: string
-  voice?: 'marin' | 'cedar'
-  onEvent: (event: LiveEvent) => void
-  onVolume?: (volume: number) => void
+type GeminiSocketAction =
+  | { kind: 'audio'; data: string }
+  | { kind: 'interrupted' | 'reconnecting' | 'fallback' }
+  | { kind: 'error'; error: string }
+  | { kind: 'event'; event: LiveEvent }
+  | { kind: 'ignore' }
+
+const STABLE_EVENT_TYPES = new Set([
+  'ready', 'speech_started', 'speech_stopped', 'response_done',
+  'input_transcript_delta', 'input_transcript_completed',
+  'output_transcript_delta', 'output_transcript_completed',
+])
+
+export function translateGeminiSocketMessage(message: Record<string, unknown>): GeminiSocketAction {
+  if (message.type === 'audio' && typeof message.data === 'string') {
+    return { kind: 'audio', data: message.data }
+  }
+  if (message.type === 'interrupted') return { kind: 'interrupted' }
+  if (message.type === 'provider_retry') return { kind: 'reconnecting' }
+  if (message.type === 'fallback_required') return { kind: 'fallback' }
+  if (message.type === 'error') {
+    return { kind: 'error', error: typeof message.error === 'string' ? message.error : 'Live voice error' }
+  }
+  if (typeof message.type === 'string' && STABLE_EVENT_TYPES.has(message.type)) {
+    return {
+      kind: 'event',
+      event: { type: message.type, text: typeof message.text === 'string' ? message.text : '' } as LiveEvent,
+    }
+  }
+  return { kind: 'ignore' }
 }
 
-export class RealtimeVoiceClient {
+type ClientOptions = {
+  token: string
+  onEvent: (event: LiveEvent) => void
+  onVolume?: (volume: number) => void
+  onFallback?: () => void
+}
+
+export class GeminiLiveClient {
   private socket: WebSocket | null = null
   private stream: MediaStream | null = null
   private audioContext: AudioContext | null = null
@@ -68,7 +100,7 @@ export class RealtimeVoiceClient {
       const socket = new WebSocket(realtimeWebSocketUrl())
       this.socket = socket
       socket.onopen = () => {
-        socket.send(JSON.stringify({ type: 'setup', token: this.options.token, voice: this.options.voice || 'marin' }))
+        socket.send(JSON.stringify({ type: 'setup', token: this.options.token }))
         resolve()
       }
       socket.onerror = () => reject(new Error('Live voice connection failed'))
@@ -114,24 +146,24 @@ export class RealtimeVoiceClient {
   private handleSocketMessage(raw: string): void {
     let message: Record<string, unknown>
     try { message = JSON.parse(raw) } catch { return }
-    if (message.type === 'audio' && typeof message.data === 'string') {
-      this.worklet?.port.postMessage({ type: 'playback', samples: base64ToPcm16(message.data) })
+    const action = translateGeminiSocketMessage(message)
+    if (action.kind === 'audio') {
+      this.worklet?.port.postMessage({ type: 'playback', samples: base64ToPcm16(action.data) })
       this.options.onEvent({ type: 'audio' })
-      return
-    }
-    if (message.type === 'speech_started') this.worklet?.port.postMessage({ type: 'stop' })
-    if (message.type === 'error') {
+    } else if (action.kind === 'interrupted') {
+      this.worklet?.port.postMessage({ type: 'stop' })
+      this.options.onEvent({ type: 'speech_started' })
+    } else if (action.kind === 'reconnecting') {
+      this.options.onEvent({ type: 'reconnecting' } as LiveEvent)
+    } else if (action.kind === 'fallback') {
       this.receivedServerError = true
-      this.options.onEvent({ type: 'error', error: typeof message.error === 'string' ? message.error : 'Live voice error' })
-      return
-    }
-    const eventTypes = new Set([
-      'ready', 'speech_started', 'speech_stopped', 'response_done',
-      'input_transcript_delta', 'input_transcript_completed',
-      'output_transcript_delta', 'output_transcript_completed',
-    ])
-    if (typeof message.type === 'string' && eventTypes.has(message.type)) {
-      this.options.onEvent({ type: message.type, text: typeof message.text === 'string' ? message.text : '' } as LiveEvent)
+      this.options.onFallback?.()
+    } else if (action.kind === 'error') {
+      this.receivedServerError = true
+      this.options.onEvent({ type: 'error', error: action.error })
+    } else if (action.kind === 'event') {
+      if (action.event.type === 'speech_started') this.worklet?.port.postMessage({ type: 'stop' })
+      this.options.onEvent(action.event)
     }
   }
 }
