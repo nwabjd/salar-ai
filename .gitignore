@@ -12,3 +12,4 @@ backend/data/
 .env.*.local
 dist/
 *.log
+.worktrees/
