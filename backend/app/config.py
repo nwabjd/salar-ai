@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     max_upload_mb: int = 25
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-3.1-flash-lite"
+    gemini_live_model: str = "gemini-3.1-flash-live-preview"
     openai_api_key: Optional[str] = None
     openai_realtime_model: str = "gpt-realtime"
     public_api_url: str = "https://api.salar.example.com"
