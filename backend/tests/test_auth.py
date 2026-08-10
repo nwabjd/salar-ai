@@ -45,6 +45,15 @@ def test_first_login_admin_from_admin_emails(client, supabase_token):
     assert profile.json()["is_admin"] is True
 
 
+def test_only_approved_email_is_admin(client, supabase_token):
+    for email in ("admin@example.com", "owner@example.com", "nwabjd+alias@gmail.com"):
+        response = client.post("/api/auth/supabase", json={"token": supabase_token(email=email, sub=f"sub-{email}")})
+        assert response.status_code == 200
+        profile = client.get("/api/auth/me", headers={"Authorization": f"Bearer {response.json()['access_token']}"})
+        assert profile.status_code == 200
+        assert profile.json()["is_admin"] is False
+
+
 def test_existing_user_demoted_when_not_admin_email(client, supabase_token):
     response = client.post("/api/auth/supabase", json={"token": supabase_token(email="admin@example.com")})
 
