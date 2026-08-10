@@ -10,7 +10,10 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
     this.playbackIndex = 0
     this.wasPlaying = false
     this.port.onmessage = ({ data }) => {
-      if (data.type === 'playback' && data.samples) this.playback.push(this.resample(data.samples, this.playbackRate, sampleRate))
+      if (data.type === 'playback' && data.samples) {
+        const playbackSamples = this.pcm16ToFloat(data.samples)
+        this.playback.push(this.resample(playbackSamples, this.playbackRate, sampleRate))
+      }
       if (data.type === 'stop') {
         this.playback = []
         this.playbackIndex = 0
@@ -68,6 +71,14 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
       this.wasPlaying = false
       this.port.postMessage({ type: 'playback_drained' })
     }
+  }
+
+  pcm16ToFloat(input) {
+    const output = new Float32Array(input.length)
+    for (let index = 0; index < input.length; index += 1) {
+      output[index] = Math.max(-1, input[index] / 32768)
+    }
+    return output
   }
 
   resample(input, fromRate, toRate) {
