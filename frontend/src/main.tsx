@@ -5,28 +5,40 @@ import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
 import Strands from './effects/Strands.jsx'
 import { AccessState, clearSession, saveSession, storedSession } from './access'
-import { supabase } from './lib/supabase'
+import { createSessionCoordinator } from './auth/session-coordinator'
+import { cleanAuthFromUrl, supabase } from './lib/supabase'
 import { Conversation, Message, SalarApi } from './api'
 import { PricingPage } from './components/PricingPage'
 import './theme.css'
 import './styles.css'
 import './landing.css'
+import './cosmic-landing.css'
 import SalaarLanding from './components/SalaarLanding'
 
 const api = new SalarApi()
 
-async function reBridgeIfPossible(): Promise<boolean> {
-  if (!supabase) return false
-  try {
-    const { data } = await supabase.auth.getSession()
-    if (!data.session?.access_token) return false
-    const result = await api.supabaseLogin(data.session.access_token)
-    await saveSession(result.access_token)
-    return true
-  } catch {
-    return false
-  }
-}
+const sessionCoordinator = createSessionCoordinator({
+  loadBackendToken: storedSession,
+  saveBackendToken: saveSession,
+  clearBackendToken: async () => { await clearSession(); api.token = '' },
+  validateBackendToken: async (token) => {
+    api.token = token
+    try { await api.validateSession(); return true } catch { return false }
+  },
+  getSupabaseToken: async () => {
+    if (!supabase) return null
+    const { data, error } = await supabase.auth.getSession()
+    if (error) {
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined)
+      return null
+    }
+    return data.session?.access_token || null
+  },
+  exchangeSupabaseToken: async (token) => {
+    const result = await api.supabaseLogin(token)
+    return result.access_token
+  },
+})
 
 type Usage = { plan: string; limit: number | null; used: number; reset_at: string; exempt: boolean }
 
@@ -44,26 +56,29 @@ function App() {
   const [usage, setUsage] = useState<Usage | null>(null)
   const [showPricing, setShowPricing] = useState(false)
 
+  const enterApp = useCallback(async (supabaseToken?: string | null) => {
+    const result = await sessionCoordinator.connect(supabaseToken)
+    if (result.status === 'connected') {
+      api.token = result.token
+      setAccess('connected')
+      return true
+    }
+    setAccess('signed-out')
+    return false
+  }, [])
+
   useEffect(() => { const timer = setTimeout(() => setReady(true), 800); return () => clearTimeout(timer) }, [])
 
   useEffect(() => {
     let stopped = false
-    storedSession().then(async token => {
+    sessionCoordinator.connect().then(result => {
       if (stopped) return
-      if (!token) { setAccess('signed-out'); return }
-      api.token = token
-      try {
-        await api.validateSession()
-        if (!stopped) setAccess('connected')
-      } catch {
-        const healed = await reBridgeIfPossible()
-        if (stopped) return
-        if (healed) {
-          setAccess('connected')
-        } else {
-          await clearSession(); api.token = ''
-          setAccess('signed-out')
-        }
+      cleanAuthFromUrl()
+      if (result.status === 'connected') {
+        api.token = result.token
+        setAccess('connected')
+      } else {
+        setAccess('signed-out')
       }
     })
     return () => { stopped = true }
@@ -89,9 +104,10 @@ function App() {
       } catch (reason) {
         const msg = String(reason)
         if (msg.includes('401') || msg.includes('Authentication') || msg.includes('invalid') || msg.includes('expired')) {
-          const healed = await reBridgeIfPossible()
+          const healed = await sessionCoordinator.connect()
           if (stopped) return
-          if (healed) {
+          if (healed.status === 'connected') {
+            api.token = healed.token
             failures = 0
           } else if (++failures >= 2) {
             await clearSession(); api.token = ''
@@ -115,7 +131,7 @@ function App() {
   }
 
   if (!ready) return <Loader/>
-  if (access !== 'connected') return <SalaarLanding onEnterApp={() => setAccess('connected')}/>
+  if (access !== 'connected') return <SalaarLanding onEnterApp={enterApp}/>
 
   return <><main className={`app-shell${live ? ' live-open' : ''}`}>
     <div className="liquid-stage"><LiquidEther colors={['#5227FF','#FF9FFC','#B497CF']} mouseForce={20} cursorSize={100} isViscous={false} viscous={30} iterationsViscous={32} iterationsPoisson={32} resolution={0.5} isBounce={false} autoDemo autoSpeed={0.5} autoIntensity={2.2} takeoverDuration={0.25} autoResumeDelay={3000} autoRampDuration={0.6}/></div>

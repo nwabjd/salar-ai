@@ -1,7 +1,7 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties } from "react";
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { cleanAuthFromUrl, isSupabaseConfigured, supabase } from "../lib/supabase";
 import { api } from "../api";
-import { saveSession } from "../access";
+import CosmicIntelligence from "./CosmicIntelligence";
 import OnboardingWizard from "./OnboardingWizard";
 
 type AuthStep = "choice" | "email" | "otp" | "preview" | "profile" | "companion" | "complete";
@@ -103,6 +103,12 @@ function MicrosoftIcon() {
   );
 }
 
+const capabilities = [
+  { icon: <Icon.Brain />, title: "Learns your rhythm", text: "Salaar understands your habits, priorities and working style to become more helpful every day." },
+  { icon: <Icon.Orbit />, title: "Connects your world", text: "Bring tasks, ideas, schedules and devices into one intelligent personal command center." },
+  { icon: <Icon.Shield />, title: "Private by design", text: "Clear permission controls keep you in charge of what Salaar can see, remember and do." },
+];
+
 function PriceCard({
   name,
   price,
@@ -169,24 +175,6 @@ function PriceCard({
   );
 }
 
-const capabilities = [
-  {
-    icon: <Icon.Brain />,
-    title: "Learns your rhythm",
-    text: "Salaar understands your habits, priorities and working style to become more helpful every day.",
-  },
-  {
-    icon: <Icon.Orbit />,
-    title: "Connects your world",
-    text: "Bring tasks, ideas, schedules and devices into one intelligent personal command center.",
-  },
-  {
-    icon: <Icon.Shield />,
-    title: "Private by design",
-    text: "Clear permission controls keep you in charge of what Salaar can see, remember and do.",
-  },
-];
-
 const companions: Array<{ id: CompanionId; name: string; eyebrow: string; copy: string; traits: string[] }> = [
   {
     id: "navigator",
@@ -222,18 +210,7 @@ function attachWalletAddress(user: {
   }
 }
 
-async function bridgeToBackend(session: { access_token?: string | null } | null): Promise<boolean> {
-  if (!session?.access_token) return false;
-  try {
-    const result = await api.supabaseLogin(session.access_token);
-    await saveSession(result.access_token);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void }) {
+export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseToken?: string | null) => Promise<boolean> }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [step, setStep] = useState<AuthStep>("choice");
@@ -244,6 +221,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
   const [useCase, setUseCase] = useState("Everyday productivity");
   const [selectedCompanion, setSelectedCompanion] = useState<CompanionId>("navigator");
   const [busy, setBusy] = useState(false);
+  const [entryBusy, setEntryBusy] = useState(false);
   const [pricingBusyId, setPricingBusyId] = useState<string>("");
   const [choosingPriceId, setChoosingPriceId] = useState<string>("");
   const [pricingError, setPricingError] = useState<string>("");
@@ -281,16 +259,15 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
     async function handleSession(session: { user?: any; access_token?: string | null } | null) {
       const user = session?.user;
       if (!user || !session?.access_token) return;
+      cleanAuthFromUrl();
       attachWalletAddress(user);
       setEmail(user.email ?? "");
       setFirstName((user.user_metadata?.first_name as string) ?? "");
       setLastName((user.user_metadata?.last_name as string) ?? "");
       if (user.user_metadata?.onboarding_complete) {
-        const bridged = await bridgeToBackend(session);
+        const bridged = await onEnterApp?.(session.access_token);
         if (!mounted) return;
-        if (bridged) {
-          onEnterApp?.();
-        } else {
+        if (!bridged) {
           setError("Signed in, but the Salaar backend could not be reached. Please try again in a moment.");
         }
         return;
@@ -299,7 +276,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
       setModalOpen(true);
     }
 
-    supabase.auth.getSession().then(({ data }) => { void handleSession(data.session) });
+    supabase.auth.getSession().then(({ data }) => { cleanAuthFromUrl(); void handleSession(data.session) });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => { void handleSession(session) });
 
     return () => { mounted = false; data.subscription.unsubscribe(); };
@@ -321,6 +298,14 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
     setStep("choice");
     setModalOpen(true);
     setMenuOpen(false);
+  }
+
+  async function handleEnterApp() {
+    if (entryBusy) return;
+    setEntryBusy(true);
+    const entered = await onEnterApp?.();
+    if (!entered) launchSignup();
+    setEntryBusy(false);
   }
 
   const PLAN_NAMES: Record<string, string> = { price_free: "Free", price_pro: "Pro", price_team: "Team" };
@@ -483,9 +468,9 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
       return;
     }
     const { data } = await supabase.auth.getSession();
-    await bridgeToBackend(data.session);
+    cleanAuthFromUrl();
     if (data.session?.user?.user_metadata?.onboarding_complete) {
-      onEnterApp?.();
+      await onEnterApp?.(data.session.access_token);
       setBusy(false);
       return;
     }
@@ -574,30 +559,77 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
 
   return (
     <div id="salar-landing" ref={shellRef}>
-      <main className="site-shell">
+      <main className="site-shell cosmic-site">
+        <CosmicIntelligence scrollRoot={shellRef} />
+        <div className="cosmic-grain" aria-hidden="true" />
+        <div className="cosmic-vignette" aria-hidden="true" />
         <div className="cursor-aura" aria-hidden="true" />
         <div className="noise" aria-hidden="true" />
         {error && <div className="landing-notice" role="alert">{error}</div>}
 
-        <header className="topbar">
+        <header className="topbar cosmic-topbar">
           <a href="#top" className="brand" aria-label="Salaar home">
-            <span className="brand-mark">S</span>
-            <span>SALAAR</span>
+            <span className="cosmic-brand-mark"><i /><i /><i /></span>
+            <span>SALAR</span>
           </a>
           <nav className={menuOpen ? "nav-links open" : "nav-links"} aria-label="Main navigation">
-            <a href="#experience" onClick={() => setMenuOpen(false)}>Experience</a>
-            <a href="#capabilities" onClick={() => setMenuOpen(false)}>Capabilities</a>
+            <a href="#experience" onClick={() => setMenuOpen(false)}>Voice</a>
+            <a href="#capabilities" onClick={() => setMenuOpen(false)}>Intelligence</a>
             <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
             <a href="#privacy" onClick={() => setMenuOpen(false)}>Privacy</a>
-            {onEnterApp && <button className="enter-app-button" onClick={onEnterApp}>Enter SALAR</button>}
-            <button className="nav-cta" onClick={launchSignup}>Get Salaar <Icon.Arrow size={16} /></button>
+            {onEnterApp && <button className="enter-app-button" onClick={() => void handleEnterApp()} disabled={entryBusy}>{entryBusy ? "Checking…" : "Open SALAR"}</button>}
+            <button className="nav-cta" onClick={launchSignup}>Meet SALAR <Icon.Arrow size={16} /></button>
           </nav>
           <button className="menu-button" onClick={() => setMenuOpen((value) => !value)} aria-label="Toggle navigation">
             {menuOpen ? <Icon.Close /> : <Icon.Menu />}
           </button>
         </header>
 
-        <section className="hero" id="top">
+        <section className="cosmic-hero" id="top">
+          <div className="cosmic-hero-copy">
+            <div className="cosmic-kicker reveal-up"><span /> Private intelligence / continuously yours</div>
+            <h1 className="reveal-up delay-1" aria-label="One intelligence that remembers">One intelligence<br />that <em>remembers.</em></h1>
+            <div className="cosmic-verb-row reveal-up delay-2"><span>Reasons.</span><i /><span>Acts.</span></div>
+            <p className="cosmic-lede reveal-up delay-2">SALAR turns your conversations, context, and connected world into forward motion&mdash;one private intelligence that grows with you.</p>
+            <div className="cosmic-actions reveal-up delay-3">
+              <button className="primary-button" onClick={launchSignup}>Meet your SALAR <Icon.Arrow /></button>
+              <a className="cosmic-text-link" href="#experience">Enter the intelligence <span>&darr;</span></a>
+            </div>
+          </div>
+          <div className="cosmic-hero-index" aria-hidden="true"><span>00</span><i /><span>03</span></div>
+          <div className="cosmic-scroll-cue" aria-hidden="true"><span>Scroll to evolve</span><i /></div>
+        </section>
+
+        <section className="cosmic-chapter voice-chapter" id="experience" data-reveal>
+          <div className="chapter-copy">
+            <span className="chapter-index">01 / Live presence</span>
+            <h2>Voice-first companion.</h2>
+            <p>Speak naturally. SALAR listens, understands the context behind your words, and stays with the thread from thought to action.</p>
+            <div className="voice-status"><i /><span>Listening across your context</span><b>LIVE</b></div>
+          </div>
+          <div className="chapter-rail" aria-hidden="true"><span>Natural voice</span><span>Continuous context</span><span>Instant action</span></div>
+        </section>
+
+        <section className="cosmic-chapter command-chapter" id="capabilities" data-reveal>
+          <div className="chapter-copy">
+            <span className="chapter-index">02 / Connected intelligence</span>
+            <h2>Your private command center.</h2>
+            <p>Memory, knowledge, calendar, tasks, automations, and connected devices move as one system&mdash;with you in control.</p>
+            <div className="command-nodes" aria-label="Connected SALAR capabilities">
+              <span>Memory</span><span>Knowledge</span><span>Calendar</span><span>Tasks</span><span>Devices</span><span>Automations</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="cosmic-trust" id="privacy" data-reveal>
+          <span className="chapter-index">03 / Private by architecture</span>
+          <h2>Your world stays yours.</h2>
+          <p>Explicit permissions. Editable memory. Connections you can inspect and revoke. SALAR is designed around your control.</p>
+          <div className="trust-spectrum"><span><Icon.Shield /> Permission-based</span><span><Icon.Check /> Memory controls</span><span><Icon.Orbit /> Cross-device</span></div>
+        </section>
+
+        <div className="legacy-marketing" aria-hidden="true">
+        <section className="hero" id="legacy-top">
           <div className="hero-copy">
             <div className="eyebrow reveal-up"><span className="eyebrow-dot" /> A personal intelligence, built around you</div>
             <h1 className="reveal-up delay-1">Meet the AI that<br /><span>moves life forward.</span></h1>
@@ -650,7 +682,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
           </div>
         </section>
 
-        <section className="experience section" id="experience">
+        <section className="experience section" id="legacy-experience">
           <div className="section-heading" data-reveal>
             <span className="section-kicker">A new kind of relationship</span>
             <h2>Not another app.<br /><em>Your other mind.</em></h2>
@@ -690,7 +722,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
           </div>
         </section>
 
-        <section className="capabilities section" id="capabilities">
+        <section className="capabilities section" id="legacy-capabilities">
           <div className="section-heading centered" data-reveal>
             <span className="section-kicker">One companion. Many roles.</span>
             <h2>Intelligence that fits<br /><em>the moment.</em></h2>
@@ -708,7 +740,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
           </div>
         </section>
 
-        <section className="privacy section" id="privacy">
+        <section className="privacy section" id="legacy-privacy">
           <div className="privacy-visual" data-reveal>
             <div className="shield-rings"><i /><i /><i /></div>
             <div className="shield-core"><Icon.Shield size={52} /></div>
@@ -728,7 +760,9 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
           </div>
         </section>
 
-        <section className="pricing section" id="pricing" data-reveal>
+        </div>
+
+        <section className="pricing section cosmic-pricing" id="pricing" data-reveal>
           <span className="section-kicker reveal-up">Simple, transparent pricing</span>
           <h2 className="reveal-up delay-1">One companion. <br /><span>Plan that fits your life.</span></h2>
           <p className="pricing-lede reveal-up delay-2">
@@ -795,7 +829,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
           <p>Personal intelligence for a life in motion.</p>
           <div className="footer-links">
             <a href="#privacy">Privacy</a><a href="#capabilities">Capabilities</a>
-            {onEnterApp && <button onClick={onEnterApp}>Enter SALAR app</button>}
+            {onEnterApp && <button onClick={() => void handleEnterApp()} disabled={entryBusy}>Enter SALAR app</button>}
             <button onClick={launchSignup}>Create account</button>
           </div>
           <span className="copyright">© {new Date().getFullYear()} Salaar AI</span>
@@ -924,7 +958,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: () => void 
              </section>
 
              {onboardingStarted && (
-               <OnboardingWizard onComplete={() => { setModalOpen(false); onEnterApp?.(); }} />
+                <OnboardingWizard onComplete={() => { setModalOpen(false); void onEnterApp?.(); }} />
              )}
            </div>
          )}
