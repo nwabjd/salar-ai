@@ -2,60 +2,47 @@ import jwt
 import pytest
 from fastapi import HTTPException
 
-from app.api.live import (
-    _build_session_update,
-    _openai_headers,
-    _openai_realtime_url,
-    _translate_openai_event,
-)
+from app.api.live import _translate_provider_event
 from app.config import Settings
 from app.security import decode_backend_token
+from app.services.gemini_live import build_setup
 
 
-def test_realtime_settings_are_server_side():
-    settings = Settings(openai_api_key='server-secret', openai_realtime_model='gpt-realtime')
-    assert settings.openai_api_key == 'server-secret'
-    assert settings.openai_realtime_model == 'gpt-realtime'
-
-
-def test_session_update_uses_native_audio_semantic_vad_and_noise_reduction():
-    message = _build_session_update('gpt-realtime', 'marin')
-    session = message['session']
-    assert session['output_modalities'] == ['audio']
-    assert session['audio']['input']['format'] == {'type': 'audio/pcm', 'rate': 24000}
-    assert session['audio']['input']['noise_reduction'] == {'type': 'far_field'}
-    assert session['audio']['input']['turn_detection'] == {
-        'type': 'semantic_vad',
-        'eagerness': 'low',
-        'create_response': True,
-        'interrupt_response': True,
-    }
-    assert session['audio']['output']['voice'] == 'marin'
-    assert 'model' not in session
-
-
-def test_ga_realtime_connection_does_not_request_retired_beta_shape():
-    assert _openai_realtime_url('gpt-realtime') == (
-        'wss://api.openai.com/v1/realtime?model=gpt-realtime'
+def test_live_settings_use_server_side_gemini_configuration():
+    settings = Settings(
+        gemini_api_key='server-secret',
+        gemini_live_model='gemini-3.1-flash-live-preview',
     )
-    assert _openai_headers('server-secret') == {
-        'Authorization': 'Bearer server-secret',
-    }
+    assert settings.gemini_api_key == 'server-secret'
+    assert settings.gemini_live_model == 'gemini-3.1-flash-live-preview'
+
+
+def test_live_setup_uses_configured_gemini_model():
+    message = build_setup('gemini-3.1-flash-live-preview', 'Kore')
+    assert message['setup']['model'] == 'models/gemini-3.1-flash-live-preview'
+    assert 'OpenAI-Beta' not in str(message)
+
+
+def test_retryable_gemini_error_is_sanitized_for_browser():
+    assert _translate_provider_event({
+        'error': {
+            'code': 503,
+            'status': 'UNAVAILABLE',
+            'message': 'private upstream detail',
+        }
+    }) == [{'type': 'provider_retry', 'error': 'Live voice is reconnecting'}]
 
 
 @pytest.mark.parametrize(
     ('source', 'expected'),
     [
-        ({'type': 'input_audio_buffer.speech_started'}, {'type': 'speech_started'}),
-        ({'type': 'input_audio_buffer.speech_stopped'}, {'type': 'speech_stopped'}),
-        ({'type': 'response.output_audio.delta', 'delta': 'AAA='}, {'type': 'audio', 'data': 'AAA='}),
-        ({'type': 'response.output_audio_transcript.delta', 'delta': 'Hello'}, {'type': 'output_transcript_delta', 'text': 'Hello'}),
-        ({'type': 'conversation.item.input_audio_transcription.completed', 'transcript': 'Hi'}, {'type': 'input_transcript_completed', 'text': 'Hi'}),
-        ({'type': 'response.done'}, {'type': 'response_done'}),
+        ({'setupComplete': {}}, [{'type': 'ready'}]),
+        ({'serverContent': {'interrupted': True}}, [{'type': 'interrupted'}]),
+        ({'serverContent': {'generationComplete': True}}, [{'type': 'response_done'}]),
     ],
 )
-def test_openai_events_are_translated_to_stable_browser_events(source, expected):
-    assert _translate_openai_event(source) == expected
+def test_gemini_events_are_translated_to_stable_browser_events(source, expected):
+    assert _translate_provider_event(source) == expected
 
 
 def test_backend_token_decoder_rejects_expired_or_invalid_tokens():

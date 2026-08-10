@@ -3,90 +3,58 @@ import json
 import logging
 from contextlib import suppress
 from typing import Optional
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 
 from ..models import User
 from ..security import decode_backend_token
+from ..services.gemini_live import (
+    build_audio_input,
+    build_setup,
+    build_text_input,
+    classify_gemini_error,
+    gemini_live_url,
+    translate_server_message,
+)
 
 log = logging.getLogger(__name__)
 router = APIRouter()
 
-OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime"
-ALLOWED_VOICES = {"marin", "cedar"}
-
-SYSTEM_PROMPT = """You are SALAR, a warm, concise personal AI companion in a live voice conversation.
-Speak naturally and respond with audio. Usually answer in one to three sentences unless the user asks for detail.
-Do not claim an action was completed unless it actually was. If tools are unavailable, say so plainly.
-Keep the conversation flowing, but never interrupt the user."""
-
-
-def _build_session_update(model: str, voice: str = "marin") -> dict:
-    selected_voice = voice if voice in ALLOWED_VOICES else "marin"
-    return {
-        "type": "session.update",
-        "session": {
-            "type": "realtime",
-            "instructions": SYSTEM_PROMPT,
-            "output_modalities": ["audio"],
-            "audio": {
-                "input": {
-                    "format": {"type": "audio/pcm", "rate": 24000},
-                    "noise_reduction": {"type": "far_field"},
-                    "transcription": {"model": "gpt-4o-mini-transcribe"},
-                    "turn_detection": {
-                        "type": "semantic_vad",
-                        "eagerness": "low",
-                        "create_response": True,
-                        "interrupt_response": True,
-                    },
-                },
-                "output": {
-                    "format": {"type": "audio/pcm", "rate": 24000},
-                    "voice": selected_voice,
-                },
-            },
-            "max_output_tokens": 1024,
-        },
-    }
+READY = {"type": "ready"}
+RETRYING = {"type": "provider_retry", "error": "Live voice is reconnecting"}
+FALLBACK = {"type": "fallback_required", "error": "Switching voice connection"}
+NOT_CONFIGURED = {
+    "type": "error",
+    "error": "Live voice is not configured",
+    "code": "not_configured",
+}
 
 
-def _openai_realtime_url(model: str) -> str:
-    return f"{OPENAI_REALTIME_URL}?{urlencode({'model': model})}"
+class _GeminiReconnect(Exception):
+    def __init__(self, handle: str = ""):
+        super().__init__("Gemini Live reconnect requested")
+        self.handle = handle
 
 
-def _openai_headers(api_key: str) -> dict[str, str]:
-    # The GA Realtime API rejects the retired `OpenAI-Beta: realtime=v1`
-    # protocol shape with `invalid_request_error.beta_api_shape_disabled`.
-    return {"Authorization": f"Bearer {api_key}"}
-
-
-def _translate_openai_event(message: dict) -> Optional[dict]:
-    event_type = message.get("type")
-    translations = {
-        "session.updated": {"type": "ready"},
-        "input_audio_buffer.speech_started": {"type": "speech_started"},
-        "input_audio_buffer.speech_stopped": {"type": "speech_stopped"},
-        "response.done": {"type": "response_done"},
-    }
-    if event_type in translations:
-        return translations[event_type]
-    if event_type in {"response.output_audio.delta", "response.audio.delta"}:
-        return {"type": "audio", "data": message.get("delta", "")}
-    if event_type in {"response.output_audio_transcript.delta", "response.audio_transcript.delta"}:
-        return {"type": "output_transcript_delta", "text": message.get("delta", "")}
-    if event_type in {"response.output_audio_transcript.done", "response.audio_transcript.done"}:
-        return {"type": "output_transcript_completed", "text": message.get("transcript", "")}
-    if event_type == "conversation.item.input_audio_transcription.delta":
-        return {"type": "input_transcript_delta", "text": message.get("delta", "")}
-    if event_type == "conversation.item.input_audio_transcription.completed":
-        return {"type": "input_transcript_completed", "text": message.get("transcript", "")}
-    if event_type == "error":
-        error = message.get("error") or {}
-        return {"type": "error", "error": "Realtime service error", "code": error.get("code", "upstream_error")}
-    return None
+def _translate_provider_event(message: dict) -> list[dict]:
+    if "setupComplete" in message:
+        return [READY]
+    error = message.get("error") or {}
+    if error:
+        try:
+            status = int(error.get("code") or 0)
+        except (TypeError, ValueError):
+            status = 0
+        code = str(error.get("status") or "UNKNOWN")
+        if classify_gemini_error(status, code) == "retryable":
+            return [RETRYING]
+        return [{
+            "type": "error",
+            "error": "Live voice configuration failed",
+            "code": "configuration",
+        }]
+    return translate_server_message(message)
 
 
 def _authenticated_user(websocket: WebSocket, token: str) -> Optional[User]:
@@ -98,47 +66,82 @@ def _authenticated_user(websocket: WebSocket, token: str) -> Optional[User]:
         return db.scalar(select(User).where(User.id == user_id))
 
 
-async def _proxy_openai(client_ws: WebSocket, upstream, model: str, voice: str) -> None:
-    await upstream.send(json.dumps(_build_session_update(model, voice)))
+async def _proxy_gemini(
+    client_ws: WebSocket,
+    upstream,
+    model: str,
+    resume_handle: str = "",
+) -> str:
+    await upstream.send(json.dumps(build_setup(model, "Kore", resume_handle)))
+    latest_handle = resume_handle
+    input_transcript = ""
+    output_transcript = ""
 
-    async def forward_to_openai() -> None:
+    async def forward_to_gemini() -> None:
         while True:
             message = json.loads(await client_ws.receive_text())
             message_type = message.get("type")
             if message_type == "audio" and isinstance(message.get("data"), str):
-                await upstream.send(json.dumps({"type": "input_audio_buffer.append", "audio": message["data"]}))
-            elif message_type == "text" and isinstance(message.get("text"), str) and message["text"].strip():
-                await upstream.send(json.dumps({
-                    "type": "conversation.item.create",
-                    "item": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": message["text"].strip()}]},
-                }))
-                await upstream.send(json.dumps({"type": "response.create"}))
-            elif message_type == "cancel_response":
-                await upstream.send(json.dumps({"type": "response.cancel"}))
+                await upstream.send(json.dumps(build_audio_input(message["data"])))
+            elif (
+                message_type == "text"
+                and isinstance(message.get("text"), str)
+                and message["text"].strip()
+            ):
+                await upstream.send(json.dumps(build_text_input(message["text"])))
 
     async def forward_to_client() -> None:
+        nonlocal latest_handle, input_transcript, output_transcript
         async for raw in upstream:
             source = json.loads(raw)
-            translated = _translate_openai_event(source)
-            if translated:
-                await client_ws.send_json(translated)
-            if source.get("type") == "error":
-                error = source.get("error") or {}
-                log.error(
-                    "OpenAI Realtime event error type=%s code=%s",
-                    error.get("type", "unknown"),
-                    error.get("code", "upstream_error"),
-                )
-                return
+            for event in _translate_provider_event(source):
+                event_type = event.get("type")
+                if event_type == "resumption":
+                    latest_handle = event.get("handle", "")
+                    continue
+                if event_type == "go_away":
+                    raise _GeminiReconnect(latest_handle)
+                if event_type == "provider_retry":
+                    error = source.get("error") or {}
+                    log.warning(
+                        "Gemini Live retryable error status=%s code=%s",
+                        error.get("code", "unknown"),
+                        error.get("status", "unknown"),
+                    )
+                    raise _GeminiReconnect(latest_handle)
+                if event_type == "input_transcript_delta":
+                    input_transcript += event.get("text", "")
+                elif event_type == "output_transcript_delta":
+                    output_transcript += event.get("text", "")
+                elif event_type == "interrupted":
+                    output_transcript = ""
+                elif event_type == "response_done":
+                    if input_transcript.strip():
+                        await client_ws.send_json({
+                            "type": "input_transcript_completed",
+                            "text": input_transcript.strip(),
+                        })
+                        input_transcript = ""
+                    if output_transcript.strip():
+                        await client_ws.send_json({
+                            "type": "output_transcript_completed",
+                            "text": output_transcript.strip(),
+                        })
+                        output_transcript = ""
+                await client_ws.send_json(event)
+        raise _GeminiReconnect(latest_handle)
 
-    tasks = [asyncio.create_task(forward_to_openai()), asyncio.create_task(forward_to_client())]
+    tasks = [
+        asyncio.create_task(forward_to_gemini()),
+        asyncio.create_task(forward_to_client()),
+    ]
     done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     for task in pending:
         task.cancel()
     await asyncio.gather(*pending, return_exceptions=True)
     for task in done:
-        with suppress(WebSocketDisconnect, asyncio.CancelledError):
-            task.result()
+        task.result()
+    return latest_handle
 
 
 @router.websocket("/ws/live")
@@ -154,29 +157,50 @@ async def live_ws(websocket: WebSocket):
         if user is None:
             raise HTTPException(status_code=401, detail="User not found")
     except (HTTPException, ValueError, asyncio.TimeoutError):
-        await websocket.send_json({"type": "error", "error": "Authentication required", "code": "unauthorized"})
+        await websocket.send_json({
+            "type": "error",
+            "error": "Authentication required",
+            "code": "unauthorized",
+        })
         await websocket.close(code=1008)
         return
 
-    if not settings.openai_api_key:
-        await websocket.send_json({"type": "error", "error": "Live voice is not configured", "code": "not_configured"})
+    if not settings.gemini_api_key:
+        await websocket.send_json(NOT_CONFIGURED)
         await websocket.close(code=1011)
         return
 
-    voice = setup.get("voice", "marin")
+    resume_handle = ""
     try:
         import websockets
 
-        headers = _openai_headers(settings.openai_api_key)
-        url = _openai_realtime_url(settings.openai_realtime_model)
-        async with websockets.connect(url, extra_headers=headers, max_size=2**22) as upstream:
-            await _proxy_openai(websocket, upstream, settings.openai_realtime_model, voice)
-    except WebSocketDisconnect:
-        log.info("Live client disconnected")
-    except Exception:
-        log.exception("OpenAI Realtime connection failed")
-        with suppress(Exception):
-            await websocket.send_json({"type": "error", "error": "Live voice connection failed", "code": "upstream_unavailable"})
+        for attempt in range(2):
+            try:
+                url = gemini_live_url(settings.gemini_api_key)
+                async with websockets.connect(url, max_size=2**22) as upstream:
+                    resume_handle = await _proxy_gemini(
+                        websocket,
+                        upstream,
+                        settings.gemini_live_model,
+                        resume_handle,
+                    )
+                return
+            except _GeminiReconnect as exc:
+                resume_handle = exc.handle or resume_handle
+                if attempt == 0:
+                    await websocket.send_json(RETRYING)
+                    continue
+                await websocket.send_json(FALLBACK)
+                return
+            except WebSocketDisconnect:
+                return
+            except Exception as exc:
+                log.warning("Gemini Live connection attempt %d failed: %s", attempt + 1, type(exc).__name__)
+                if attempt == 0:
+                    await websocket.send_json(RETRYING)
+                    continue
+                await websocket.send_json(FALLBACK)
+                return
     finally:
         with suppress(Exception):
             await websocket.close()
