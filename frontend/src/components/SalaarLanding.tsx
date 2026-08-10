@@ -589,6 +589,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
           <nav className={menuOpen ? "nav-links open" : "nav-links"} aria-label="Main navigation">
             <a href="#experience" onClick={() => setMenuOpen(false)}>Voice</a>
             <a href="#capabilities" onClick={() => setMenuOpen(false)}>Intelligence</a>
+            <a href="#download" onClick={() => setMenuOpen(false)}>Get SALAR</a>
             <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
             <a href="#privacy" onClick={() => setMenuOpen(false)}>Privacy</a>
             {onEnterApp && <button className="enter-app-button" onClick={() => void handleEnterApp()} disabled={entryBusy}>{entryBusy ? "Checking…" : "Open SALAR"}</button>}
@@ -776,6 +777,34 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
 
         </div>}
 
+        <section className="download-section section" id="download" data-reveal>
+          <div className="download-heading">
+            <span className="chapter-index">04 / Available everywhere</span>
+            <h2>SALAR, closer<br />to your world.</h2>
+            <p>Install the complete SALAR experience on Windows. Your conversations, memory, Live voice, and connected tools stay in sync with salaar.cloud.</p>
+          </div>
+          <div className="platform-grid" aria-label="SALAR app availability">
+            <article className="platform-card platform-ready">
+              <div className="platform-top"><span className="platform-icon">WIN</span><span className="platform-status available">Available now</span></div>
+              <h3>Windows</h3>
+              <p>Native desktop app for Windows 10 and 11. Installs for your account without administrator access.</p>
+              <a className="platform-download" href="/downloads/SALAR-Setup.exe" download>Download for Windows <Icon.Arrow size={16} /></a>
+              <small>64-bit · SALAR Desktop 1.0</small>
+            </article>
+            {[
+              ["macOS", "MAC"],
+              ["iOS", "IOS"],
+              ["Android", "AND"],
+            ].map(([platform, mark]) => (
+              <article className="platform-card platform-future" key={platform}>
+                <div className="platform-top"><span className="platform-icon">{mark}</span><span className="platform-status">Coming soon</span></div>
+                <h3>{platform}</h3>
+                <p>The same private SALAR intelligence, designed for {platform}.</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="pricing section cosmic-pricing" id="pricing" data-reveal>
           <span className="section-kicker reveal-up">Simple, transparent pricing</span>
           <h2 className="reveal-up delay-1">One companion. <br /><span>Plan that fits your life.</span></h2>
@@ -842,7 +871,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
           <a href="#top" className="brand footer-brand"><span className="brand-mark">S</span><span>SALAAR</span></a>
           <p>Personal intelligence for a life in motion.</p>
           <div className="footer-links">
-            <a href="#privacy">Privacy</a><a href="#capabilities">Capabilities</a>
+            <a href="#privacy">Privacy</a><a href="#capabilities">Capabilities</a><a href="#download">Get SALAR</a>
             {onEnterApp && <button onClick={() => void handleEnterApp()} disabled={entryBusy}>Enter SALAR app</button>}
             <button onClick={launchSignup}>Create account</button>
           </div>

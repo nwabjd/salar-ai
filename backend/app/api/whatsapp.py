@@ -32,6 +32,34 @@ class WhatsAppAutoReplyToggle(BaseModel):
     enabled: bool
 
 
+def build_auto_reply_messages(sender_name: str, text: str, is_group: bool):
+    context = f"WhatsApp {'group' if is_group else 'DM'} message from {sender_name}: {text}"
+    policy = (
+        "You are JD's assistant, replying professionally to a WhatsApp sender on JD's behalf. "
+        "Never pretend to be JD and never introduce yourself as an AI. When a conversation begins with a greeting "
+        "or no clear request, introduce yourself briefly as JD's assistant and ask what query you can help with. "
+        "When the sender gives a specific query, address it directly and helpfully using reliable information. "
+        "If essential details are missing, acknowledge the request and ask a focused follow-up question. "
+        "Do not fabricate facts, promises, availability, prices, dates, or actions. Do not use blunt refusal phrases "
+        "such as 'I will not' or 'I cannot'; explain the limitation briefly and offer the most useful next step. "
+        "Use a warm, authentic, professional tone in one to three short sentences with plain text only. "
+        "If the sender asks to speak with JD, offer to help first and ask for the purpose or key details. "
+        "If the sender explicitly asks you to tell JD something or pass a message, respond only with "
+        "GOTOPASS: followed by the exact concise message for JD. Use GOTOPASS only for explicit pass-message requests."
+    )
+    return [{"role": "system", "content": policy}, {"role": "user", "content": context}]
+
+
+def normalize_auto_reply(reply_text: str):
+    clean = (reply_text or "").strip()
+    if not clean:
+        return "Hello, this is JD’s assistant. How may I help you today?", None
+    if clean.startswith("GOTOPASS:"):
+        message = clean[len("GOTOPASS:"):].strip()
+        return "Thank you. I’ll make sure JD receives your message. Is there anything else I can help you with?", message or None
+    return clean, None
+
+
 @router.get("/api/whatsapp/pass-messages")
 async def get_pass_messages(request: Request, user: User = Depends(get_current_user)):
     db = request.app.state.SessionLocal()
@@ -197,34 +225,11 @@ async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text
             log.warning("Auto-reply: no Gemini client available")
             return
 
-        context = f"WhatsApp {'group' if is_group else 'DM'} message from {sender_name}: {text}"
-        messages = [
-            {"role": "system", "content": (
-                f"You are SALAR, JD's personal AI assistant. You are replying to a WhatsApp message on behalf of JD. "
-                f"Never introduce yourself as an AI or say you are an artificial intelligence. "
-                f"You speak naturally like a helpful human assistant who works for JD. "
-                f"Reply in 1-2 short natural sentences. Be helpful, friendly, and concise. "
-                f"Do not use markdown, bullet points, or formatting — just plain text. "
-                f"If the message is a question, answer it. If it's a greeting, greet back warmly. "
-                f"If someone asks to talk to JD, say JD is unavailable and ask if you can help. "
-                f"If someone asks you to pass a message, relay info, or tell JD something, "
-                f"respond with: GOTOPASS: <the message they want passed>. "
-                f"Only use GOTOPASS when someone explicitly asks you to tell JD something or pass a message. "
-                f"Keep it brief and personal, like a real person responding."
-            )},
-            {"role": "user", "content": context},
-        ]
+        messages = build_auto_reply_messages(sender_name, text, is_group)
 
         result = await gemini.chat_with_tools(messages, [])
         reply_text = result.get("text", "").strip()
-        if not reply_text:
-            reply_text = "Thanks for your message! I'll get back to you soon."
-
-        # Detect pass-along messages
-        pass_msg = None
-        if reply_text.startswith("GOTOPASS:"):
-            pass_msg = reply_text[len("GOTOPASS:"):].strip()
-            reply_text = f"Got it, I'll make sure JD gets that message!"
+        reply_text, pass_msg = normalize_auto_reply(reply_text)
 
         whatsapp = getattr(state, "whatsapp", None)
         if whatsapp:

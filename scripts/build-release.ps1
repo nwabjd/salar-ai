@@ -42,5 +42,14 @@ Pop-Location
 
 $Bundle = Join-Path $Workspace "desktop\src-tauri\target\release\bundle\nsis"
 Copy-Item -Path (Join-Path $Bundle "*.exe") -Destination $Installer -Force
+$VersionedInstaller = Get-ChildItem -LiteralPath $Installer -Filter "*.exe" | Select-Object -First 1
+if (-not $VersionedInstaller) { throw "Tauri did not produce an NSIS installer" }
+$WebsiteDownloads = Join-Path $Website "downloads"
+New-Item -ItemType Directory -Force $WebsiteDownloads | Out-Null
+$StableInstaller = Join-Path $WebsiteDownloads "SALAR-Setup.exe"
+Copy-Item -LiteralPath $VersionedInstaller.FullName -Destination $StableInstaller -Force
+$Hash = Get-FileHash -LiteralPath $StableInstaller -Algorithm SHA256
+Set-Content -LiteralPath (Join-Path $WebsiteDownloads "SALAR-Setup.exe.sha256") -Value "$($Hash.Hash.ToLower())  SALAR-Setup.exe"
 Write-Host "Website: $Website"
 Write-Host "Installer: $Installer"
+Write-Host "Website download: $StableInstaller"
