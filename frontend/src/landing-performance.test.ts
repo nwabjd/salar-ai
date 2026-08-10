@@ -8,6 +8,7 @@ describe('landing animation performance contract', () => {
     expect(landing).toContain("import LiquidEther from '../effects/LiquidEther.jsx'")
     expect(landing).not.toContain('CosmicIntelligence')
     expect(landing).not.toContain('cosmic-grain')
+    expect(landing).toContain('{false && <div className="legacy-marketing"')
     expect(landing).toContain('resolution={0.28}')
     expect(landing).toContain('iterationsPoisson={12}')
     expect(landing).toContain('BFECC={false}')

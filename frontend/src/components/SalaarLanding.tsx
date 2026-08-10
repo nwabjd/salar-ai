@@ -642,7 +642,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
           <div className="trust-spectrum"><span><Icon.Shield /> Permission-based</span><span><Icon.Check /> Memory controls</span><span><Icon.Orbit /> Cross-device</span></div>
         </section>
 
-        <div className="legacy-marketing" aria-hidden="true">
+        {false && <div className="legacy-marketing" aria-hidden="true">
         <section className="hero" id="legacy-top">
           <div className="hero-copy">
             <div className="eyebrow reveal-up"><span className="eyebrow-dot" /> A personal intelligence, built around you</div>
@@ -774,7 +774,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
           </div>
         </section>
 
-        </div>
+        </div>}
 
         <section className="pricing section cosmic-pricing" id="pricing" data-reveal>
           <span className="section-kicker reveal-up">Simple, transparent pricing</span>
