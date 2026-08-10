@@ -1,7 +1,7 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties } from "react";
 import { cleanAuthFromUrl, isSupabaseConfigured, supabase } from "../lib/supabase";
 import { api } from "../api";
-import CosmicIntelligence from "./CosmicIntelligence";
+import LiquidEther from '../effects/LiquidEther.jsx'
 import OnboardingWizard from "./OnboardingWizard";
 
 type AuthStep = "choice" | "email" | "otp" | "preview" | "profile" | "companion" | "complete";
@@ -560,8 +560,22 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
   return (
     <div id="salar-landing" ref={shellRef}>
       <main className="site-shell cosmic-site">
-        <CosmicIntelligence scrollRoot={shellRef} />
-        <div className="cosmic-grain" aria-hidden="true" />
+        <div className="landing-liquid-stage" aria-hidden="true">
+          <LiquidEther
+            colors={['#5227FF', '#FF4FD8', '#54D9FF']}
+            mouseForce={8}
+            cursorSize={72}
+            isViscous={false}
+            iterationsViscous={8}
+            iterationsPoisson={12}
+            resolution={0.28}
+            BFECC={false}
+            autoDemo
+            autoSpeed={0.22}
+            autoIntensity={1.15}
+            autoResumeDelay={4000}
+          />
+        </div>
         <div className="cosmic-vignette" aria-hidden="true" />
         <div className="cursor-aura" aria-hidden="true" />
         <div className="noise" aria-hidden="true" />

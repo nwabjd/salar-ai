@@ -1,0 +1,307 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap");
+
+#salar-landing {
+  --cosmic-black: #050308;
+  --cosmic-ink: #fbf8ff;
+  --cosmic-muted: #aaa2b7;
+  --cosmic-violet: #9b4dff;
+  --cosmic-magenta: #f650ff;
+  --cosmic-cyan: #62e9ff;
+  --cosmic-gold: #ffbd70;
+  --cosmic-line: rgba(255, 255, 255, .13);
+  color: var(--cosmic-ink);
+  background: var(--cosmic-black);
+  font-family: "Syne", "Segoe UI", sans-serif;
+}
+
+#salar-landing .cosmic-site {
+  isolation: isolate;
+  min-height: 100%;
+  overflow: clip;
+  background:
+    radial-gradient(circle at 12% 16%, rgba(118, 28, 145, .16), transparent 28rem),
+    radial-gradient(circle at 82% 72%, rgba(71, 35, 133, .13), transparent 32rem),
+    #050308;
+}
+
+#salar-landing .legacy-marketing { display: none !important; }
+
+#salar-landing .cosmic-visual-layer,
+#salar-landing .landing-liquid-stage,
+#salar-landing .cosmic-intelligence,
+#salar-landing .cosmic-fallback,
+#salar-landing .cosmic-grain,
+#salar-landing .cosmic-vignette {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#salar-landing .cosmic-visual-layer { z-index: 0; overflow: hidden; }
+#salar-landing .landing-liquid-stage { z-index: 0; overflow: hidden; opacity: .78; }
+#salar-landing .landing-liquid-stage canvas { width: 100% !important; height: 100% !important; display: block; }
+#salar-landing .cosmic-intelligence { display: block; opacity: .98; }
+#salar-landing .cosmic-fallback {
+  z-index: -1;
+  background:
+    radial-gradient(circle at 68% 42%, rgba(255, 86, 255, .3) 0 1%, rgba(139, 68, 255, .12) 9%, transparent 28%),
+    radial-gradient(ellipse at 67% 42%, transparent 20%, rgba(109, 232, 255, .13) 21%, transparent 22%);
+}
+#salar-landing .cosmic-intelligence.is-fallback { display: none; }
+#salar-landing .cosmic-grain {
+  z-index: 5;
+  opacity: .05;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitchTiles'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.72'/%3E%3C/svg%3E");
+  mix-blend-mode: screen;
+}
+#salar-landing .cosmic-vignette {
+  z-index: 4;
+  background: radial-gradient(circle at 55% 48%, transparent 22%, rgba(5, 3, 8, .26) 62%, rgba(5, 3, 8, .88) 100%);
+}
+#salar-landing .cursor-aura { z-index: 1; background: radial-gradient(circle, rgba(246, 80, 255, .1), transparent 67%); }
+#salar-landing .noise { display: none; }
+
+#salar-landing .cosmic-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  width: min(1360px, calc(100% - 64px));
+  height: 88px;
+  color: var(--cosmic-ink);
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(to bottom, rgba(5,3,8,.8), rgba(5,3,8,.12));
+  backdrop-filter: blur(16px);
+}
+#salar-landing .cosmic-topbar .brand { color: #fff; font-family: "DM Mono", monospace; font-weight: 500; letter-spacing: .3em; }
+#salar-landing .cosmic-brand-mark { position: relative; width: 28px; height: 28px; display: inline-grid; place-items: center; }
+#salar-landing .cosmic-brand-mark::before,
+#salar-landing .cosmic-brand-mark::after,
+#salar-landing .cosmic-brand-mark i { content: ""; position: absolute; border: 1px dotted rgba(255,255,255,.8); border-radius: 50%; }
+#salar-landing .cosmic-brand-mark::before { inset: 0; }
+#salar-landing .cosmic-brand-mark::after { inset: 5px; border-color: var(--cosmic-magenta); transform: rotate(45deg); }
+#salar-landing .cosmic-brand-mark i:first-child { inset: 11px; border: 0; background: #fff; box-shadow: 0 0 14px var(--cosmic-magenta); }
+#salar-landing .cosmic-topbar .nav-links { gap: 30px; }
+#salar-landing .cosmic-topbar .nav-links > a { color: rgba(255,255,255,.66); font-family: "DM Mono", monospace; font-size: 10px; font-weight: 400; letter-spacing: .08em; text-transform: uppercase; }
+#salar-landing .cosmic-topbar .nav-links > a:hover { color: #fff; }
+#salar-landing .cosmic-topbar .enter-app-button { color: rgba(255,255,255,.78); border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.04); }
+#salar-landing .cosmic-topbar .nav-cta,
+#salar-landing .cosmic-actions .primary-button,
+#salar-landing .cosmic-site .light-button {
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 999px;
+  background: linear-gradient(100deg, rgba(138,56,255,.9), rgba(246,80,255,.92) 56%, rgba(255,189,112,.86));
+  box-shadow: 0 0 0 1px rgba(246,80,255,.18), 0 0 36px rgba(183,58,255,.26), inset 0 1px rgba(255,255,255,.4);
+}
+
+#salar-landing .cosmic-hero,
+#salar-landing .cosmic-chapter,
+#salar-landing .cosmic-trust,
+#salar-landing .cosmic-pricing,
+#salar-landing .final-cta,
+#salar-landing footer {
+  position: relative;
+  z-index: 6;
+}
+
+#salar-landing .cosmic-hero {
+  width: min(1360px, calc(100% - 64px));
+  min-height: calc(100dvh - 88px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 8vh 0 14vh;
+}
+#salar-landing .cosmic-hero-copy { width: min(610px, 48vw); position: relative; z-index: 2; }
+#salar-landing .cosmic-kicker,
+#salar-landing .chapter-index,
+#salar-landing .cosmic-pricing .section-kicker {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--cosmic-cyan);
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+#salar-landing .cosmic-kicker > span { width: 6px; height: 6px; border-radius: 50%; background: var(--cosmic-cyan); box-shadow: 0 0 14px var(--cosmic-cyan); }
+#salar-landing .cosmic-hero h1 {
+  margin: 26px 0 10px;
+  color: #fff;
+  font-family: "Syne", sans-serif;
+  font-size: clamp(58px, 6.8vw, 108px);
+  font-weight: 600;
+  line-height: .88;
+  letter-spacing: -.075em;
+  text-wrap: balance;
+}
+#salar-landing .cosmic-hero h1 em { color: #fff; font-style: normal; text-shadow: 0 0 12px rgba(255,255,255,.9), 0 0 38px var(--cosmic-magenta), 0 0 80px rgba(161,57,255,.75); }
+#salar-landing .cosmic-verb-row { display: flex; align-items: center; gap: 13px; color: rgba(255,255,255,.72); font-size: clamp(20px, 2.1vw, 34px); letter-spacing: -.035em; }
+#salar-landing .cosmic-verb-row i { width: 46px; height: 1px; background: linear-gradient(90deg, var(--cosmic-magenta), var(--cosmic-gold)); }
+#salar-landing .cosmic-lede { max-width: 535px; margin: 26px 0 0; color: var(--cosmic-muted); font-size: 15px; line-height: 1.75; }
+#salar-landing .cosmic-actions { display: flex; align-items: center; gap: 25px; margin-top: 34px; }
+#salar-landing .cosmic-actions .primary-button { min-height: 54px; padding: 0 24px; }
+#salar-landing .cosmic-text-link { color: rgba(255,255,255,.72); font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+#salar-landing .cosmic-text-link span { margin-left: 8px; color: var(--cosmic-cyan); }
+#salar-landing .cosmic-hero-index { position: absolute; right: 0; top: 50%; display: flex; flex-direction: column; align-items: center; gap: 9px; color: rgba(255,255,255,.34); font: 10px "DM Mono", monospace; }
+#salar-landing .cosmic-hero-index i { width: 1px; height: 90px; background: linear-gradient(var(--cosmic-magenta), rgba(255,255,255,.12)); }
+#salar-landing .cosmic-scroll-cue { position: absolute; left: 0; bottom: 30px; display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,.38); font: 9px "DM Mono", monospace; letter-spacing: .12em; text-transform: uppercase; }
+#salar-landing .cosmic-scroll-cue i { width: 80px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,.4), transparent); }
+
+#salar-landing .cosmic-chapter {
+  width: min(1360px, calc(100% - 64px));
+  min-height: 118vh;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 15vh 0;
+}
+#salar-landing .chapter-copy { width: min(560px, 44vw); padding: 42px 0; }
+#salar-landing .voice-chapter .chapter-copy { margin-left: auto; }
+#salar-landing .command-chapter .chapter-copy { margin-right: auto; }
+#salar-landing .cosmic-chapter h2,
+#salar-landing .cosmic-trust h2 {
+  font-family: "Syne", sans-serif;
+  max-width: 720px;
+  margin: 24px 0 22px;
+  color: #fff;
+  font-size: clamp(52px, 6vw, 94px);
+  font-weight: 500;
+  line-height: .95;
+  letter-spacing: -.065em;
+}
+
+#salar-landing .cosmic-pricing h2,
+#salar-landing .final-cta h2 {
+  font-family: "Syne", sans-serif;
+}
+#salar-landing .cosmic-chapter p,
+#salar-landing .cosmic-trust p { max-width: 560px; color: var(--cosmic-muted); font-size: 15px; line-height: 1.8; }
+#salar-landing .voice-status { width: min(430px, 100%); margin-top: 34px; padding: 15px 17px; display: grid; grid-template-columns:auto 1fr auto; align-items: center; gap: 12px; border-top: 1px solid rgba(255,255,255,.14); border-bottom: 1px solid rgba(255,255,255,.14); color: rgba(255,255,255,.72); font: 10px "DM Mono", monospace; text-transform: uppercase; letter-spacing: .07em; }
+#salar-landing .voice-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--cosmic-cyan); box-shadow: 0 0 16px var(--cosmic-cyan); animation: cosmic-listen 1.4s ease-in-out infinite; }
+#salar-landing .voice-status b { color: var(--cosmic-magenta); font-weight: 500; }
+#salar-landing .chapter-rail { position: absolute; left: 0; bottom: 12vh; display: flex; gap: 26px; color: rgba(255,255,255,.32); font: 9px "DM Mono", monospace; letter-spacing: .12em; text-transform: uppercase; }
+#salar-landing .chapter-rail span::before { content: "/"; margin-right: 8px; color: var(--cosmic-magenta); }
+#salar-landing .command-nodes { margin-top: 38px; display: flex; flex-wrap: wrap; gap: 9px; }
+#salar-landing .command-nodes span { padding: 9px 12px; color: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; background: rgba(255,255,255,.025); font: 9px "DM Mono", monospace; letter-spacing: .08em; text-transform: uppercase; box-shadow: inset 0 0 18px rgba(132,76,255,.07); }
+
+#salar-landing .cosmic-trust {
+  width: min(1180px, calc(100% - 64px));
+  min-height: 76vh;
+  margin: 10vh auto 20vh;
+  padding: clamp(50px, 8vw, 110px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.12);
+  background: radial-gradient(circle at 78% 34%, rgba(246,80,255,.16), transparent 31%), linear-gradient(135deg, rgba(22,14,35,.82), rgba(7,5,12,.74));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 40px 120px rgba(0,0,0,.38), inset 0 1px rgba(255,255,255,.05);
+}
+#salar-landing .trust-spectrum { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 38px; color: rgba(255,255,255,.7); font: 10px "DM Mono", monospace; letter-spacing: .06em; text-transform: uppercase; }
+#salar-landing .trust-spectrum span { display: inline-flex; align-items: center; gap: 8px; }
+#salar-landing .trust-spectrum svg { width: 15px; color: var(--cosmic-cyan); }
+
+#salar-landing .cosmic-pricing { width: min(1180px, calc(100% - 64px)); color: #fff; }
+#salar-landing .cosmic-pricing h2 { color: #fff; font-size: clamp(46px, 5vw, 76px); letter-spacing: -.055em; }
+#salar-landing .cosmic-pricing h2 span { color: #fff; text-shadow: 0 0 28px rgba(246,80,255,.72); }
+#salar-landing .cosmic-pricing .pricing-lede,
+#salar-landing .cosmic-pricing .pricing-note { color: var(--cosmic-muted); }
+#salar-landing .cosmic-pricing .pricing-grid { gap: 14px; }
+#salar-landing .cosmic-pricing .price-card { color: #fff; border-color: rgba(255,255,255,.13); border-radius: 0; background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)); box-shadow: inset 0 1px rgba(255,255,255,.06); backdrop-filter: blur(14px); }
+#salar-landing .cosmic-pricing .price-card.featured { border-color: rgba(246,80,255,.64); background: linear-gradient(145deg, rgba(139,55,255,.15), rgba(255,255,255,.025)); box-shadow: 0 0 60px rgba(143,48,255,.14), inset 0 1px rgba(255,255,255,.08); }
+#salar-landing .cosmic-pricing .price-name,
+#salar-landing .cosmic-pricing .price-sub,
+#salar-landing .cosmic-pricing .price-period { color: var(--cosmic-muted); }
+#salar-landing .cosmic-pricing .price-features li { color: rgba(255,255,255,.76); }
+#salar-landing .cosmic-pricing .price-features svg { color: var(--cosmic-cyan); }
+#salar-landing .cosmic-pricing .secondary-button { color: #fff; border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.035); }
+
+#salar-landing .final-cta {
+  width: min(1180px, calc(100% - 64px));
+  min-height: 72vh;
+  margin: 16vh auto 8vh;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 0;
+  color: #fff;
+  background: radial-gradient(circle at 50% 120%, rgba(246,80,255,.26), transparent 45%), rgba(5,3,8,.4);
+  box-shadow: none;
+  backdrop-filter: blur(10px);
+}
+#salar-landing .final-cta h2 { font-size: clamp(52px, 6vw, 86px); letter-spacing: -.06em; }
+#salar-landing .final-cta h2 em { color: #fff; text-shadow: 0 0 34px var(--cosmic-magenta); }
+#salar-landing .final-cta p { color: var(--cosmic-muted); }
+#salar-landing footer { color: #fff; border-top-color: rgba(255,255,255,.1); }
+#salar-landing footer p,
+#salar-landing .footer-links a,
+#salar-landing .footer-links button,
+#salar-landing .copyright { color: rgba(255,255,255,.48); }
+
+#salar-landing .auth-modal {
+  --ink: #171328;
+  --muted: #716d83;
+  --line: rgba(71, 51, 128, .12);
+  color: #171328;
+  font-family: "Syne", "Segoe UI", sans-serif;
+}
+#salar-landing .auth-modal .brand-mark { font-family: "Syne", sans-serif; }
+#salar-landing .modal-backdrop { z-index: 100; }
+
+#salar-landing :where(a, button, input, select):focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; }
+
+@keyframes cosmic-listen { 50% { opacity: .45; transform: scale(.72); box-shadow: 0 0 5px var(--cosmic-cyan); } }
+
+@media (max-width: 980px) {
+  #salar-landing .cosmic-hero-copy,
+  #salar-landing .chapter-copy { width: min(620px, 64vw); }
+  #salar-landing .cosmic-hero h1 { font-size: clamp(58px, 9vw, 88px); }
+}
+
+@media (max-width: 760px) {
+  #salar-landing .cosmic-topbar { width: calc(100% - 34px); height: 72px; }
+  #salar-landing .cosmic-topbar .menu-button { color: #fff; }
+  #salar-landing .cosmic-topbar .nav-links { top: 65px; border-color: rgba(255,255,255,.13); border-radius: 0; background: rgba(8,5,13,.94); box-shadow: 0 24px 70px rgba(0,0,0,.55); }
+  #salar-landing .cosmic-topbar .nav-links > a { color: rgba(255,255,255,.75); }
+  #salar-landing .cosmic-hero,
+  #salar-landing .cosmic-chapter { width: calc(100% - 34px); min-height: 108dvh; padding: 19vh 0 14vh; align-items: flex-end; }
+  #salar-landing .cosmic-hero { min-height: calc(100dvh - 72px); align-items: flex-end; }
+  #salar-landing .cosmic-hero-copy,
+  #salar-landing .chapter-copy { width: 100%; }
+  #salar-landing .cosmic-hero h1 { font-size: clamp(50px, 14vw, 72px); }
+  #salar-landing .cosmic-lede { max-width: 90%; font-size: 13px; }
+  #salar-landing .cosmic-actions { align-items: flex-start; flex-direction: column; gap: 18px; }
+  #salar-landing .cosmic-hero-index { display: none; }
+  #salar-landing .voice-chapter .chapter-copy,
+  #salar-landing .command-chapter .chapter-copy { margin: 0; }
+  #salar-landing .cosmic-chapter h2,
+  #salar-landing .cosmic-trust h2 { font-size: clamp(48px, 13vw, 70px); }
+  #salar-landing .chapter-rail { flex-wrap: wrap; bottom: 6vh; gap: 10px 18px; }
+  #salar-landing .cosmic-trust,
+  #salar-landing .cosmic-pricing,
+  #salar-landing .final-cta { width: calc(100% - 34px); }
+  #salar-landing .cosmic-trust { min-height: 82vh; margin-block: 8vh 16vh; padding: 42px 24px; }
+  #salar-landing .trust-spectrum { flex-direction: column; gap: 15px; }
+  #salar-landing .cosmic-pricing .pricing-grid { grid-template-columns: 1fr; }
+  #salar-landing .final-cta { padding-inline: 22px; }
+  #salar-landing footer { width: calc(100% - 34px); }
+}
+
+@media (max-width: 470px) {
+  #salar-landing .cosmic-kicker,
+  #salar-landing .chapter-index { font-size: 8px; letter-spacing: .11em; }
+  #salar-landing .cosmic-hero h1 { font-size: 50px; }
+  #salar-landing .cosmic-verb-row { font-size: 21px; }
+  #salar-landing .command-nodes { gap: 7px; }
+  #salar-landing .command-nodes span { font-size: 8px; }
+  #salar-landing .cosmic-pricing { padding-inline: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #salar-landing .cosmic-intelligence { opacity: .86; }
+  #salar-landing .voice-status i { animation: none; }
+  #salar-landing .cosmic-scroll-cue { display: none; }
+}
