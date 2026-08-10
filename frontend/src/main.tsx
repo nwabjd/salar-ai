@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Calendar, ChevronDown, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, PanelLeft, Plus, Send, Sparkles, User, Wrench, X, MessageSquare } from 'lucide-react'
+import { Calendar, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, Send, Sparkles, X, MessageSquare } from 'lucide-react'
 import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
 import Strands from './effects/Strands.jsx'
@@ -55,7 +55,6 @@ function App() {
   const [live, setLive] = useState(false)
   const [usage, setUsage] = useState<Usage | null>(null)
   const [showPricing, setShowPricing] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
 
   const enterApp = useCallback(async (supabaseToken?: string | null) => {
     const result = await sessionCoordinator.connect(supabaseToken)
@@ -136,28 +135,25 @@ function App() {
 
   return <><main className={`app-shell${live ? ' live-open' : ''}`}>
     <div className="liquid-stage"><LiquidEther colors={['#5227FF','#FF9FFC','#B497CF']} mouseForce={20} cursorSize={100} isViscous={false} viscous={30} iterationsViscous={32} iterationsPoisson={32} resolution={0.5} isBounce={false} autoDemo autoSpeed={0.5} autoIntensity={2.2} takeoverDuration={0.25} autoResumeDelay={3000} autoRampDuration={0.6}/></div>
-    <header className="topbar ambient-topbar">
+    <header className="topbar">
       <div className="brand"><div className="salar-glyph">S</div><div><b>SALAR</b><small>PERSONAL INTELLIGENCE</small></div></div>
-      <div className="workspace-label">Private workspace</div>
+      <nav className="topnav">
+        {usage && <button className="usage-chip" onClick={() => setShowPricing(true)} title="Plan & billing"><Sparkles size={12}/><b>{usage.used.toLocaleString()}</b> / {usage.limit === null ? 'unlimited' : usage.limit.toLocaleString()} <small>{usage.exempt ? 'ADMIN' : usage.plan.toUpperCase()}</small></button>}
+      </nav>
       <div className="topbar-actions">
         <button className="connection" onClick={() => setLive(true)}><Mic2 size={13}/> LIVE</button>
-        <button className="profile-trigger" onClick={() => setProfileOpen(open => !open)} aria-expanded={profileOpen} aria-label="Open profile menu"><User size={15}/><ChevronDown size={12}/></button>
-        {profileOpen && <div className="profile-menu">
-          <div className="profile-heading"><span className="profile-avatar">S</span><div><b>My SALAR</b><small>{usage?.exempt ? 'Administrator' : usage?.plan || 'Member'}</small></div></div>
-          {usage && <button onClick={() => { setShowPricing(true); setProfileOpen(false) }}><Sparkles size={14}/><span>Plan & billing<small>{usage.used.toLocaleString()} / {usage.limit === null ? 'unlimited' : usage.limit.toLocaleString()}</small></span></button>}
-          <button className="profile-signout" onClick={handleSignOut}><LogOut size={14}/><span>Sign out</span></button>
-        </div>}
+        <button className="connection signout" onClick={handleSignOut}><LogOut size={13}/> SIGN OUT</button>
       </div>
     </header>
     <section className="workspace chat-workspace">
       <div className="chat-column"><Chat connected onLive={() => setLive(true)}/></div>
+      <StatusRail/>
       {showPricing && <div className="pricing-overlay"><button className="pricing-close" onClick={() => setShowPricing(false)} aria-label="Close plan & billing"><X/></button><PricingPage connected onClose={() => setShowPricing(false)}/></div>}
     </section>
   </main>{live && <Live connected onClose={() => setLive(false)}/>}</>
 }
 
 function Chat({ connected, onLive }: { connected: boolean; onLive: () => void }) {
-  const [conversations, setConversations] = useState<Conversation[]>([])
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -165,39 +161,11 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
   const [error, setError] = useState('')
   const [streaming, setStreaming] = useState('')
   const [toolActivity, setToolActivity] = useState('')
-  const [railOpen, setRailOpen] = useState(false)
-  const [toolsOpen, setToolsOpen] = useState(false)
   const streamBuf = useRef('')
   const end = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (!connected) return; api.conversations().then(async list => {
-    const item = list[0] || await api.createConversation()
-    setConversations(list[0] ? list : [item])
-    setConversation(item)
-    if (list[0]) setMessages((await api.conversation(item.id)).messages || [])
-  }).catch(e => setError(e.message)) }, [connected])
+  useEffect(() => { if (!connected) return; api.conversations().then(async list => { const item = list[0] || await api.createConversation(); setConversation(item); if (list[0]) setMessages((await api.conversation(item.id)).messages || []) }).catch(e => setError(e.message)) }, [connected])
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streaming, toolActivity])
-  async function createNewConversation() {
-    if (busy) return
-    try {
-      const item = await api.createConversation()
-      setConversations(current => [item, ...current])
-      setConversation(item)
-      setMessages([])
-      setError('')
-      setRailOpen(false)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) }
-  }
-  async function selectConversation(item: Conversation) {
-    if (busy || item.id === conversation?.id) { setRailOpen(false); return }
-    try {
-      const detail = await api.conversation(item.id)
-      setConversation(item)
-      setMessages(detail.messages || [])
-      setError('')
-      setRailOpen(false)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) }
-  }
   function send() {
     if (!input.trim() || !conversation || busy) return
     const content = input; setInput(''); setBusy(true); setStreaming(''); setToolActivity(''); streamBuf.current = ''
@@ -227,22 +195,11 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
       (toolName, result) => { setToolActivity(`Completed ${toolName}`) },
     )
   }
-  return <div className={`ambient-workspace${railOpen ? ' rail-open' : ''}`}>
-    <aside className="conversation-rail" aria-label="Conversation history">
-      <button className="new-conversation" onClick={createNewConversation}><Plus size={16}/><span>New conversation</span></button>
-      <div className="rail-section-label">Recent conversations</div>
-      <div className="conversation-list">{conversations.map(item => <button key={item.id} className={item.id === conversation?.id ? 'active' : ''} onClick={() => selectConversation(item)}><MessageSquare size={14}/><span>{item.title || 'New conversation'}</span></button>)}</div>
-      <button className="tools-button" onClick={() => { setToolsOpen(true); setRailOpen(false) }}><Wrench size={15}/><span>Tools</span></button>
-    </aside>
-    {railOpen && <button className="rail-scrim" onClick={() => setRailOpen(false)} aria-label="Close conversation history"/>}
-    <div className={`chat-view${messages.length ? ' has-messages' : ''}`}>
-      <div className="conversation-topline"><button className="rail-toggle" onClick={() => setRailOpen(open => !open)} aria-label="Toggle conversation history"><PanelLeft size={17}/></button><span>{conversation?.title || 'New conversation'}</span><button className="compact-live" onClick={onLive}><Mic2 size={14}/> Live</button></div>
-      <div className="hero"><span className="eyebrow">YOUR PRIVATE INTELLIGENCE</span><h1>{messages.length ? conversation?.title || 'Conversation' : 'How can I help?'}</h1><p>Ask anything, work across your knowledge, or enter Live for a natural voice conversation.</p></div>
+  return <div className={`chat-view${messages.length ? ' has-messages' : ''}`}>
+      <div className="hero"><span className="eyebrow">COORDINATED INTELLIGENCE</span><h1>{messages.length ? 'Command stream' : 'What shall we accomplish?'}</h1><p>Private intelligence, memory, knowledge, and your connected devices—coordinated from one place.</p></div>
       <div className="messages" ref={messagesRef}><div className="messages-spacer"/>{messages.map(message => <article key={message.id} className={message.role}><span>{message.role === 'assistant' ? 'SALAR' : 'YOU'}</span><p>{message.content}</p></article>)}{streaming && <article className="assistant thinking"><span>SALAR</span><p>{streaming}</p></article>}{toolActivity && !streaming && <article className="assistant thinking tool-activity"><span>SALAR</span><p className="tool-hint">{toolActivity}</p></article>}{busy && !streaming && !toolActivity && <article className="assistant thinking"><span>SALAR</span><p>Reasoning across your private context…</p></article>}<div ref={end}/></div>
       {error && <div className="toast">{error}</div>}
-      <div className="composer"><button className="icon-control live-control" onClick={onLive} title="Enter Live mode"><Mic2/></button><textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder="Message SALAR" disabled={!connected} rows={1}/><button className="icon-control send-control" onClick={send} disabled={!connected || busy || !input.trim()} title="Send command"><Send/></button></div>
-    </div>
-    {toolsOpen && <><button className="tools-scrim" onClick={() => setToolsOpen(false)} aria-label="Close tools"/><section className="tools-drawer"><div className="tools-drawer-head"><div><small>SALAR</small><h2>Tools</h2></div><button onClick={() => setToolsOpen(false)} aria-label="Close tools"><X size={18}/></button></div><ToolsStatus/></section></>}
+      <div className="composer"><button className="icon-control live-control" onClick={onLive} title="Enter Live mode"><Mic2/></button><textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder="Ask, create, search, or control…" disabled={!connected} rows={1}/><button className="icon-control send-control" onClick={send} disabled={!connected || busy || !input.trim()} title="Send command"><Send/></button></div>
   </div>
 }
 
@@ -674,7 +631,7 @@ function UsageRail({ usage }: { usage: Usage | null }) {
   </div>
 }
 
-function ToolsStatus() {
+function StatusRail() {
   const [whatsapp, setWhatsapp] = useState('Checking…')
   const [whatsappDot, setWhatsappDot] = useState('#88818f')
   const [waStatus, setWaStatus] = useState('')

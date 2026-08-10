@@ -4,20 +4,18 @@ import { describe, expect, it } from 'vitest'
 const main = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
-describe('Ambient Companion workspace contract', () => {
-  it('provides focused conversation history and compact tools', () => {
-    expect(main).toContain('New conversation')
-    expect(main).toContain('Recent conversations')
-    expect(main).toContain('Tools')
-    expect(main).toContain('How can I help?')
-    expect(main).not.toContain('<StatusRail/>')
+describe('original SALAR workspace contract', () => {
+  it('restores the command workspace and permanent status rail', () => {
+    expect(main).toContain('<StatusRail/>')
+    expect(main).toContain('What shall we accomplish?')
+    expect(main).toContain('className="usage-chip"')
+    expect(main).not.toContain('conversation-rail')
+    expect(main).not.toContain('tools-drawer')
   })
 
-  it('ships responsive rails, drawers, and an anchored composer', () => {
-    expect(styles).toContain('.conversation-rail')
-    expect(styles).toContain('.tools-drawer')
-    expect(styles).toContain('.profile-menu')
-    expect(styles).toContain('@media(max-width:900px)')
-    expect(styles).toContain('@media(max-width:640px)')
+  it('keeps the original LiquidEther color intensity', () => {
+    expect(styles).not.toContain('.app-shell .liquid-stage{opacity:.2')
+    expect(styles).toContain('.chat-workspace{display:flex}')
+    expect(styles).toContain('.status-rail')
   })
 })
