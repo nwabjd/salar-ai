@@ -8,7 +8,8 @@ describe("cosmic landing auth contract", () => {
     expect(landing).toContain("One intelligence that remembers");
     expect(landing).toContain("Voice-first companion");
     expect(landing).toContain("Your private command center");
-    expect(landing).toContain("<CosmicIntelligence");
+    expect(landing).toContain("<LiquidEther");
+    expect(landing).not.toContain("<CosmicIntelligence");
   });
 
   it("retains every configured authentication path", () => {
