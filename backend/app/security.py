@@ -40,6 +40,14 @@ def create_access_token(user: User, secret: str, minutes: int) -> str:
     )
 
 
+def decode_backend_token(token: str, secret: str) -> dict:
+    """Decode a SALAR bearer token without exposing token details in errors."""
+    try:
+        return jwt.decode(token, secret, algorithms=["HS256"])
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from exc
+
+
 def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
@@ -47,10 +55,7 @@ def get_current_user(
 ) -> User:
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-    try:
-        payload = jwt.decode(credentials.credentials, request.app.state.settings.jwt_secret, algorithms=["HS256"])
-    except jwt.PyJWTError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from exc
+    payload = decode_backend_token(credentials.credentials, request.app.state.settings.jwt_secret)
     user = db.scalar(select(User).where(User.id == payload.get("sub")))
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")

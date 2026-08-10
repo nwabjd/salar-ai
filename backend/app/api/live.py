@@ -1,161 +1,164 @@
 import asyncio
 import json
 import logging
-import base64
+from contextlib import suppress
+from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
+
+from ..models import User
+from ..security import decode_backend_token
 
 log = logging.getLogger(__name__)
 router = APIRouter()
 
-GEMINI_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
-LIVE_MODEL = "models/gemini-3.1-flash-live-preview"
+OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime"
+ALLOWED_VOICES = {"marin", "cedar"}
+
+SYSTEM_PROMPT = """You are SALAR, a warm, concise personal AI companion in a live voice conversation.
+Speak naturally and respond with audio. Usually answer in one to three sentences unless the user asks for detail.
+Do not claim an action was completed unless it actually was. If tools are unavailable, say so plainly.
+Keep the conversation flowing, but never interrupt the user."""
 
 
-def _build_setup_message(api_key: str, system_instruction: str) -> dict:
+def _build_session_update(model: str, voice: str = "marin") -> dict:
+    selected_voice = voice if voice in ALLOWED_VOICES else "marin"
     return {
-        "setup": {
-            "model": LIVE_MODEL,
-            "generationConfig": {
-                "responseModalities": ["AUDIO"],
-                "speechConfig": {
-                    "voiceConfig": {
-                        "prebuiltVoiceConfig": {
-                            "voiceName": "Kore"
-                        }
-                    }
-                }
+        "type": "session.update",
+        "session": {
+            "type": "realtime",
+            "model": model,
+            "instructions": SYSTEM_PROMPT,
+            "output_modalities": ["audio"],
+            "audio": {
+                "input": {
+                    "format": {"type": "audio/pcm", "rate": 24000},
+                    "noise_reduction": {"type": "far_field"},
+                    "transcription": {"model": "gpt-4o-mini-transcribe"},
+                    "turn_detection": {
+                        "type": "semantic_vad",
+                        "eagerness": "low",
+                        "create_response": True,
+                        "interrupt_response": True,
+                    },
+                },
+                "output": {
+                    "format": {"type": "audio/pcm", "rate": 24000},
+                    "voice": selected_voice,
+                },
             },
-            "systemInstruction": {
-                "parts": [{"text": system_instruction}]
-            },
-            "tools": []
-        }
+            "max_output_tokens": 1024,
+        },
     }
 
 
-SYSTEM_PROMPT = """You are SALAR, a personal AI assistant running as a voice assistant. 
-You are helpful, concise, and friendly. 
-Speak naturally and conversationally. 
-Keep responses brief — 1-3 sentences unless the user asks for detail.
-You can control the user's computer, manage files, send messages, search the web, and much more through your connected tools.
-When the user asks you to do something on their computer, acknowledge and describe what you're doing.
-Be warm and personable. Use the user's name when you know it."""
+def _translate_openai_event(message: dict) -> Optional[dict]:
+    event_type = message.get("type")
+    translations = {
+        "session.updated": {"type": "ready"},
+        "input_audio_buffer.speech_started": {"type": "speech_started"},
+        "input_audio_buffer.speech_stopped": {"type": "speech_stopped"},
+        "response.done": {"type": "response_done"},
+    }
+    if event_type in translations:
+        return translations[event_type]
+    if event_type in {"response.output_audio.delta", "response.audio.delta"}:
+        return {"type": "audio", "data": message.get("delta", "")}
+    if event_type in {"response.output_audio_transcript.delta", "response.audio_transcript.delta"}:
+        return {"type": "output_transcript_delta", "text": message.get("delta", "")}
+    if event_type in {"response.output_audio_transcript.done", "response.audio_transcript.done"}:
+        return {"type": "output_transcript_completed", "text": message.get("transcript", "")}
+    if event_type == "conversation.item.input_audio_transcription.delta":
+        return {"type": "input_transcript_delta", "text": message.get("delta", "")}
+    if event_type == "conversation.item.input_audio_transcription.completed":
+        return {"type": "input_transcript_completed", "text": message.get("transcript", "")}
+    if event_type == "error":
+        error = message.get("error") or {}
+        return {"type": "error", "error": "Realtime service error", "code": error.get("code", "upstream_error")}
+    return None
 
 
-async def _proxy_gemini(client_ws: WebSocket, gemini_ws_url: str, api_key: str):
-    """Open a WebSocket to Gemini Live API and bidirectionally proxy messages."""
-    import websockets
+def _authenticated_user(websocket: WebSocket, token: str) -> Optional[User]:
+    payload = decode_backend_token(token, websocket.app.state.settings.jwt_secret)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    with websocket.app.state.SessionLocal() as db:
+        return db.scalar(select(User).where(User.id == user_id))
 
-    full_url = f"{gemini_ws_url}?key={api_key}"
-    log.info("Connecting to Gemini Live API...")
 
-    try:
-        async with websockets.connect(full_url, max_size=2**22) as gemini_ws:
-            log.info("Connected to Gemini Live API")
+async def _proxy_openai(client_ws: WebSocket, upstream, model: str, voice: str) -> None:
+    await upstream.send(json.dumps(_build_session_update(model, voice)))
 
-            setup_msg = _build_setup_message(api_key, SYSTEM_PROMPT)
-            await gemini_ws.send(json.dumps(setup_msg))
-            log.info("Sent setup message to Gemini")
+    async def forward_to_openai() -> None:
+        while True:
+            message = json.loads(await client_ws.receive_text())
+            message_type = message.get("type")
+            if message_type == "audio" and isinstance(message.get("data"), str):
+                await upstream.send(json.dumps({"type": "input_audio_buffer.append", "audio": message["data"]}))
+            elif message_type == "text" and isinstance(message.get("text"), str) and message["text"].strip():
+                await upstream.send(json.dumps({
+                    "type": "conversation.item.create",
+                    "item": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": message["text"].strip()}]},
+                }))
+                await upstream.send(json.dumps({"type": "response.create"}))
+            elif message_type == "cancel_response":
+                await upstream.send(json.dumps({"type": "response.cancel"}))
 
-            async def forward_to_gemini():
-                try:
-                    while True:
-                        data = await client_ws.receive_text()
-                        msg = json.loads(data)
+    async def forward_to_client() -> None:
+        async for raw in upstream:
+            translated = _translate_openai_event(json.loads(raw))
+            if translated:
+                await client_ws.send_json(translated)
 
-                        if msg.get("type") == "setup":
-                            setup_msg["setup"]["generationConfig"]["responseModalities"] = msg.get("modalities", ["AUDIO"])
-                            if msg.get("voice"):
-                                setup_msg["setup"]["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"] = msg["voice"]
-                            await gemini_ws.send(json.dumps(setup_msg))
-                            log.info("Updated setup: voice=%s", msg.get("voice", "Kore"))
-                        elif msg.get("type") == "audio":
-                            await gemini_ws.send(json.dumps({
-                                "realtimeInput": {
-                                    "mediaChunks": [{
-                                        "mimeType": "audio/pcm;rate=16000",
-                                        "data": msg["data"]
-                                    }]
-                                }
-                            }))
-                        elif msg.get("type") == "end":
-                            await gemini_ws.send(json.dumps({"clientBreak": {}}))
-                        else:
-                            await gemini_ws.send(json.dumps(msg))
-                except WebSocketDisconnect:
-                    log.info("Client disconnected during forward")
-                except Exception as e:
-                    log.error("Forward to Gemini error: %s", e)
-
-            async def forward_to_client():
-                try:
-                    async for raw in gemini_ws:
-                        msg = json.loads(raw)
-                        if "serverContent" in msg:
-                            sc = msg["serverContent"]
-                            model_turn = sc.get("modelTurn", {})
-                            parts = model_turn.get("parts", [])
-                            for part in parts:
-                                if "inlineData" in part:
-                                    await client_ws.send_json({
-                                        "type": "audio",
-                                        "data": part["inlineData"]["data"],
-                                        "mimeType": part["inlineData"].get("mimeType", "audio/pcm;rate=24000")
-                                    })
-                                elif "text" in part:
-                                    await client_ws.send_json({
-                                        "type": "text",
-                                        "text": part["text"]
-                                    })
-                            if sc.get("turnComplete"):
-                                await client_ws.send_json({"type": "turnComplete"})
-                            if sc.get("interrupted"):
-                                await client_ws.send_json({"type": "interrupted"})
-                        elif "setupComplete" in msg:
-                            log.info("Gemini setup complete")
-                            await client_ws.send_json({"type": "ready"})
-                        elif "toolCall" in msg:
-                            log.info("Gemini tool call: %s", msg.get("toolCall", {}).get("name", "unknown"))
-                            await client_ws.send_json({"type": "toolCall", "toolCall": msg["toolCall"]})
-                        elif "toolCallCancellation" in msg:
-                            await client_ws.send_json({"type": "toolCallCancellation", "toolCallCancellation": msg["toolCallCancellation"]})
-                        else:
-                            log.debug("Gemini message: %s", json.dumps(msg)[:200])
-                except Exception as e:
-                    log.error("Forward to client error: %s", e)
-
-            done, pending = await asyncio.wait(
-                [
-                    asyncio.create_task(forward_to_gemini()),
-                    asyncio.create_task(forward_to_client()),
-                ],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-    except Exception as e:
-        log.error("Gemini WebSocket connection failed: %s", e)
-        try:
-            await client_ws.send_json({"type": "error", "error": str(e)})
-        except Exception:
-            pass
+    tasks = [asyncio.create_task(forward_to_openai()), asyncio.create_task(forward_to_client())]
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    for task in pending:
+        task.cancel()
+    for task in done:
+        with suppress(WebSocketDisconnect, asyncio.CancelledError):
+            task.result()
 
 
 @router.websocket("/ws/live")
 async def live_ws(websocket: WebSocket):
-    """WebSocket proxy between the browser and Gemini Live API."""
     await websocket.accept()
+    settings = websocket.app.state.settings
 
-    from ..config import Settings
-    settings = Settings()
-    api_key = settings.gemini_api_key
-
-    if not api_key:
-        await websocket.send_json({"type": "error", "error": "No Gemini API key configured"})
-        await websocket.close()
+    try:
+        setup = json.loads(await asyncio.wait_for(websocket.receive_text(), timeout=10))
+        if setup.get("type") != "setup" or not isinstance(setup.get("token"), str):
+            raise HTTPException(status_code=401, detail="Authentication required")
+        user = _authenticated_user(websocket, setup["token"])
+        if user is None:
+            raise HTTPException(status_code=401, detail="User not found")
+    except (HTTPException, ValueError, asyncio.TimeoutError):
+        await websocket.send_json({"type": "error", "error": "Authentication required", "code": "unauthorized"})
+        await websocket.close(code=1008)
         return
 
-    log.info("Live WebSocket client connected")
-    await _proxy_gemini(websocket, GEMINI_WS_URL, api_key)
-    log.info("Live WebSocket session ended")
+    if not settings.openai_api_key:
+        await websocket.send_json({"type": "error", "error": "Live voice is not configured", "code": "not_configured"})
+        await websocket.close(code=1011)
+        return
+
+    voice = setup.get("voice", "marin")
+    try:
+        import websockets
+
+        headers = {
+            "Authorization": f"Bearer {settings.openai_api_key}",
+            "OpenAI-Beta": "realtime=v1",
+        }
+        async with websockets.connect(OPENAI_REALTIME_URL, extra_headers=headers, max_size=2**22) as upstream:
+            await _proxy_openai(websocket, upstream, settings.openai_realtime_model, voice)
+    except WebSocketDisconnect:
+        log.info("Live client disconnected")
+    except Exception:
+        log.exception("OpenAI Realtime connection failed")
+        with suppress(Exception):
+            await websocket.send_json({"type": "error", "error": "Live voice connection failed", "code": "upstream_unavailable"})
+    finally:
+        with suppress(Exception):
+            await websocket.close()
