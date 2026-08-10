@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { approachMotionTarget, getRingMotionTarget } from './magic-rings-motion';
 
 import './MagicRings.css';
 
@@ -95,6 +96,7 @@ export default function MagicRings({
   const hoverAmountRef = useRef(0);
   const isHoveredRef = useRef(false);
   const burstRef = useRef(0);
+  const reducedMotionRef = useRef(false);
 
   propsRef.current = {
     color, colorTwo, speed, ringCount, attenuation, lineThickness,
@@ -106,6 +108,10 @@ export default function MagicRings({
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reducedMotionRef.current = motionQuery.matches;
+    const onMotionPreference = (event) => { reducedMotionRef.current = event.matches; };
+    motionQuery.addEventListener?.('change', onMotionPreference);
 
     let renderer;
     try {
@@ -188,9 +194,21 @@ export default function MagicRings({
     mount.addEventListener('click', onClick);
 
     let frameId;
+    let lastTime = performance.now();
+    let visualTime = 0;
+    let visualRotation = 0;
+    let motion = getRingMotionTarget('idle', 0, reducedMotionRef.current);
+    const liveColor = new THREE.Color(color);
+    const liveColorTwo = new THREE.Color(colorTwo);
     const animate = (t) => {
       frameId = requestAnimationFrame(animate);
       const p = propsRef.current;
+      const delta = Math.min((t - lastTime) / 1000, 0.05);
+      lastTime = t;
+      const target = getRingMotionTarget(p.phase || 'idle', p.volume, reducedMotionRef.current);
+      motion = approachMotionTarget(motion, target, 1 - Math.exp(-delta * 5.5));
+      visualTime += delta * motion.timeSpeed;
+      visualRotation += delta * motion.rotationSpeed;
 
       smoothMouseRef.current[0] += (mouseRef.current[0] - smoothMouseRef.current[0]) * 0.08;
       smoothMouseRef.current[1] += (mouseRef.current[1] - smoothMouseRef.current[1]) * 0.08;
@@ -198,18 +216,22 @@ export default function MagicRings({
       burstRef.current *= 0.95;
       if (burstRef.current < 0.001) burstRef.current = 0;
 
-      uniforms.uTime.value = t * 0.001 * p.speed;
-      uniforms.uAttenuation.value = p.attenuation;
-      uniforms.uColor.value.set(p.color);
-      uniforms.uColorTwo.value.set(p.colorTwo);
-      uniforms.uLineThickness.value = p.lineThickness;
+      uniforms.uTime.value = visualTime * p.speed;
+      uniforms.uAttenuation.value = motion.attenuation;
+      const phaseColor = p.phase === 'speaking' ? '#ff9f6b' : p.phase === 'listening' ? '#42fcff' : p.color;
+      const phaseColorTwo = p.phase === 'speaking' ? '#fc42ff' : p.colorTwo;
+      liveColor.lerp(new THREE.Color(phaseColor), 1 - Math.exp(-delta * 3.5));
+      liveColorTwo.lerp(new THREE.Color(phaseColorTwo), 1 - Math.exp(-delta * 3.5));
+      uniforms.uColor.value.copy(liveColor);
+      uniforms.uColorTwo.value.copy(liveColorTwo);
+      uniforms.uLineThickness.value = motion.lineThickness;
       uniforms.uBaseRadius.value = p.baseRadius;
       uniforms.uRadiusStep.value = p.radiusStep;
-      uniforms.uScaleRate.value = p.scaleRate;
-      uniforms.uRingCount.value = p.ringCount;
-      uniforms.uOpacity.value = p.opacity;
-      uniforms.uNoiseAmount.value = p.noiseAmount;
-      uniforms.uRotation.value = (p.rotation * Math.PI) / 180;
+      uniforms.uScaleRate.value = motion.scaleRate;
+      uniforms.uRingCount.value = Math.max(3, Math.round(motion.ringCount));
+      uniforms.uOpacity.value = motion.opacity * p.opacity;
+      uniforms.uNoiseAmount.value = motion.noiseAmount;
+      uniforms.uRotation.value = (p.rotation * Math.PI) / 180 + visualRotation;
       uniforms.uRingGap.value = p.ringGap;
       uniforms.uFadeIn.value = p.fadeIn;
       uniforms.uFadeOut.value = p.fadeOut;
@@ -220,38 +242,13 @@ export default function MagicRings({
       uniforms.uParallax.value = p.parallax;
       uniforms.uBurst.value = p.clickBurst ? burstRef.current : 0;
 
-      if (p.phase && p.phase !== 'idle') {
-        const vol = Math.min(p.volume / 60, 1);
-        if (p.phase === 'listening') {
-          uniforms.uSpeed = uniforms.uSpeed || { value: 1 };
-          uniforms.uTime.value = t * 0.001 * (0.6 + vol * 0.8);
-          uniforms.uScaleRate.value = p.scaleRate * (0.5 + vol * 1.0);
-          uniforms.uNoiseAmount.value = p.noiseAmount * (0.3 + vol * 1.5);
-          uniforms.uLineThickness.value = p.lineThickness * (0.8 + vol * 0.6);
-          uniforms.uRingCount.value = Math.round(p.ringCount * (0.6 + vol * 0.4));
-        } else if (p.phase === 'thinking') {
-          uniforms.uTime.value = t * 0.001 * 2.2;
-          uniforms.uScaleRate.value = p.scaleRate * 1.8;
-          uniforms.uNoiseAmount.value = p.noiseAmount * 2.5;
-          uniforms.uLineThickness.value = p.lineThickness * 1.3;
-          uniforms.uAttenuation.value = p.attenuation * 0.7;
-          uniforms.uRingCount.value = p.ringCount;
-        } else if (p.phase === 'speaking') {
-          const pulse = Math.sin(t * 0.008) * 0.3 + 0.7;
-          uniforms.uTime.value = t * 0.001 * 1.4;
-          uniforms.uScaleRate.value = p.scaleRate * (1.2 + pulse * 0.6);
-          uniforms.uNoiseAmount.value = p.noiseAmount * (0.5 + pulse * 1.0);
-          uniforms.uLineThickness.value = p.lineThickness * (1.1 + pulse * 0.4);
-          uniforms.uRingCount.value = p.ringCount;
-        }
-      }
-
       renderer.render(scene, camera);
     };
     frameId = requestAnimationFrame(animate);
 
     return () => {
       cancelAnimationFrame(frameId);
+      motionQuery.removeEventListener?.('change', onMotionPreference);
       window.removeEventListener('resize', resize);
       ro.disconnect();
       mount.removeEventListener('mousemove', onMouseMove);
