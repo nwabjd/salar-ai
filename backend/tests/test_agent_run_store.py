@@ -23,13 +23,14 @@ def test_agent_run_store_persists_completed_research_run(client, exchange):
             "search",
             "completed",
             detail={"result_count": 1},
-            evidence=[
+            evidence=(
                 {
                     "title": "Gemini Live API",
                     "url": "https://ai.google.dev/api/live",
                     "excerpt_summary": "Live API documentation",
                 }
-            ],
+                for _ in range(1)
+            ),
         )
         store.complete(run, {"summary": "Gemini Live API supports realtime interaction."})
         db.commit()

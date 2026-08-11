@@ -1,5 +1,5 @@
 import json
-from typing import Any, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,7 @@ class AgentRunStore:
     def __init__(self, db: Session):
         self.db = db
 
-    def start(self, user_id: str, conversation_id: Optional[str], kind: str, input_data: Any) -> AgentRun:
+    def start(self, user_id: str, conversation_id: Optional[str], kind: str, input_data: Dict[str, Any]) -> AgentRun:
         run = AgentRun(
             user_id=user_id,
             conversation_id=conversation_id,
@@ -27,8 +27,8 @@ class AgentRunStore:
         run: AgentRun,
         name: str,
         status: str,
-        detail: Optional[Any] = None,
-        evidence: Optional[Any] = None,
+        detail: Optional[Dict[str, Any]] = None,
+        evidence: Optional[Iterable[Dict[str, Any]]] = None,
         attempt: int = 1,
     ) -> AgentRunStep:
         step = AgentRunStep(
@@ -37,21 +37,19 @@ class AgentRunStore:
             status=status,
             attempt=attempt,
             detail_json=json.dumps({} if detail is None else detail),
-            evidence_json=json.dumps([] if evidence is None else evidence),
+            evidence_json=json.dumps(list(evidence or [])),
         )
         self.db.add(step)
         self.db.flush()
         return step
 
-    def complete(self, run: AgentRun, output: Any) -> AgentRun:
+    def complete(self, run: AgentRun, output: Dict[str, Any]) -> None:
         run.status = "completed"
         run.output_json = json.dumps(output)
         run.error = ""
         self.db.flush()
-        return run
 
-    def fail(self, run: AgentRun, error: str) -> AgentRun:
+    def fail(self, run: AgentRun, error: str) -> None:
         run.status = "failed"
         run.error = error[:1000]
         self.db.flush()
-        return run
