@@ -2,6 +2,7 @@ import hashlib
 import json
 import re
 from datetime import datetime, timedelta, timezone
+from types import MappingProxyType
 from typing import Any, Dict, Iterable, List, Optional
 
 from sqlalchemy import case, func, or_, select, update
@@ -15,23 +16,21 @@ from .contracts import CLAIMABLE_STATUSES, ClaimedJob, JobOutcome, JobSnapshot
 GENERIC_ERROR_CODE = "job_execution_failed"
 GENERIC_ERROR_DETAIL = "The job could not be completed."
 _SAFE_ERROR_CODE = re.compile(r"[a-z0-9][a-z0-9_.-]*")
-_UNSAFE_ERROR_DETAIL = re.compile(
-    r"\btraceback\b"
-    r"|\b(?:select\b.+\bfrom|insert\s+into|update\s+\S+\s+set|delete\s+from|drop\s+table|alter\s+table|create\s+table)\b"
-    r"|[a-z]:\\(?:[^\\\s]+\\)*[^\\\s]+"
-    r"|(?:^|\s)/(?:[^/\s]+/)+[^/\s]+"
-    r"|\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|token|password|secret)\b\s*[:=]"
-    r"|\b(?:authorization\s*:\s*)?bearer\s+[a-z0-9._~+/-]+"
-    r"|\bsk-(?:proj-)?[a-z0-9_-]{20,}\b"
-    r"|\b(?:ghp_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,})\b"
-    r"|\bxox[baprs]-[a-z0-9-]{10,}\b"
-    r"|\beyj[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\b"
-    r"|[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@"
-    r"|-----begin\s+(?:rsa\s+|ec\s+|openssh\s+)?private\s+key-----"
-    r"|\b(?:akia|asia|aida|aroa|aipa|anpa|anva|asca)[a-z0-9]{16}\b"
-    r"|\b(?:aws|azure|gcp|google)_[a-z0-9_]*(?:key|token|secret|password)[a-z0-9_]*\s*[:=]"
-    r"|\baiza[a-z0-9_-]{30,50}\b",
-    re.IGNORECASE | re.DOTALL,
+_CREDENTIAL_SHAPED_CODE = re.compile(
+    r"sk-(?:proj-)?[a-z0-9_-]{20,}"
+    r"|(?:ghp_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,})"
+    r"|xox[baprs]-[a-z0-9-]{10,}"
+    r"|eyj[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}",
+    re.IGNORECASE,
+)
+_VETTED_ERROR_DETAILS = MappingProxyType(
+    {
+        "provider_unavailable": "Please try again later.",
+        "job_execution_failed": GENERIC_ERROR_DETAIL,
+        "invalid_job_payload": "The job payload is invalid.",
+        "unknown_job_kind": "This job type is unavailable.",
+        "unsupported_workflow_action": "This workflow action is unsupported.",
+    }
 )
 
 
@@ -72,20 +71,14 @@ def _is_encoded_object(value: Any) -> bool:
         return False
 
 
-def _sanitize_error(code: Any, safe_detail: Any) -> tuple:
+def _sanitize_error(code: Any, _caller_detail: Any) -> tuple:
     normalized_code = GENERIC_ERROR_CODE
     if isinstance(code, str):
         raw_code = code.strip()
         candidate = raw_code.lower()[:80]
-        if not _UNSAFE_ERROR_DETAIL.search(raw_code) and _SAFE_ERROR_CODE.fullmatch(candidate):
+        if not _CREDENTIAL_SHAPED_CODE.search(raw_code) and _SAFE_ERROR_CODE.fullmatch(candidate):
             normalized_code = candidate
-
-    if not isinstance(safe_detail, str):
-        return GENERIC_ERROR_CODE, GENERIC_ERROR_DETAIL
-    detail = safe_detail.strip()
-    if not detail or _UNSAFE_ERROR_DETAIL.search(detail):
-        return GENERIC_ERROR_CODE, GENERIC_ERROR_DETAIL
-    return normalized_code, detail[:500]
+    return normalized_code, _VETTED_ERROR_DETAILS.get(normalized_code, GENERIC_ERROR_DETAIL)
 
 
 class JobStore:

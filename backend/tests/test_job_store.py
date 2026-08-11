@@ -334,7 +334,7 @@ def test_fail_or_retry_redacts_unlabelled_credential_strings(
     snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
     event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
     persisted_text = f"{snapshot.safe_error_detail} {event['payload']}".lower()
-    assert snapshot.safe_error_code == "job_execution_failed"
+    assert snapshot.safe_error_code == "credential_rejected"
     assert snapshot.safe_error_detail == "The job could not be completed."
     assert credential.lower() not in persisted_text
     assert sensitive_prefix.lower() not in persisted_text
@@ -344,6 +344,7 @@ def test_fail_or_retry_redacts_unlabelled_credential_strings(
     "credential_code",
     [
         "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+        "provider_ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
         "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890",
         (
             "eyJhbGciOiJIUzI1NiJ9."
@@ -370,7 +371,7 @@ def test_fail_or_retry_redacts_credentials_from_error_code(session_factory, cred
     event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
     persisted_text = f"{snapshot.safe_error_code} {event['payload']}".lower()
     assert snapshot.safe_error_code == "job_execution_failed"
-    assert snapshot.safe_error_detail == "Please try again later."
+    assert snapshot.safe_error_detail == "The job could not be completed."
     assert credential_code.lower() not in persisted_text
 
 
@@ -401,12 +402,12 @@ def test_fail_or_retry_redacts_uri_private_key_and_cloud_credentials(session_fac
     snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
     event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
     persisted_text = f"{snapshot.safe_error_code} {snapshot.safe_error_detail} {event['payload']}".lower()
-    assert snapshot.safe_error_code == "job_execution_failed"
-    assert snapshot.safe_error_detail == "The job could not be completed."
+    assert snapshot.safe_error_code == "provider_unavailable"
+    assert snapshot.safe_error_detail == "Please try again later."
     assert unsafe_detail.lower() not in persisted_text
 
 
-def test_fail_or_retry_normalizes_safe_code_without_changing_safe_detail(session_factory):
+def test_fail_or_retry_normalizes_safe_code_and_uses_vetted_detail(session_factory):
     store = JobStore(session_factory)
     now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
     job = enqueue(store, max_attempts=1, scheduled_at=now)
@@ -416,13 +417,101 @@ def test_fail_or_retry_normalizes_safe_code_without_changing_safe_detail(session
         job_id=job.id,
         lease_token=claim.lease_token,
         code="PROVIDER_UNAVAILABLE",
-        safe_detail="Please try again later.",
+        safe_detail="Caller-provided text must not be persisted.",
         now=now,
     ) == "failed"
 
     snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
     assert snapshot.safe_error_code == "provider_unavailable"
     assert snapshot.safe_error_detail == "Please try again later."
+
+
+@pytest.mark.parametrize(
+    "unvetted_detail",
+    [
+        "-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIFHDBOBgkqhkiG9w0BBQ0wQTApBgkqhkiG9w0BBQwwHAQI",
+        "redis://:s3cr3t@example/db",
+        (
+            "DefaultEndpointsProtocol=https;AccountName=foo;"
+            "AccountKey=base64secret==;EndpointSuffix=core.windows.net"
+        ),
+    ],
+)
+def test_fail_or_retry_never_persists_unvetted_secret_details(session_factory, unvetted_detail):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    assert store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code="external_failure",
+        safe_detail=unvetted_detail,
+        now=now,
+    ) == "failed"
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
+    assert snapshot.safe_error_code == "external_failure"
+    assert snapshot.safe_error_detail == "The job could not be completed."
+    assert event["payload"] == {
+        "code": "external_failure",
+        "detail": "The job could not be completed.",
+    }
+    assert unvetted_detail not in str(event)
+
+
+def test_fail_or_retry_replaces_benign_unvetted_detail_for_unknown_code(session_factory):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code="custom_failure",
+        safe_detail="A harmless but unvetted explanation.",
+        now=now,
+    )
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
+    assert snapshot.safe_error_code == "custom_failure"
+    assert snapshot.safe_error_detail == "The job could not be completed."
+    assert event["payload"]["detail"] == "The job could not be completed."
+
+
+@pytest.mark.parametrize(
+    ("code", "expected_detail"),
+    [
+        ("provider_unavailable", "Please try again later."),
+        ("job_execution_failed", "The job could not be completed."),
+        ("invalid_job_payload", "The job payload is invalid."),
+        ("unknown_job_kind", "This job type is unavailable."),
+        ("unsupported_workflow_action", "This workflow action is unsupported."),
+    ],
+)
+def test_fail_or_retry_uses_only_vetted_detail_templates(session_factory, code, expected_detail):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, key=code, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code=code,
+        safe_detail="This caller text is never trusted.",
+        now=now,
+    )
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
+    assert snapshot.safe_error_code == code
+    assert snapshot.safe_error_detail == expected_detail
+    assert event["payload"]["detail"] == expected_detail
 
 
 def test_retry_uses_deterministic_backoff_and_can_be_claimed_when_due(session_factory):
