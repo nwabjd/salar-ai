@@ -40,7 +40,7 @@ def test_agent_run_store_persists_completed_research_run(client, exchange):
         saved_steps = (
             db.query(AgentRunStep)
             .filter(AgentRunStep.run_id == run.id)
-            .order_by(AgentRunStep.created_at, AgentRunStep.id)
+            .order_by(AgentRunStep.sequence)
             .all()
         )
 
@@ -51,4 +51,5 @@ def test_agent_run_store_persists_completed_research_run(client, exchange):
         ("search", "running"),
         ("search", "completed"),
     ]
+    assert [step.sequence for step in saved_steps] == [1, 2]
     assert json.loads(saved_steps[1].evidence_json)[0]["url"] == "https://ai.google.dev/api/live"

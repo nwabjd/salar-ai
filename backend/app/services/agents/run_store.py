@@ -1,6 +1,7 @@
 import json
 from typing import Any, Dict, Iterable, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...models import AgentRun, AgentRunStep
@@ -31,8 +32,15 @@ class AgentRunStore:
         evidence: Optional[Iterable[Dict[str, Any]]] = None,
         attempt: int = 1,
     ) -> AgentRunStep:
+        sequence = (
+            self.db.query(func.max(AgentRunStep.sequence))
+            .filter(AgentRunStep.run_id == run.id)
+            .scalar()
+            or 0
+        ) + 1
         step = AgentRunStep(
             run_id=run.id,
+            sequence=sequence,
             name=name,
             status=status,
             attempt=attempt,

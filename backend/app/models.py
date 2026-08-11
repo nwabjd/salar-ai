@@ -76,9 +76,11 @@ class AgentRun(Base):
 
 class AgentRunStep(Base):
     __tablename__ = "agent_run_steps"
+    __table_args__ = (UniqueConstraint("run_id", "sequence", name="uq_agent_run_step_sequence"),)
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
     run_id: Mapped[str] = mapped_column(ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
     name: Mapped[str] = mapped_column(String(80))
     status: Mapped[str] = mapped_column(String(24))
     attempt: Mapped[int] = mapped_column(Integer, default=1)
