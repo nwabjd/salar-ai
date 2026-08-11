@@ -340,6 +340,72 @@ def test_fail_or_retry_redacts_unlabelled_credential_strings(
     assert sensitive_prefix.lower() not in persisted_text
 
 
+@pytest.mark.parametrize(
+    "credential_code",
+    [
+        "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+        "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890",
+        (
+            "eyJhbGciOiJIUzI1NiJ9."
+            "eyJzdWIiOiIxMjM0NTY3ODkwIn0."
+            "c2lnbmF0dXJlMTIzNDU2Nzg5MA"
+        ),
+    ],
+)
+def test_fail_or_retry_redacts_credentials_from_error_code(session_factory, credential_code):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    assert store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code=credential_code,
+        safe_detail="Please try again later.",
+        now=now,
+    ) == "failed"
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
+    persisted_text = f"{snapshot.safe_error_code} {event['payload']}".lower()
+    assert snapshot.safe_error_code == "job_execution_failed"
+    assert snapshot.safe_error_detail == "Please try again later."
+    assert credential_code.lower() not in persisted_text
+
+
+@pytest.mark.parametrize(
+    "unsafe_detail",
+    [
+        "postgresql://alice:s3cr3t@example.test/private_db",
+        "-----BEGIN PRIVATE KEY----- MIIEvQIBADANBgkqhkiG9w0 -----END PRIVATE KEY-----",
+        "AWS access failed for AKIAIOSFODNN7EXAMPLE",
+        "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        "Cloud API rejected AIzaSyDUMMYDUMMYDUMMYDUMMYDUMMYDUMMYDUM",
+    ],
+)
+def test_fail_or_retry_redacts_uri_private_key_and_cloud_credentials(session_factory, unsafe_detail):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    assert store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code="provider_unavailable",
+        safe_detail=unsafe_detail,
+        now=now,
+    ) == "failed"
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
+    persisted_text = f"{snapshot.safe_error_code} {snapshot.safe_error_detail} {event['payload']}".lower()
+    assert snapshot.safe_error_code == "job_execution_failed"
+    assert snapshot.safe_error_detail == "The job could not be completed."
+    assert unsafe_detail.lower() not in persisted_text
+
+
 def test_fail_or_retry_normalizes_safe_code_without_changing_safe_detail(session_factory):
     store = JobStore(session_factory)
     now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
@@ -396,6 +462,140 @@ def test_queued_and_running_cancellation(session_factory):
     assert store.heartbeat(job_id=running.id, lease_token=claim.lease_token, lease_seconds=30) is True
 
 
+@pytest.mark.parametrize("terminal_operation", ["complete", "fail"])
+def test_cancel_request_fences_late_worker_terminal_writes(session_factory, terminal_operation):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+    requested = store.request_cancel(owner_id="user-a", job_id=job.id, now=now + timedelta(seconds=1))
+    assert requested.status == "running"
+
+    if terminal_operation == "complete":
+        result = store.complete(
+            job_id=job.id,
+            lease_token=claim.lease_token,
+            outcome=JobOutcome(status="completed", result={"late": True}),
+            now=now + timedelta(seconds=2),
+        )
+        assert result is False
+    else:
+        result = store.fail_or_retry(
+            job_id=job.id,
+            lease_token=claim.lease_token,
+            code="temporary",
+            safe_detail="Retrying.",
+            now=now + timedelta(seconds=2),
+        )
+        assert result == "cancelled"
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    events = store.list_events_for_owner(owner_id="user-a", job_id=job.id)
+    assert snapshot.status == "cancelled"
+    assert snapshot.result is None
+    assert [event["event_type"] for event in events] == [
+        "job.queued",
+        "job.claimed",
+        "job.cancel_requested",
+        "job.cancelled",
+    ]
+
+
+@pytest.mark.parametrize("terminal_operation", ["complete", "fail"])
+def test_cancel_request_fences_late_worker_across_sessions(session_factory, terminal_operation):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+    cancel_committed = threading.Event()
+
+    def cancel():
+        result = JobStore(session_factory).request_cancel(
+            owner_id="user-a", job_id=job.id, now=now + timedelta(seconds=1)
+        )
+        cancel_committed.set()
+        return result
+
+    def finalize_late():
+        assert cancel_committed.wait(timeout=10)
+        late_store = JobStore(session_factory)
+        if terminal_operation == "complete":
+            return late_store.complete(
+                job_id=job.id,
+                lease_token=claim.lease_token,
+                outcome=JobOutcome(status="completed", result={"late": True}),
+                now=now + timedelta(seconds=2),
+            )
+        return late_store.fail_or_retry(
+            job_id=job.id,
+            lease_token=claim.lease_token,
+            code="temporary",
+            safe_detail="Retrying.",
+            now=now + timedelta(seconds=2),
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        cancel_future = executor.submit(cancel)
+        finalize_future = executor.submit(finalize_late)
+        assert cancel_future.result(timeout=10).status == "running"
+        expected = False if terminal_operation == "complete" else "cancelled"
+        assert finalize_future.result(timeout=10) == expected
+
+    assert store.get_for_owner(owner_id="user-a", job_id=job.id).status == "cancelled"
+
+
+def test_expired_cancel_request_is_recovered_as_cancelled_and_not_reclaimed(session_factory):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, scheduled_at=now)
+    store.claim_next(worker_id="worker", lease_seconds=1, now=now)
+    store.request_cancel(owner_id="user-a", job_id=job.id, now=now + timedelta(milliseconds=500))
+    recovery_done = threading.Event()
+
+    def recover():
+        result = JobStore(session_factory).recover_abandoned(now=now + timedelta(seconds=2))
+        recovery_done.set()
+        return result
+
+    def claim_after_recovery():
+        assert recovery_done.wait(timeout=10)
+        return JobStore(session_factory).claim_next(
+            worker_id="replacement", lease_seconds=30, now=now + timedelta(seconds=2)
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        recover_future = executor.submit(recover)
+        claim_future = executor.submit(claim_after_recovery)
+        assert recover_future.result(timeout=10) == 1
+        assert claim_future.result(timeout=10) is None
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    events = store.list_events_for_owner(owner_id="user-a", job_id=job.id)
+    assert snapshot.status == "cancelled"
+    assert snapshot.finished_at == now + timedelta(seconds=2)
+    assert [event["event_type"] for event in events] == [
+        "job.queued",
+        "job.claimed",
+        "job.cancel_requested",
+        "job.cancelled",
+    ]
+
+
+def test_claim_skips_claimable_rows_with_cancellation_requests(session_factory):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    cancelled = enqueue(store, key="cancelled", priority=1, scheduled_at=now)
+    valid = enqueue(store, key="valid", priority=2, scheduled_at=now)
+    with session_factory() as db:
+        db.get(Job, cancelled.id).cancel_requested_at = now
+        db.commit()
+
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    assert claim.id == valid.id
+    assert store.get_for_owner(owner_id="user-a", job_id=cancelled.id).status == "queued"
+
+
 def test_owner_isolation_for_reads_lists_cancellation_and_events(session_factory):
     store = JobStore(session_factory)
     job = enqueue(store)
@@ -417,3 +617,36 @@ def test_recover_abandoned_fails_exhausted_jobs(session_factory):
     assert recovered.status == "failed"
     assert recovered.safe_error_code == "job_lease_expired"
     assert recovered.finished_at == now + timedelta(seconds=2)
+
+
+def test_malformed_input_is_failed_without_consuming_attempt_and_valid_job_is_claimed(session_factory):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    malformed = enqueue(store, key="malformed", priority=1, scheduled_at=now)
+    valid = enqueue(store, key="valid", priority=2, scheduled_at=now)
+    raw_secret = '{"credential": "sk-proj-raw-secret-without-closing-brace"'
+    with session_factory() as db:
+        row = db.get(Job, malformed.id)
+        row.input_json = raw_secret
+        row.result_json = "[malformed-result"
+        db.commit()
+
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    assert claim.id == valid.id
+    malformed_snapshot = store.get_for_owner(owner_id="user-a", job_id=malformed.id)
+    listed = {job.id: job for job in store.list_for_owner(owner_id="user-a")}
+    events = store.list_events_for_owner(owner_id="user-a", job_id=malformed.id)
+    assert malformed_snapshot.status == "failed"
+    assert malformed_snapshot.input_data == {}
+    assert malformed_snapshot.result == {}
+    assert listed[malformed.id].input_data == {}
+    assert malformed_snapshot.attempt_count == 0
+    assert malformed_snapshot.safe_error_code == "invalid_job_input"
+    assert "lease_token" not in malformed_snapshot.__dict__
+    assert [event["event_type"] for event in events] == ["job.queued", "job.failed"]
+    assert raw_secret not in str(events)
+    with session_factory() as db:
+        malformed_row = db.get(Job, malformed.id)
+        assert malformed_row.lease_token is None
+        assert malformed_row.lease_expires_at is None

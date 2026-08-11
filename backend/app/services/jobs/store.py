@@ -25,7 +25,12 @@ _UNSAFE_ERROR_DETAIL = re.compile(
     r"|\bsk-(?:proj-)?[a-z0-9_-]{20,}\b"
     r"|\b(?:ghp_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,})\b"
     r"|\bxox[baprs]-[a-z0-9-]{10,}\b"
-    r"|\beyj[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\b",
+    r"|\beyj[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\b"
+    r"|[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@"
+    r"|-----begin\s+(?:rsa\s+|ec\s+|openssh\s+)?private\s+key-----"
+    r"|\b(?:akia|asia|aida|aroa|aipa|anpa|anva|asca)[a-z0-9]{16}\b"
+    r"|\b(?:aws|azure|gcp|google)_[a-z0-9_]*(?:key|token|secret|password)[a-z0-9_]*\s*[:=]"
+    r"|\baiza[a-z0-9_-]{30,50}\b",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -51,15 +56,28 @@ def _utc(value: Optional[datetime] = None) -> datetime:
 def _decoded_object(value: Optional[str]) -> Optional[Dict[str, Any]]:
     if value is None:
         return None
-    decoded = json.loads(value)
+    try:
+        decoded = json.loads(value)
+    except (TypeError, ValueError):
+        return {}
     return decoded if isinstance(decoded, dict) else {}
+
+
+def _is_encoded_object(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return isinstance(json.loads(value), dict)
+    except (TypeError, ValueError):
+        return False
 
 
 def _sanitize_error(code: Any, safe_detail: Any) -> tuple:
     normalized_code = GENERIC_ERROR_CODE
     if isinstance(code, str):
-        candidate = code.strip().lower()[:80]
-        if _SAFE_ERROR_CODE.fullmatch(candidate):
+        raw_code = code.strip()
+        candidate = raw_code.lower()[:80]
+        if not _UNSAFE_ERROR_DETAIL.search(raw_code) and _SAFE_ERROR_CODE.fullmatch(candidate):
             normalized_code = candidate
 
     if not isinstance(safe_detail, str):
@@ -204,28 +222,66 @@ class JobStore:
         if lease_seconds <= 0:
             raise ValueError("Lease duration must be positive")
         claimed_at = _utc(now)
-        for _ in range(5):
+        for _ in range(100):
             with self.session_factory() as db:
-                candidate_id = db.execute(
-                    select(Job.id)
+                candidate = db.execute(
+                    select(Job.id, Job.input_json)
                     .where(
                         Job.status.in_(CLAIMABLE_STATUSES),
                         Job.scheduled_at <= claimed_at,
+                        Job.cancel_requested_at.is_(None),
                         or_(Job.lease_token.is_(None), Job.lease_expires_at <= claimed_at),
                     )
                     .order_by(Job.priority.asc(), Job.scheduled_at.asc(), Job.created_at.asc(), Job.id.asc())
                     .limit(1)
-                ).scalar_one_or_none()
-                if candidate_id is None:
+                ).first()
+                if candidate is None:
                     return None
+                candidate_id, input_json = candidate
+                if not _is_encoded_object(input_json):
+                    result = db.execute(
+                        update(Job)
+                        .where(
+                            Job.id == candidate_id,
+                            Job.input_json == input_json,
+                            Job.status.in_(CLAIMABLE_STATUSES),
+                            Job.scheduled_at <= claimed_at,
+                            Job.cancel_requested_at.is_(None),
+                            or_(Job.lease_token.is_(None), Job.lease_expires_at <= claimed_at),
+                        )
+                        .values(
+                            status="failed",
+                            safe_error_code="invalid_job_input",
+                            safe_error_detail="The job input could not be read.",
+                            lease_token=None,
+                            lease_expires_at=None,
+                            finished_at=claimed_at,
+                            updated_at=claimed_at,
+                        )
+                        .execution_options(synchronize_session=False)
+                    )
+                    if result.rowcount != 1:
+                        db.rollback()
+                        continue
+                    self._append_event(
+                        db,
+                        candidate_id,
+                        "job.failed",
+                        {"code": "invalid_job_input", "detail": "The job input could not be read."},
+                        claimed_at,
+                    )
+                    db.commit()
+                    continue
                 lease_token = token_id()
                 lease_expires_at = claimed_at + timedelta(seconds=lease_seconds)
                 result = db.execute(
                     update(Job)
                     .where(
                         Job.id == candidate_id,
+                        Job.input_json == input_json,
                         Job.status.in_(CLAIMABLE_STATUSES),
                         Job.scheduled_at <= claimed_at,
+                        Job.cancel_requested_at.is_(None),
                         or_(Job.lease_token.is_(None), Job.lease_expires_at <= claimed_at),
                     )
                     .values(
@@ -403,6 +459,9 @@ class JobStore:
             raise ValueError("Outcome must be a JobOutcome")
         completed_at = _utc(now)
         with self.session_factory() as db:
+            if self._finalize_cancel_requested(db, job_id, lease_token, completed_at):
+                db.commit()
+                return False
             result = db.execute(
                 update(Job)
                 .where(
@@ -410,6 +469,7 @@ class JobStore:
                     Job.status == "running",
                     Job.lease_token == lease_token,
                     Job.lease_expires_at > completed_at,
+                    Job.cancel_requested_at.is_(None),
                 )
                 .values(
                     status=outcome.status,
@@ -425,6 +485,9 @@ class JobStore:
                 .execution_options(synchronize_session=False)
             )
             if result.rowcount != 1:
+                if self._finalize_cancel_requested(db, job_id, lease_token, completed_at):
+                    db.commit()
+                    return False
                 db.rollback()
                 return False
             self._append_event(db, job_id, f"job.{outcome.status}", {"result": outcome.result}, completed_at)
@@ -443,15 +506,22 @@ class JobStore:
         failed_at = _utc(now)
         safe_code, safe_message = _sanitize_error(code, safe_detail)
         with self.session_factory() as db:
+            if self._finalize_cancel_requested(db, job_id, lease_token, failed_at):
+                db.commit()
+                return "cancelled"
             job = db.execute(
                 select(Job).where(
                     Job.id == job_id,
                     Job.status == "running",
                     Job.lease_token == lease_token,
                     Job.lease_expires_at > failed_at,
+                    Job.cancel_requested_at.is_(None),
                 )
             ).scalar_one_or_none()
             if job is None:
+                if self._finalize_cancel_requested(db, job_id, lease_token, failed_at):
+                    db.commit()
+                    return "cancelled"
                 return "stale"
             exhausted = job.attempt_count >= job.max_attempts
             status = "failed" if exhausted else "retrying"
@@ -467,6 +537,7 @@ class JobStore:
                     Job.status == "running",
                     Job.lease_token == lease_token,
                     Job.lease_expires_at > failed_at,
+                    Job.cancel_requested_at.is_(None),
                 )
                 .values(
                     status=status,
@@ -481,6 +552,9 @@ class JobStore:
                 .execution_options(synchronize_session=False)
             )
             if result.rowcount != 1:
+                if self._finalize_cancel_requested(db, job_id, lease_token, failed_at):
+                    db.commit()
+                    return "cancelled"
                 db.rollback()
                 return "stale"
             payload = {"code": safe_code, "detail": safe_message}
@@ -504,8 +578,9 @@ class JobStore:
                 ).scalars()
             )
             for job in jobs:
+                cancelled = job.cancel_requested_at is not None
                 exhausted = job.attempt_count >= job.max_attempts
-                status = "failed" if exhausted else "retrying"
+                status = "cancelled" if cancelled else ("failed" if exhausted else "retrying")
                 values = {
                     "status": status,
                     "scheduled_at": recovered_at,
@@ -513,7 +588,9 @@ class JobStore:
                     "lease_expires_at": None,
                     "updated_at": recovered_at,
                 }
-                if exhausted:
+                if cancelled:
+                    values["finished_at"] = recovered_at
+                elif exhausted:
                     values.update(
                         safe_error_code="job_lease_expired",
                         safe_error_detail="The worker lease expired before the job completed.",
@@ -526,17 +603,50 @@ class JobStore:
                         Job.status == "running",
                         Job.lease_token == job.lease_token,
                         Job.lease_expires_at <= recovered_at,
+                        Job.cancel_requested_at.is_not(None)
+                        if cancelled
+                        else Job.cancel_requested_at.is_(None),
                     )
                     .values(**values)
                     .execution_options(synchronize_session=False)
                 )
                 if result.rowcount != 1:
                     continue
-                event_payload = {"code": "job_lease_expired"} if exhausted else {}
+                event_payload = {"code": "job_lease_expired"} if exhausted and not cancelled else {}
                 self._append_event(db, job.id, f"job.{status}", event_payload, recovered_at)
                 recovered += 1
             db.commit()
         return recovered
+
+    def _finalize_cancel_requested(
+        self,
+        db: Session,
+        job_id: str,
+        lease_token: str,
+        finalized_at: datetime,
+    ) -> bool:
+        result = db.execute(
+            update(Job)
+            .where(
+                Job.id == job_id,
+                Job.status == "running",
+                Job.lease_token == lease_token,
+                Job.lease_expires_at > finalized_at,
+                Job.cancel_requested_at.is_not(None),
+            )
+            .values(
+                status="cancelled",
+                lease_token=None,
+                lease_expires_at=None,
+                finished_at=finalized_at,
+                updated_at=finalized_at,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            return False
+        self._append_event(db, job_id, "job.cancelled", {}, finalized_at)
+        return True
 
     @staticmethod
     def _find_idempotent(db: Session, owner_id: str, idempotency_key: str) -> Optional[Job]:
