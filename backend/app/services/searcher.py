@@ -12,17 +12,31 @@ def _normalized_text(value: object) -> str:
         return ""
 
 
+def _has_unsafe_url_characters(value: str) -> bool:
+    return any(
+        character.isspace() or ord(character) < 32 or ord(character) == 127
+        for character in value
+    )
+
+
 def _normalized_url(value: object) -> Optional[str]:
     if not isinstance(value, str):
         return None
     url = value.strip()
-    if not url:
+    if not url or _has_unsafe_url_characters(url):
         return None
     try:
         parsed = urlsplit(url)
+        hostname = parsed.hostname
+        parsed.port
     except ValueError:
         return None
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.netloc
+        or not hostname
+        or _has_unsafe_url_characters(hostname)
+    ):
         return None
     return url
 
@@ -40,7 +54,11 @@ def search_web_results(query: str, max_results: int = 5) -> List[Dict[str, Optio
                 continue
             title = _normalized_text(result.get("title")) or url
             snippet = _normalized_text(result.get("body")) or _normalized_text(result.get("snippet"))
-            published_at = _normalized_text(result.get("date")) or None
+            published_at = (
+                _normalized_text(result.get("date"))
+                or _normalized_text(result.get("published_at"))
+                or None
+            )
             normalized_results.append(
                 {
                     "title": title,

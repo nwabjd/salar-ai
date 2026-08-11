@@ -44,6 +44,23 @@ class FailingDDGS:
         raise RuntimeError("DDGS unavailable")
 
 
+class UrlHardeningDDGS:
+    def text(self, query, max_results):
+        return [
+            {
+                "title": "Published fallback",
+                "href": "https://example.com/published",
+                "date": "  ",
+                "published_at": " 2026-08-02 ",
+            },
+            {"href": "https://example\n.com/newline"},
+            {"href": "https://example\t.com/tab"},
+            {"href": "http:// /path"},
+            {"href": "https://example.com:99999"},
+            {"href": "https://example.com:not-a-port"},
+        ]
+
+
 def test_search_web_results_returns_normalized_evidence(monkeypatch):
     monkeypatch.setattr("app.services.searcher.DDGS", FakeDDGS)
 
@@ -92,3 +109,16 @@ def test_search_web_returns_empty_values_when_ddgs_fails(monkeypatch):
 
     assert search_web_results("unavailable") == []
     assert search_web("unavailable") == ""
+
+
+def test_search_web_results_uses_published_at_fallback_and_rejects_unsafe_urls(monkeypatch):
+    monkeypatch.setattr("app.services.searcher.DDGS", UrlHardeningDDGS)
+
+    assert search_web_results("URL hardening") == [
+        {
+            "title": "Published fallback",
+            "snippet": "",
+            "url": "https://example.com/published",
+            "published_at": "2026-08-02",
+        }
+    ]
