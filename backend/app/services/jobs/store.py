@@ -21,7 +21,11 @@ _UNSAFE_ERROR_DETAIL = re.compile(
     r"|[a-z]:\\(?:[^\\\s]+\\)*[^\\\s]+"
     r"|(?:^|\s)/(?:[^/\s]+/)+[^/\s]+"
     r"|\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|token|password|secret)\b\s*[:=]"
-    r"|\b(?:authorization\s*:\s*)?bearer\s+[a-z0-9._~+/-]+",
+    r"|\b(?:authorization\s*:\s*)?bearer\s+[a-z0-9._~+/-]+"
+    r"|\bsk-(?:proj-)?[a-z0-9_-]{20,}\b"
+    r"|\b(?:ghp_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,})\b"
+    r"|\bxox[baprs]-[a-z0-9-]{10,}\b"
+    r"|\beyj[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\b",
     re.IGNORECASE | re.DOTALL,
 )
 

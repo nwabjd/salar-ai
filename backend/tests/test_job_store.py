@@ -302,6 +302,44 @@ def test_fail_or_retry_replaces_exception_diagnostics_with_generic_safe_error(se
         assert secret not in persisted_text
 
 
+@pytest.mark.parametrize(
+    ("credential", "sensitive_prefix"),
+    [
+        ("sk-proj-abcdefghijklmnopqrstuvwxyz1234567890", "sk-proj-"),
+        ("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890", "ghp_"),
+        (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+            "eyJzdWIiOiIxMjM0NTY3ODkwIiwic2VjcmV0IjoidGVzdCJ9."
+            "c2lnbmF0dXJlMTIzNDU2Nzg5MA",
+            "eyj",
+        ),
+    ],
+)
+def test_fail_or_retry_redacts_unlabelled_credential_strings(
+    session_factory, credential, sensitive_prefix
+):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    assert store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code="credential_rejected",
+        safe_detail=f"Provider rejected credential {credential}",
+        now=now,
+    ) == "failed"
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
+    persisted_text = f"{snapshot.safe_error_detail} {event['payload']}".lower()
+    assert snapshot.safe_error_code == "job_execution_failed"
+    assert snapshot.safe_error_detail == "The job could not be completed."
+    assert credential.lower() not in persisted_text
+    assert sensitive_prefix.lower() not in persisted_text
+
+
 def test_fail_or_retry_normalizes_safe_code_without_changing_safe_detail(session_factory):
     store = JobStore(session_factory)
     now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
