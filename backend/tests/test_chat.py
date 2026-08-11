@@ -1,11 +1,27 @@
+import asyncio
 import json
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.chat import _persist_stream_terminal_audit
 from app.models import AuditEvent, Message, User
 from app.services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
 from conftest import PREPARED_AGENT_CONTEXT
+
+
+def test_terminal_audit_persistence_failure_is_best_effort():
+    def unavailable_session_factory():
+        raise RuntimeError("audit database unavailable")
+
+    _persist_stream_terminal_audit(
+        unavailable_session_factory,
+        user_id="user-1",
+        conversation_id="conversation-1",
+        action="chat.failed",
+        agent_run_id="run-1",
+        detail={"status": "failed", "error_message": "Stream processing failed."},
+    )
 
 
 def test_conversation_and_chat_are_persisted(client, auth_headers):
@@ -101,9 +117,21 @@ def test_non_fast_stream_uses_coordinator_history_window(client, auth_headers):
     ]
 
 
-def test_fast_stream_skips_prepare_but_keeps_resourceful_policy(client, auth_headers):
+def test_fast_stream_skips_prepare_and_context_queries_but_keeps_resourceful_policy(
+    client,
+    auth_headers,
+    monkeypatch,
+):
     created = client.post("/api/conversations", json={"title": "Voice"}, headers=auth_headers)
     conversation_id = created.json()["id"]
+    scalar_queries = []
+    original_scalars = Session.scalars
+
+    def track_scalars(session, statement, *args, **kwargs):
+        scalar_queries.append(str(statement))
+        return original_scalars(session, statement, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "scalars", track_scalars)
 
     response = client.post(
         "/api/chat/stream",
@@ -113,6 +141,7 @@ def test_fast_stream_skips_prepare_but_keeps_resourceful_policy(client, auth_hea
 
     assert response.status_code == 200
     assert client.app.state.agent_orchestrator.calls == []
+    assert not any("FROM memories" in query or "FROM documents" in query for query in scalar_queries)
     system_prompt = client.app.state.coordinator.gemini.calls[0]["messages"][0]["content"]
     assert RESOURCEFUL_RESPONSE_POLICY in system_prompt
     with client.app.state.SessionLocal() as db:
@@ -120,10 +149,39 @@ def test_fast_stream_skips_prepare_but_keeps_resourceful_policy(client, auth_hea
     assert "agent_run_id" not in json.loads(audit.detail_json)
 
 
-def test_stream_error_does_not_record_completed_audit(client, auth_headers):
+def test_stream_error_records_failed_audit_and_emits_error_terminal_event(client, auth_headers):
     created = client.post("/api/conversations", json={"title": "Failure"}, headers=auth_headers)
     conversation_id = created.json()["id"]
-    client.app.state.coordinator.gemini.error = RuntimeError("provider unavailable")
+    client.app.state.coordinator.gemini.error = RuntimeError("api-key=super-secret")
+
+    response = client.post(
+        "/api/chat/stream",
+        json={"conversation_id": conversation_id, "content": "Find the latest source"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert '"type": "error"' in response.text
+    assert '"type": "done"' not in response.text
+    with client.app.state.SessionLocal() as db:
+        audits = list(db.scalars(
+            select(AuditEvent)
+            .where(AuditEvent.action.like("chat.%"))
+            .order_by(AuditEvent.created_at)
+        ))
+    assert [audit.action for audit in audits] == ["chat.failed"]
+    detail = json.loads(audits[0].detail_json)
+    assert detail["conversation_id"] == conversation_id
+    assert detail["agent_run_id"] == "test-agent-run-id"
+    assert detail["status"] == "failed"
+    assert detail["error_class"] == "RuntimeError"
+    assert "super-secret" not in audits[0].detail_json
+
+
+def test_stream_cancellation_records_cancelled_audit_without_completed(client, auth_headers):
+    created = client.post("/api/conversations", json={"title": "Cancelled"}, headers=auth_headers)
+    conversation_id = created.json()["id"]
+    client.app.state.coordinator.gemini.error = asyncio.CancelledError()
 
     response = client.post(
         "/api/chat/stream",
@@ -133,6 +191,15 @@ def test_stream_error_does_not_record_completed_audit(client, auth_headers):
 
     assert response.status_code == 200
     with client.app.state.SessionLocal() as db:
-        audits = list(db.scalars(select(AuditEvent).where(AuditEvent.action == "chat.completed")))
-    assert audits == []
+        audits = list(db.scalars(
+            select(AuditEvent)
+            .where(AuditEvent.action.like("chat.%"))
+            .order_by(AuditEvent.created_at)
+        ))
+    assert [audit.action for audit in audits] == ["chat.cancelled"]
+    detail = json.loads(audits[0].detail_json)
+    assert detail["conversation_id"] == conversation_id
+    assert detail["agent_run_id"] == "test-agent-run-id"
+    assert detail["status"] == "cancelled"
+    assert detail["reason"]
 

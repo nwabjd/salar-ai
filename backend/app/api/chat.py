@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -21,6 +22,42 @@ log = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
 
 MAX_AGENT_ROUNDS = 5
+
+
+def _persist_stream_terminal_audit(
+    session_factory,
+    *,
+    user_id: str,
+    conversation_id: str,
+    action: str,
+    agent_run_id: Optional[str] = None,
+    detail: dict,
+) -> None:
+    audit_db = None
+    try:
+        audit_db = session_factory()
+        audit_detail = {"conversation_id": conversation_id, **detail}
+        if agent_run_id is not None:
+            audit_detail["agent_run_id"] = agent_run_id
+        audit_db.add(AuditEvent(
+            user_id=user_id,
+            action=action,
+            detail_json=json.dumps(audit_detail),
+        ))
+        audit_db.commit()
+    except Exception as audit_error:
+        if audit_db is not None:
+            try:
+                audit_db.rollback()
+            except Exception:
+                pass
+        log.error("Unable to persist %s audit: %s", action, type(audit_error).__name__)
+    finally:
+        if audit_db is not None:
+            try:
+                audit_db.close()
+            except Exception:
+                pass
 
 
 def owned_conversation(db: Session, user_id: str, conversation_id: str) -> Conversation:
@@ -121,11 +158,11 @@ async def chat_stream(
         raise HTTPException(status_code=422, detail="Message cannot be empty")
     fast = getattr(payload, "fast", False)
     history = list(conversation.messages)
-    memories = list(db.scalars(select(Memory).where(Memory.user_id == user.id).order_by(Memory.updated_at.desc()).limit(12)))
-    documents = list(db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.created_at.desc()).limit(6)))
     if fast:
         prepared = PreparedAgentContext(agent_kind="none", context="")
     else:
+        memories = list(db.scalars(select(Memory).where(Memory.user_id == user.id).order_by(Memory.updated_at.desc()).limit(12)))
+        documents = list(db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.created_at.desc()).limit(6)))
         prepared = await request.app.state.agent_orchestrator.prepare(
             prompt,
             db,
@@ -238,14 +275,35 @@ async def chat_stream(
             yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id, 'created_at': str(assistant_msg.created_at)})}\n\n"
         except asyncio.CancelledError:
             save_db.rollback()
+            _persist_stream_terminal_audit(
+                request.app.state.SessionLocal,
+                user_id=user.id,
+                conversation_id=conversation.id,
+                action="chat.cancelled",
+                agent_run_id=prepared.run_id,
+                detail={
+                    "status": "cancelled",
+                    "reason": "Stream cancelled before completion.",
+                },
+            )
             raise
         except Exception as e:
             save_db.rollback()
-            log.error("Agent stream failed: %s", e, exc_info=True)
+            _persist_stream_terminal_audit(
+                request.app.state.SessionLocal,
+                user_id=user.id,
+                conversation_id=conversation.id,
+                action="chat.failed",
+                agent_run_id=prepared.run_id,
+                detail={
+                    "status": "failed",
+                    "error_class": type(e).__name__[:120],
+                    "error_message": "Stream processing failed.",
+                },
+            )
+            log.error("Agent stream failed: %s", type(e).__name__)
             fallback = "The AI service is temporarily unavailable. Your message was saved — please try again."
-            full_response.append(fallback)
-            yield f"data: {json.dumps({'type': 'token', 'content': fallback})}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'message_id': '', 'created_at': ''})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'error': fallback, 'code': 'stream_failed'})}\n\n"
         finally:
             save_db.close()
 

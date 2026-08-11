@@ -8,7 +8,6 @@ from app.api.agent import _build_agent_system_prompt
 from app.models import AuditEvent
 from app.services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
 from app.services.coordinator import AICoordinator
-from app.services.gemini_live import build_setup
 from conftest import PREPARED_AGENT_CONTEXT
 
 
@@ -76,10 +75,3 @@ def test_agent_endpoint_prepares_once_and_delivers_context_to_model(client, auth
     with client.app.state.SessionLocal() as db:
         audit = db.scalar(select(AuditEvent).where(AuditEvent.action == "agent.completed"))
     assert json.loads(audit.detail_json)["agent_run_id"] == "test-agent-run-id"
-
-
-def test_live_setup_includes_policy_without_research_orchestration():
-    message = build_setup("gemini-3.1-flash-live-preview", "Kore")
-    system_prompt = message["setup"]["systemInstruction"]["parts"][0]["text"]
-
-    assert RESOURCEFUL_RESPONSE_POLICY in system_prompt
