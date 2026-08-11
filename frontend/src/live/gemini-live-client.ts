@@ -24,8 +24,8 @@ export function shouldReportUnexpectedClose(closed: boolean, receivedServerError
   return !closed && !receivedServerError
 }
 
-export function isIOSStandaloneWebApp(userAgent: string, standalone: boolean): boolean {
-  return /iPhone|iPad|iPod/i.test(userAgent) && standalone
+export function isIOSWebKitDevice(userAgent: string): boolean {
+  return /iPhone|iPad|iPod/i.test(userAgent)
 }
 
 function base64ToPcm16(value: string): Int16Array {
@@ -96,9 +96,7 @@ export class GeminiLiveClient {
 
     const source = this.audioContext.createMediaStreamSource(this.stream)
     this.worklet = new AudioWorkletNode(this.audioContext, 'salar-audio', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] })
-    const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean }
-    const standalone = navigatorWithStandalone.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches === true
-    this.worklet.port.postMessage({ type: 'echo_guard', enabled: isIOSStandaloneWebApp(navigator.userAgent, standalone) })
+    this.worklet.port.postMessage({ type: 'echo_guard', enabled: isIOSWebKitDevice(navigator.userAgent) })
     source.connect(this.worklet)
     this.worklet.connect(this.audioContext.destination)
     this.worklet.port.onmessage = (message) => this.handleWorkletMessage(message.data)
