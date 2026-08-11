@@ -3,17 +3,19 @@ import json
 import logging
 from typing import Optional
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
-from ..models import AuditEvent, Conversation, Document, Memory, Message, User
+from ..models import AgentRun, AuditEvent, Conversation, Document, Memory, Message, User
 from ..schemas import ChatRequest, ChatResponse, ConversationCreate, ConversationDetail, ConversationResponse
 from ..security import get_current_user
 from ..services.agents import PreparedAgentContext
 from ..services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
+from ..services.agents.run_store import AgentRunStore
 from .agent import TOOL_DEFINITIONS, execute_tool
 from .deps import check_quota
 
@@ -24,19 +26,115 @@ router = APIRouter(tags=["chat"])
 MAX_AGENT_ROUNDS = 5
 
 
-def _persist_stream_terminal_audit(
+class _StreamTerminalState:
+    def __init__(self) -> None:
+        self.action = None
+
+    def claim(self, action: str) -> bool:
+        if self.action is not None:
+            return False
+        self.action = action
+        return True
+
+
+class DisconnectAwareStreamingResponse(StreamingResponse):
+    def __init__(self, content, *, on_disconnect, **kwargs):
+        super().__init__(content, **kwargs)
+        self.on_disconnect = on_disconnect
+
+    async def _notify_disconnect(self) -> None:
+        try:
+            await self.on_disconnect()
+        except Exception as error:
+            log.error("Disconnect handling failed: %s", type(error).__name__)
+
+    async def listen_for_disconnect(self, receive) -> None:
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                await self._notify_disconnect()
+                break
+
+    async def __call__(self, scope, receive, send) -> None:
+        # Own both sides of the ASGI lifecycle so disconnect reconciliation is
+        # stable across Starlette versions. Newer versions use send failures
+        # for ASGI 2.4+, while older versions only listen for http.disconnect.
+        async with anyio.create_task_group() as task_group:
+            async def stream_response() -> None:
+                try:
+                    await self.stream_response(send)
+                except OSError:
+                    await self._notify_disconnect()
+                finally:
+                    task_group.cancel_scope.cancel()
+
+            async def watch_disconnect() -> None:
+                try:
+                    await self.listen_for_disconnect(receive)
+                finally:
+                    task_group.cancel_scope.cancel()
+
+            task_group.start_soon(stream_response)
+            task_group.start_soon(watch_disconnect)
+
+        if self.background is not None:
+            await self.background()
+
+
+def _stage_agent_chat_outcome(db: Session, run_id: Optional[str], status: str, reason: str) -> None:
+    if run_id is None:
+        return
+    run = db.get(AgentRun, run_id)
+    if run is None:
+        return
+    previous_status = run.status
+    store = AgentRunStore(db)
+    store.step(
+        run,
+        "chat",
+        status,
+        detail={
+            "status": status,
+            "reason": reason,
+            "previous_status": previous_status,
+        },
+        attempt=1,
+    )
+    store.finalize(run, status, error=reason if status in {"failed", "cancelled"} else "")
+
+
+def _reconcile_chat_terminal(
     session_factory,
     *,
     user_id: str,
     conversation_id: str,
+    prompt: str,
     action: str,
+    status: str,
+    reason: str,
     agent_run_id: Optional[str] = None,
-    detail: dict,
+    detail: dict = None,
 ) -> None:
     audit_db = None
     try:
         audit_db = session_factory()
-        audit_detail = {"conversation_id": conversation_id, **detail}
+        if agent_run_id is not None and audit_db.get(AgentRun, agent_run_id) is None:
+            audit_db.add(AgentRun(
+                id=agent_run_id,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                kind="research",
+                status="running",
+                input_json=json.dumps({"query": prompt}),
+            ))
+            audit_db.flush()
+        _stage_agent_chat_outcome(audit_db, agent_run_id, status, reason)
+        audit_detail = {
+            "conversation_id": conversation_id,
+            "status": status,
+            "reason": reason,
+            **(detail or {}),
+        }
         if agent_run_id is not None:
             audit_detail["agent_run_id"] = agent_run_id
         audit_db.add(AuditEvent(
@@ -51,13 +149,36 @@ def _persist_stream_terminal_audit(
                 audit_db.rollback()
             except Exception:
                 pass
-        log.error("Unable to persist %s audit: %s", action, type(audit_error).__name__)
+        log.error("Unable to persist %s outcome: %s", action, type(audit_error).__name__)
     finally:
         if audit_db is not None:
             try:
                 audit_db.close()
             except Exception:
                 pass
+
+
+def _persist_stream_terminal_audit(
+    session_factory,
+    *,
+    user_id: str,
+    conversation_id: str,
+    action: str,
+    agent_run_id: Optional[str] = None,
+    detail: dict,
+) -> None:
+    status = detail.get("status", "failed")
+    _reconcile_chat_terminal(
+        session_factory,
+        user_id=user_id,
+        conversation_id=conversation_id,
+        prompt="",
+        action=action,
+        status=status,
+        reason=detail.get("reason") or detail.get("error_message") or "Stream ended.",
+        agent_run_id=agent_run_id,
+        detail=detail,
+    )
 
 
 def owned_conversation(db: Session, user_id: str, conversation_id: str) -> Conversation:
@@ -116,6 +237,7 @@ async def chat(
         db,
         user.id,
         conversation.id,
+        commit=False,
     )
     response_text = await request.app.state.coordinator.reply(
         prompt=prompt,
@@ -128,6 +250,12 @@ async def chat(
     assistant_message = Message(conversation_id=conversation.id, role="assistant", content=response_text)
     db.add_all([user_message, assistant_message])
     db.flush()
+    _stage_agent_chat_outcome(
+        db,
+        prepared.run_id,
+        "completed",
+        "Chat response persisted successfully.",
+    )
     db.add(
         AuditEvent(
             user_id=user.id,
@@ -138,7 +266,22 @@ async def chat(
             }),
         )
     )
-    db.commit()
+    try:
+        db.commit()
+    except Exception as error:
+        db.rollback()
+        _reconcile_chat_terminal(
+            request.app.state.SessionLocal,
+            user_id=user.id,
+            conversation_id=conversation.id,
+            prompt=prompt,
+            action="chat.failed",
+            status="failed",
+            reason="Chat transaction failed.",
+            agent_run_id=prepared.run_id,
+            detail={"error_class": type(error).__name__[:120]},
+        )
+        raise
     db.refresh(user_message)
     db.refresh(assistant_message)
     return ChatResponse(user_message=user_message, assistant_message=assistant_message)
@@ -177,6 +320,7 @@ async def chat_stream(
 
     coordinator = request.app.state.coordinator
     gemini = coordinator.gemini
+    terminal = _StreamTerminalState()
 
     async def generate():
         full_response = []
@@ -260,6 +404,12 @@ async def chat_stream(
             response_text = "".join(full_response)
             assistant_msg = Message(conversation_id=conversation.id, role="assistant", content=response_text)
             save_db.add(assistant_msg)
+            _stage_agent_chat_outcome(
+                save_db,
+                prepared.run_id,
+                "completed",
+                "Stream response persisted successfully.",
+            )
             audit_detail = {
                 "conversation_id": conversation.id,
                 "tools": [t["tool"] for t in tools_used],
@@ -271,43 +421,60 @@ async def chat_stream(
                 detail_json=json.dumps(audit_detail),
             ))
             save_db.commit()
+            terminal.claim("chat.completed")
             save_db.refresh(assistant_msg)
             yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id, 'created_at': str(assistant_msg.created_at)})}\n\n"
         except asyncio.CancelledError:
             save_db.rollback()
-            _persist_stream_terminal_audit(
-                request.app.state.SessionLocal,
-                user_id=user.id,
-                conversation_id=conversation.id,
-                action="chat.cancelled",
-                agent_run_id=prepared.run_id,
-                detail={
-                    "status": "cancelled",
-                    "reason": "Stream cancelled before completion.",
-                },
-            )
+            if terminal.claim("chat.cancelled"):
+                _reconcile_chat_terminal(
+                    request.app.state.SessionLocal,
+                    user_id=user.id,
+                    conversation_id=conversation.id,
+                    prompt=prompt,
+                    action="chat.cancelled",
+                    status="cancelled",
+                    reason="Stream cancelled before completion.",
+                    agent_run_id=prepared.run_id,
+                )
             raise
         except Exception as e:
             save_db.rollback()
-            _persist_stream_terminal_audit(
-                request.app.state.SessionLocal,
-                user_id=user.id,
-                conversation_id=conversation.id,
-                action="chat.failed",
-                agent_run_id=prepared.run_id,
-                detail={
-                    "status": "failed",
-                    "error_class": type(e).__name__[:120],
-                    "error_message": "Stream processing failed.",
-                },
-            )
+            if terminal.claim("chat.failed"):
+                _reconcile_chat_terminal(
+                    request.app.state.SessionLocal,
+                    user_id=user.id,
+                    conversation_id=conversation.id,
+                    prompt=prompt,
+                    action="chat.failed",
+                    status="failed",
+                    reason="Stream processing failed.",
+                    agent_run_id=prepared.run_id,
+                    detail={
+                        "error_class": type(e).__name__[:120],
+                        "error_message": "Stream processing failed.",
+                    },
+                )
             log.error("Agent stream failed: %s", type(e).__name__)
             fallback = "The AI service is temporarily unavailable. Your message was saved — please try again."
-            yield f"data: {json.dumps({'type': 'error', 'error': fallback, 'code': 'stream_failed'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'detail': fallback, 'error': fallback, 'code': 'stream_failed'})}\n\n"
         finally:
             save_db.close()
 
-    return StreamingResponse(generate(), media_type="text/event-stream", headers={
+    async def on_disconnect() -> None:
+        if terminal.claim("chat.cancelled"):
+            _reconcile_chat_terminal(
+                request.app.state.SessionLocal,
+                user_id=user.id,
+                conversation_id=conversation.id,
+                prompt=prompt,
+                action="chat.cancelled",
+                status="cancelled",
+                reason="Client disconnected before stream completion.",
+                agent_run_id=prepared.run_id,
+            )
+
+    return DisconnectAwareStreamingResponse(generate(), on_disconnect=on_disconnect, media_type="text/event-stream", headers={
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Connection": "keep-alive",
         "X-Accel-Buffering": "no",

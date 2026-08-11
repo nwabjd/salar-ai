@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import EventSource from 'react-native-sse';
 
+import { handleChatStreamEvent } from './chat-stream-event';
+
 export type Message = { id: string; role: 'user' | 'assistant'; content: string; created_at: string }
 export type Conversation = { id: string; title: string; messages?: Message[] }
 
@@ -77,16 +79,24 @@ export function chatStream(
     body: JSON.stringify({ conversation_id: conversationId, content }),
     polling: false,
   } as any);
+  let terminal = false;
 
   es.addEventListener('message', (event: any) => {
+    if (terminal) return;
     try {
       const data = JSON.parse(event.data);
-      if (data.type === 'token') onToken(data.content);
-      if (data.type === 'done') { onDone(data.message_id, data.created_at); es.close(); }
+      terminal = handleChatStreamEvent(data, {
+        onToken,
+        onDone,
+        onError,
+        close: () => es.close(),
+      });
     } catch {}
   });
 
   es.addEventListener('error', () => {
+    if (terminal) return;
+    terminal = true;
     onError?.('Stream connection lost');
     es.close();
   });

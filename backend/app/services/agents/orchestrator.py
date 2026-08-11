@@ -52,6 +52,7 @@ class AgentOrchestrator:
         db: Optional[Session] = None,
         user_id: Optional[str] = None,
         conversation_id: Optional[str] = None,
+        commit: bool = True,
     ) -> PreparedAgentContext:
         if not self.needs_research(prompt):
             return PreparedAgentContext(agent_kind="none", context="")
@@ -69,7 +70,8 @@ class AgentOrchestrator:
                 )
                 run_id = run.id
                 store.step(run, "search", "running", detail={"query": prompt}, attempt=1)
-                db.commit()
+                if commit:
+                    db.commit()
             except Exception:
                 db.rollback()
                 raise
@@ -85,7 +87,8 @@ class AgentOrchestrator:
                 evidence=(item.to_dict() for item in attempt_result.evidence),
                 attempt=attempt,
             )
-            db.commit()
+            if commit:
+                db.commit()
 
         try:
             result = await self.recovery.run_read_only(
@@ -98,7 +101,10 @@ class AgentOrchestrator:
             except Exception as exc:
                 failed = self._failure_result("Research verification failed.", exc)
                 if db is not None and run_id is not None:
-                    self._best_effort_finalize(db, run_id, "failed", failed.error)
+                    if commit:
+                        self._best_effort_finalize(db, run_id, "failed", failed.error)
+                    elif store is not None and run is not None:
+                        self._finalize_deferred(store, run, "failed", failed.error)
                 return self._prepared_research(failed, run_id)
 
             if store is not None and run is not None:
@@ -118,19 +124,29 @@ class AgentOrchestrator:
                         output=verified.to_dict(),
                         error=(verified.error or verified.summary) if terminal_status == "failed" else "",
                     )
-                    db.commit()
+                    if commit:
+                        db.commit()
                 except Exception as exc:
                     failed = self._failure_result("Final research persistence failed.", exc)
-                    self._best_effort_finalize(db, run_id, "failed", failed.error)
+                    if commit:
+                        self._best_effort_finalize(db, run_id, "failed", failed.error)
+                    else:
+                        raise
                     return self._prepared_research(failed, run_id)
         except asyncio.CancelledError:
             if db is not None and run_id is not None:
-                self._best_effort_finalize(db, run_id, "cancelled", "Research was cancelled.")
+                if commit:
+                    self._best_effort_finalize(db, run_id, "cancelled", "Research was cancelled.")
+                elif store is not None and run is not None:
+                    self._finalize_deferred(store, run, "cancelled", "Research was cancelled.")
             raise
         except Exception as exc:
             failed = self._failure_result("Research orchestration failed.", exc)
             if db is not None and run_id is not None:
-                self._best_effort_finalize(db, run_id, "failed", failed.error)
+                if commit:
+                    self._best_effort_finalize(db, run_id, "failed", failed.error)
+                elif store is not None and run is not None:
+                    self._finalize_deferred(store, run, "failed", failed.error)
             return self._prepared_research(failed, run_id)
 
         return self._prepared_research(verified, run_id)
@@ -181,6 +197,17 @@ class AgentOrchestrator:
             except Exception:
                 pass
             return False
+
+    @staticmethod
+    def _finalize_deferred(store: AgentRunStore, run: AgentRun, status: str, error: str) -> None:
+        store.step(
+            run,
+            "error",
+            status,
+            detail={"error": error[:1000]},
+            attempt=1,
+        )
+        store.finalize(run, status, error=error)
 
     @staticmethod
     def _step_detail(result: AgentResult) -> dict:

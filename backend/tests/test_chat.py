@@ -46,6 +46,7 @@ def test_conversation_and_chat_are_persisted(client, auth_headers):
         "db": orchestrator_call["db"],
         "user_id": owner.id,
         "conversation_id": conversation_id,
+        "commit": False,
     }
     assert orchestrator_call["db"] is not None
     assert isinstance(orchestrator_call["db"], Session)
@@ -84,6 +85,7 @@ def test_non_fast_stream_prepares_once_and_delivers_context_to_model(client, aut
     call = client.app.state.agent_orchestrator.calls[0]
     assert call["prompt"] == "Find the latest source"
     assert call["conversation_id"] == conversation_id
+    assert call["commit"] is True
     assert call["user_id"]
     assert isinstance(call["db"], Session)
     system_prompt = client.app.state.coordinator.gemini.calls[0]["messages"][0]["content"]
@@ -162,6 +164,7 @@ def test_stream_error_records_failed_audit_and_emits_error_terminal_event(client
 
     assert response.status_code == 200
     assert '"type": "error"' in response.text
+    assert '"detail": "The AI service is temporarily unavailable.' in response.text
     assert '"type": "done"' not in response.text
     with client.app.state.SessionLocal() as db:
         audits = list(db.scalars(

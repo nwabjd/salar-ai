@@ -696,6 +696,40 @@ async def test_orchestrator_persists_completed_verified_run_with_actual_attempt(
 
 
 @pytest.mark.asyncio
+async def test_orchestrator_can_defer_commits_to_its_caller(client, exchange, monkeypatch):
+    headers = exchange("orchestrator-deferred@example.com")
+    user_id = client.get("/api/auth/me", headers=headers).json()["id"]
+    research = FakeResearch(
+        AgentResult(status="completed", summary="Current behavior found.", evidence=[source()], confidence="high")
+    )
+
+    with client.app.state.SessionLocal() as db:
+        commit_calls = 0
+        original_commit = db.commit
+
+        def count_commit():
+            nonlocal commit_calls
+            commit_calls += 1
+            original_commit()
+
+        monkeypatch.setattr(db, "commit", count_commit)
+        prepared = await AgentOrchestrator(research=research).prepare(
+            "latest Gemini Live behavior",
+            db=db,
+            user_id=user_id,
+            commit=False,
+        )
+        run = db.get(AgentRun, prepared.run_id)
+
+        assert commit_calls == 0
+        assert run.status == "completed"
+        original_commit()
+
+    with client.app.state.SessionLocal() as db:
+        assert db.get(AgentRun, prepared.run_id).status == "completed"
+
+
+@pytest.mark.asyncio
 async def test_orchestrator_persists_failed_run_after_bounded_recovery(client, exchange):
     headers = exchange("orchestrator-failure@example.com")
     user_id = client.get("/api/auth/me", headers=headers).json()["id"]
