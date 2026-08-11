@@ -1,6 +1,5 @@
 import hashlib
 import json
-import re
 from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
 from typing import Any, Dict, Iterable, List, Optional
@@ -15,14 +14,6 @@ from .contracts import CLAIMABLE_STATUSES, ClaimedJob, JobOutcome, JobSnapshot
 
 GENERIC_ERROR_CODE = "job_execution_failed"
 GENERIC_ERROR_DETAIL = "The job could not be completed."
-_SAFE_ERROR_CODE = re.compile(r"[a-z0-9][a-z0-9_.-]*")
-_CREDENTIAL_SHAPED_CODE = re.compile(
-    r"sk-(?:proj-)?[a-z0-9_-]{20,}"
-    r"|(?:ghp_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,})"
-    r"|xox[baprs]-[a-z0-9-]{10,}"
-    r"|eyj[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}",
-    re.IGNORECASE,
-)
 _VETTED_ERROR_DETAILS = MappingProxyType(
     {
         "provider_unavailable": "Please try again later.",
@@ -72,13 +63,9 @@ def _is_encoded_object(value: Any) -> bool:
 
 
 def _sanitize_error(code: Any, _caller_detail: Any) -> tuple:
-    normalized_code = GENERIC_ERROR_CODE
-    if isinstance(code, str):
-        raw_code = code.strip()
-        candidate = raw_code.lower()[:80]
-        if not _CREDENTIAL_SHAPED_CODE.search(raw_code) and _SAFE_ERROR_CODE.fullmatch(candidate):
-            normalized_code = candidate
-    return normalized_code, _VETTED_ERROR_DETAILS.get(normalized_code, GENERIC_ERROR_DETAIL)
+    candidate = code.strip().lower() if isinstance(code, str) else GENERIC_ERROR_CODE
+    normalized_code = candidate if candidate in _VETTED_ERROR_DETAILS else GENERIC_ERROR_CODE
+    return normalized_code, _VETTED_ERROR_DETAILS[normalized_code]
 
 
 class JobStore:

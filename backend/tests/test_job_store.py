@@ -334,7 +334,7 @@ def test_fail_or_retry_redacts_unlabelled_credential_strings(
     snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
     event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
     persisted_text = f"{snapshot.safe_error_detail} {event['payload']}".lower()
-    assert snapshot.safe_error_code == "credential_rejected"
+    assert snapshot.safe_error_code == "job_execution_failed"
     assert snapshot.safe_error_detail == "The job could not be completed."
     assert credential.lower() not in persisted_text
     assert sensitive_prefix.lower() not in persisted_text
@@ -373,6 +373,39 @@ def test_fail_or_retry_redacts_credentials_from_error_code(session_factory, cred
     assert snapshot.safe_error_code == "job_execution_failed"
     assert snapshot.safe_error_detail == "The job could not be completed."
     assert credential_code.lower() not in persisted_text
+
+
+@pytest.mark.parametrize(
+    "unvetted_code",
+    [
+        "provider_AKIAIOSFODNN7EXAMPLE",
+        "provider_AAIzaSyDUMMYDUMMYDUMMYDUMMYDUMMYDUMMYDUM",
+        "aws_secret_access_key_abcdefghijklmnopqrstuvwxyz1234567890",
+    ],
+)
+def test_fail_or_retry_rejects_all_unvetted_secret_bearing_codes(session_factory, unvetted_code):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    assert store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code=unvetted_code,
+        safe_detail="Caller text is ignored.",
+        now=now,
+    ) == "failed"
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
+    assert snapshot.safe_error_code == "job_execution_failed"
+    assert snapshot.safe_error_detail == "The job could not be completed."
+    assert event["payload"] == {
+        "code": "job_execution_failed",
+        "detail": "The job could not be completed.",
+    }
+    assert unvetted_code.lower() not in str(event).lower()
 
 
 @pytest.mark.parametrize(
@@ -453,10 +486,10 @@ def test_fail_or_retry_never_persists_unvetted_secret_details(session_factory, u
 
     snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
     event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
-    assert snapshot.safe_error_code == "external_failure"
+    assert snapshot.safe_error_code == "job_execution_failed"
     assert snapshot.safe_error_detail == "The job could not be completed."
     assert event["payload"] == {
-        "code": "external_failure",
+        "code": "job_execution_failed",
         "detail": "The job could not be completed.",
     }
     assert unvetted_detail not in str(event)
@@ -478,7 +511,7 @@ def test_fail_or_retry_replaces_benign_unvetted_detail_for_unknown_code(session_
 
     snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
     event = store.list_events_for_owner(owner_id="user-a", job_id=job.id)[-1]
-    assert snapshot.safe_error_code == "custom_failure"
+    assert snapshot.safe_error_code == "job_execution_failed"
     assert snapshot.safe_error_detail == "The job could not be completed."
     assert event["payload"]["detail"] == "The job could not be completed."
 
