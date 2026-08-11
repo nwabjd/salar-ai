@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -57,6 +58,71 @@ _REPEATED_ASSISTANT_IDENTITY = re.compile(
     r"jd(?:['\u2019]s|s)\s+assistant(?:\s+here)?[\s.,!:\-\u2013\u2014]*",
     flags=re.IGNORECASE,
 )
+
+
+async def _acquire_reply_lease(state, user_id, from_jid, sender_name, lease_token):
+    for _ in range(40):
+        db = state.SessionLocal()
+        try:
+            store = WhatsAppConversationStore(db)
+            contact = store.acquire_reply_lease(user_id, from_jid, sender_name, lease_token)
+            if contact is not None:
+                snapshot = (contact.introduced, store.history(contact))
+                db.commit()
+                return snapshot
+            db.rollback()
+        finally:
+            db.close()
+        await asyncio.sleep(0.05)
+    return None
+
+
+def _release_reply_lease(state, user_id, from_jid, lease_token):
+    db = state.SessionLocal()
+    try:
+        store = WhatsAppConversationStore(db)
+        if store.release_reply_lease(user_id, from_jid, lease_token):
+            db.commit()
+        else:
+            db.rollback()
+    except Exception:
+        db.rollback()
+        log.warning("Auto-reply lease release failed")
+    finally:
+        db.close()
+
+
+def _complete_auto_reply(state, user_id, from_jid, sender_name, text, reply_text, pass_msg, lease_token):
+    db = state.SessionLocal()
+    try:
+        store = WhatsAppConversationStore(db)
+        if not store.complete_reply(user_id, from_jid, lease_token, text, reply_text, introduced=True):
+            db.rollback()
+            return False
+        db.add(AuditEvent(
+            user_id=user_id,
+            action="whatsapp.auto_reply",
+            detail_json=json.dumps({
+                "to": from_jid, "sender_name": sender_name,
+                "incoming": text[:300], "reply": reply_text[:300],
+            }),
+        ))
+        if pass_msg:
+            db.add(AuditEvent(
+                user_id=user_id,
+                action="whatsapp.pass_message",
+                detail_json=json.dumps({
+                    "from": from_jid, "sender_name": sender_name,
+                    "message": pass_msg[:500], "acknowledged": False,
+                }),
+            ))
+        db.commit()
+        return True
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 class WhatsAppSendRequest(BaseModel):
@@ -281,7 +347,8 @@ async def whatsapp_webhook(payload: WhatsAppWebhook, request: Request):
 
 
 async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text: str, is_group: bool):
-    save_db = None
+    lease_token = secrets.token_urlsafe(24)
+    lease_acquired = False
     try:
         coordinator = getattr(state, "coordinator", None)
         gemini = getattr(coordinator, "gemini", None) if coordinator else None
@@ -290,47 +357,41 @@ async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text
             return
 
         async with _contact_locks(state).hold((user_id, from_jid)):
-            save_db = state.SessionLocal()
-            store = WhatsAppConversationStore(save_db)
-            contact = store.get_or_create(user_id, from_jid, sender_name)
-            messages = build_auto_reply_messages(sender_name, text, is_group, contact.introduced, store.history(contact))
+            snapshot = await _acquire_reply_lease(state, user_id, from_jid, sender_name, lease_token)
+            if snapshot is None:
+                log.warning("Auto-reply lease unavailable")
+                return
+            lease_acquired = True
+            introduced, history = snapshot
+            messages = build_auto_reply_messages(sender_name, text, is_group, introduced, history)
             result = await gemini.chat_with_tools(messages, [])
             reply_text, pass_msg = normalize_auto_reply(
                 result.get("text", "") if isinstance(result, dict) else "",
-                contact.introduced,
+                introduced,
             )
 
             whatsapp = getattr(state, "whatsapp", None)
             if not whatsapp:
                 raise RuntimeError("WhatsApp client unavailable")
             send_result = await whatsapp.send_message(to=from_jid, text=reply_text, user_id=user_id)
-            if isinstance(send_result, dict) and send_result.get("error"):
+            if not (
+                isinstance(send_result, dict)
+                and send_result.get("ok") is True
+                and not send_result.get("error")
+            ):
                 raise RuntimeError("WhatsApp send failed")
 
-            store.record_exchange(contact, text, reply_text, introduced=True)
-            save_db.add(AuditEvent(
-                user_id=user_id,
-                action="whatsapp.auto_reply",
-                detail_json=json.dumps({
-                    "to": from_jid, "sender_name": sender_name,
-                    "incoming": text[:300], "reply": reply_text[:300],
-                }),
-            ))
-            if pass_msg:
-                save_db.add(AuditEvent(
-                    user_id=user_id,
-                    action="whatsapp.pass_message",
-                    detail_json=json.dumps({
-                        "from": from_jid, "sender_name": sender_name,
-                        "message": pass_msg[:500], "acknowledged": False,
-                    }),
-                ))
-            save_db.commit()
+            if not _complete_auto_reply(
+                state, user_id, from_jid, sender_name, text, reply_text, pass_msg, lease_token,
+            ):
+                log.warning("Auto-reply lease was replaced before completion")
+                return
+            lease_acquired = False
             log.info("Auto-reply sent to %s (%s)", sender_name, from_jid)
+    except asyncio.CancelledError:
+        raise
     except Exception as exc:
-        if save_db is not None:
-            save_db.rollback()
         log.error("Auto-reply failed (%s)", type(exc).__name__)
     finally:
-        if save_db is not None:
-            save_db.close()
+        if lease_acquired:
+            _release_reply_lease(state, user_id, from_jid, lease_token)

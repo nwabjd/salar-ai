@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -7,6 +8,7 @@ from sqlalchemy import select
 from app.api.whatsapp import _auto_reply, build_auto_reply_messages, normalize_auto_reply
 from app.models import AuditEvent, User, WhatsAppContactState
 from app.services.whatsapp_conversations import WhatsAppConversationStore
+from app.models import utcnow
 
 
 def test_whatsapp_first_reply_introduces_jds_assistant():
@@ -224,3 +226,122 @@ async def test_overlapping_auto_replies_serialize_contact_state(client, exchange
         {"role": "assistant", "text": sent[1]},
     ]
     assert state._whatsapp_contact_locks._entries == {}
+
+
+def test_reply_lease_serializes_two_store_sessions_without_history_overwrite(client, exchange):
+    headers = exchange("lease@example.com")
+    user = client.get("/api/auth/me", headers=headers).json()
+    jid = "15550005@s.whatsapp.net"
+
+    with client.app.state.SessionLocal() as db_first:
+        first = WhatsAppConversationStore(db_first)
+        snapshot = first.acquire_reply_lease(user["id"], jid, "Aisha", "first-token")
+        assert snapshot is not None
+        db_first.commit()
+
+    with client.app.state.SessionLocal() as db_second:
+        second = WhatsAppConversationStore(db_second)
+        assert second.acquire_reply_lease(user["id"], jid, "Aisha", "second-token") is None
+        db_second.rollback()
+
+    with client.app.state.SessionLocal() as db_first:
+        first = WhatsAppConversationStore(db_first)
+        assert first.complete_reply(
+            user["id"], jid, "first-token", "First", "First reply.", introduced=True,
+        ) is True
+        db_first.commit()
+
+    with client.app.state.SessionLocal() as db_second:
+        second = WhatsAppConversationStore(db_second)
+        snapshot = second.acquire_reply_lease(user["id"], jid, "Aisha", "second-token")
+        assert snapshot is not None and snapshot.introduced is True
+        assert second.complete_reply(
+            user["id"], jid, "second-token", "Second", "Second reply.", introduced=True,
+        ) is True
+        db_second.commit()
+
+    with client.app.state.SessionLocal() as db:
+        saved = db.scalar(select(WhatsAppContactState).where(WhatsAppContactState.user_id == user["id"]))
+    assert WhatsAppConversationStore.history(saved) == [
+        {"role": "sender", "text": "First"},
+        {"role": "assistant", "text": "First reply."},
+        {"role": "sender", "text": "Second"},
+        {"role": "assistant", "text": "Second reply."},
+    ]
+
+
+def test_reply_lease_recovers_stale_token(client, exchange):
+    headers = exchange("stale-lease@example.com")
+    user = client.get("/api/auth/me", headers=headers).json()
+    jid = "15550006@s.whatsapp.net"
+    with client.app.state.SessionLocal() as db:
+        store = WhatsAppConversationStore(db)
+        assert store.acquire_reply_lease(user["id"], jid, "Aisha", "stale-token") is not None
+        db.commit()
+        contact = db.scalar(select(WhatsAppContactState).where(WhatsAppContactState.user_id == user["id"]))
+        contact.reply_lease_expires_at = utcnow() - timedelta(seconds=1)
+        db.commit()
+
+    with client.app.state.SessionLocal() as db:
+        store = WhatsAppConversationStore(db)
+        contact = store.acquire_reply_lease(user["id"], jid, "Aisha", "fresh-token")
+        assert contact is not None and contact.reply_lease_token == "fresh-token"
+
+
+@pytest.mark.anyio
+async def test_cancelled_auto_reply_releases_its_reply_lease(client, exchange):
+    headers = exchange("cancel-lease@example.com")
+    user = client.get("/api/auth/me", headers=headers).json()
+    model_started = asyncio.Event()
+
+    class BlockingGemini:
+        async def chat_with_tools(self, messages, tools):
+            model_started.set()
+            await asyncio.Event().wait()
+
+    state = SimpleNamespace(
+        SessionLocal=client.app.state.SessionLocal,
+        coordinator=SimpleNamespace(gemini=BlockingGemini()),
+        whatsapp=SimpleNamespace(),
+    )
+    task = asyncio.create_task(_auto_reply(
+        state, user["id"], "15550007@s.whatsapp.net", "Aisha", "Hello", False,
+    ))
+    await model_started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    with client.app.state.SessionLocal() as db:
+        contact = db.scalar(select(WhatsAppContactState).where(WhatsAppContactState.user_id == user["id"]))
+    assert contact.reply_lease_token is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("send_result", [None, {}, {"ok": False}, {"error": "offline"}, {"ok": True, "error": "offline"}])
+async def test_unsuccessful_send_results_do_not_persist_contact_state(client, exchange, send_result):
+    headers = exchange(f"send-result-{str(send_result)}@example.com")
+    user = client.get("/api/auth/me", headers=headers).json()
+
+    class FakeGemini:
+        async def chat_with_tools(self, messages, tools):
+            return {"text": "Hello"}
+
+    class FakeWhatsApp:
+        async def send_message(self, **kwargs):
+            return send_result
+
+    state = SimpleNamespace(
+        SessionLocal=client.app.state.SessionLocal,
+        coordinator=SimpleNamespace(gemini=FakeGemini()),
+        whatsapp=FakeWhatsApp(),
+    )
+    await _auto_reply(state, user["id"], "15550008@s.whatsapp.net", "Aisha", "Hello", False)
+
+    with client.app.state.SessionLocal() as db:
+        contact = db.scalar(select(WhatsAppContactState).where(WhatsAppContactState.user_id == user["id"]))
+        auto_reply = db.scalar(select(AuditEvent).where(
+            AuditEvent.user_id == user["id"], AuditEvent.action == "whatsapp.auto_reply",
+        ))
+    assert contact is None or (contact.introduced is False and WhatsAppConversationStore.history(contact) == [])
+    assert auto_reply is None

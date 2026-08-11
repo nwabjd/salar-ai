@@ -1,7 +1,8 @@
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from ..models import WhatsAppContactState
 
 
 class WhatsAppConversationStore:
+    LEASE_SECONDS = 30
     def __init__(self, db: Session):
         self.db = db
 
@@ -78,3 +80,88 @@ class WhatsAppConversationStore:
         state.introduced = bool(state.introduced or introduced)
         state.active_topic = incoming_text[:500]
         self.db.flush()
+
+    def acquire_reply_lease(
+        self,
+        user_id: str,
+        contact_jid: str,
+        sender_name: str,
+        lease_token: str,
+        now: datetime = None,
+    ) -> WhatsAppContactState:
+        now = now or datetime.now(timezone.utc)
+        self.get_or_create(user_id, contact_jid, sender_name)
+        claimed = self.db.execute(
+            update(WhatsAppContactState)
+            .where(
+                WhatsAppContactState.user_id == user_id,
+                WhatsAppContactState.contact_jid == contact_jid,
+                or_(
+                    WhatsAppContactState.reply_lease_token.is_(None),
+                    WhatsAppContactState.reply_lease_expires_at <= now,
+                ),
+            )
+            .values(
+                reply_lease_token=lease_token,
+                reply_lease_expires_at=now + timedelta(seconds=self.LEASE_SECONDS),
+            )
+        )
+        if claimed.rowcount != 1:
+            return None
+        return self.db.scalar(select(WhatsAppContactState).where(
+            WhatsAppContactState.user_id == user_id,
+            WhatsAppContactState.contact_jid == contact_jid,
+            WhatsAppContactState.reply_lease_token == lease_token,
+        ))
+
+    def complete_reply(
+        self,
+        user_id: str,
+        contact_jid: str,
+        lease_token: str,
+        incoming: str,
+        reply: str,
+        introduced: bool,
+    ) -> bool:
+        state = self.db.scalar(select(WhatsAppContactState).where(
+            WhatsAppContactState.user_id == user_id,
+            WhatsAppContactState.contact_jid == contact_jid,
+            WhatsAppContactState.reply_lease_token == lease_token,
+        ))
+        if state is None:
+            return False
+        turns = self.history(state)
+        incoming_text = " ".join((incoming or "").split())[:1000]
+        reply_text = " ".join((reply or "").split())[:1000]
+        turns.extend([
+            {"role": "sender", "text": incoming_text},
+            {"role": "assistant", "text": reply_text},
+        ])
+        completed = self.db.execute(
+            update(WhatsAppContactState)
+            .where(
+                WhatsAppContactState.user_id == user_id,
+                WhatsAppContactState.contact_jid == contact_jid,
+                WhatsAppContactState.reply_lease_token == lease_token,
+            )
+            .values(
+                history_json=json.dumps(turns[-8:]),
+                introduced=bool(state.introduced or introduced),
+                active_topic=incoming_text[:500],
+                reply_lease_token=None,
+                reply_lease_expires_at=None,
+            )
+        )
+        return completed.rowcount == 1
+
+    def release_reply_lease(self, user_id: str, contact_jid: str, lease_token: str) -> bool:
+        released = self.db.execute(
+            update(WhatsAppContactState)
+            .where(
+                WhatsAppContactState.user_id == user_id,
+                WhatsAppContactState.contact_jid == contact_jid,
+                WhatsAppContactState.reply_lease_token == lease_token,
+            )
+            .values(reply_lease_token=None, reply_lease_expires_at=None)
+        )
+        return released.rowcount == 1

@@ -159,6 +159,8 @@ class WhatsAppContactState(Base):
     introduced: Mapped[bool] = mapped_column(Boolean, default=False)
     history_json: Mapped[str] = mapped_column(Text, default="[]")
     active_topic: Mapped[str] = mapped_column(Text, default="")
+    reply_lease_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    reply_lease_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
