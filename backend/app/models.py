@@ -257,3 +257,85 @@ class WorkflowRun(Base):
     result_log: Mapped[str] = mapped_column(Text, default="")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Job(Base):
+    __tablename__ = "jobs"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "idempotency_key", name="uq_jobs_owner_idempotency"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    workflow_run_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, unique=True, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(80), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=100, index=True)
+    input_json: Mapped[str] = mapped_column(Text, default="{}")
+    result_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    safe_error_code: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    safe_error_detail: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    lease_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    lease_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    idempotency_key: Mapped[str] = mapped_column(String(160))
+    cancel_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class JobEvent(Base):
+    __tablename__ = "job_events"
+    __table_args__ = (UniqueConstraint("job_id", "sequence", name="uq_job_events_job_sequence"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(80), index=True)
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class JobApproval(Base):
+    __tablename__ = "job_approvals"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    action_kind: Mapped[str] = mapped_column(String(80), index=True)
+    preview_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    decided_by: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+
+
+class JobSchedule(Base):
+    __tablename__ = "job_schedules"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(160))
+    job_kind: Mapped[str] = mapped_column(String(80), index=True)
+    input_json: Mapped[str] = mapped_column(Text, default="{}")
+    schedule_type: Mapped[str] = mapped_column(String(32), index=True)
+    schedule_value: Mapped[str] = mapped_column(String(160))
+    timezone: Mapped[str] = mapped_column(String(80), default="UTC")
+    next_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    last_enqueued_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
