@@ -1,7 +1,9 @@
 # SALAR Capability Platform Design
 
-**Date:** 2026-08-11  
-**Status:** Approved architecture  
+**Date:** 2026-08-11
+
+**Status:** Approved architecture
+
 **Product surfaces:** SALAR backend, web/PWA, Windows Tauri desktop, WhatsApp
 
 ## Purpose
