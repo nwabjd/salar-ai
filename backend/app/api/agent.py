@@ -1,17 +1,25 @@
+import asyncio
 import json
 import logging
-from typing import Iterable
+from typing import Iterable, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import AuditEvent, Conversation, Document, Memory, Message, User
+from ..models import AgentRun, AuditEvent, Conversation, Document, Memory, Message, User, token_id
 from ..schemas import ChatRequest
 from ..security import get_current_user
 from ..services.agent import TOOL_DEFINITIONS, execute_tool
+from ..services.agents import PreparedAgentContext
 from ..services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
+from ..services.agents.run_store import AgentRunStore
+from .chat import (
+    _load_terminal_action,
+    _reconcile_chat_terminal,
+    _stage_chat_terminal_claim,
+)
 from .deps import check_quota
 
 log = logging.getLogger(__name__)
@@ -48,6 +56,133 @@ def _build_agent_system_prompt(memories: Iterable, documents: Iterable, agent_co
     return system
 
 
+def _load_committed_agent_response(
+    session_factory,
+    terminal_event_id: str,
+    expected_action: str,
+    user_message_id: str,
+    assistant_message_id: str,
+    tools_used: list,
+) -> Optional[dict]:
+    check_db = None
+    try:
+        check_db = session_factory()
+        event = check_db.get(AuditEvent, terminal_event_id)
+        if event is None or event.action != expected_action:
+            return None
+        user_message = check_db.get(Message, user_message_id)
+        assistant_message = check_db.get(Message, assistant_message_id)
+        if user_message is None or assistant_message is None:
+            return None
+        return {
+            "user_message": {
+                "id": user_message.id,
+                "role": "user",
+                "content": user_message.content,
+                "created_at": str(user_message.created_at),
+            },
+            "assistant_message": {
+                "id": assistant_message.id,
+                "role": "assistant",
+                "content": assistant_message.content,
+                "created_at": str(assistant_message.created_at),
+            },
+            "tools_used": tools_used,
+        }
+    except Exception as error:
+        log.error("Unable to reload committed agent response: %s", type(error).__name__)
+        return None
+    finally:
+        if check_db is not None:
+            try:
+                check_db.close()
+            except Exception:
+                pass
+
+
+def _resolve_prepared_run_id(
+    db: Session,
+    prepared: PreparedAgentContext,
+    user_id: str,
+    conversation_id: str,
+) -> Optional[str]:
+    if prepared.run_id is not None:
+        return prepared.run_id
+    for instance in db.identity_map.values():
+        if (
+            isinstance(instance, AgentRun)
+            and instance.user_id == user_id
+            and instance.conversation_id == conversation_id
+            and instance.status in AgentRunStore.TERMINAL_STATUSES
+        ):
+            return instance.id
+    return None
+
+
+def _commit_agent_terminal(
+    db: Session,
+    session_factory,
+    *,
+    terminal_event_id: str,
+    user_id: str,
+    conversation_id: str,
+    prompt: str,
+    action: str,
+    status: str,
+    reason: str,
+    agent_run_id: Optional[str],
+    detail: Optional[dict] = None,
+    reconcile_if_absent: bool = False,
+) -> Optional[str]:
+    try:
+        observed_action, claimed = _stage_chat_terminal_claim(
+            db,
+            terminal_event_id=terminal_event_id,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            prompt=prompt,
+            action=action,
+            status=status,
+            reason=reason,
+            agent_run_id=agent_run_id,
+            detail=detail,
+            outcome_name="agent",
+            create_missing_run=reconcile_if_absent,
+        )
+        if not claimed:
+            db.rollback()
+            return observed_action
+        try:
+            db.commit()
+            return action
+        except (Exception, asyncio.CancelledError):
+            db.rollback()
+            observed_action = _load_terminal_action(session_factory, terminal_event_id)
+            if observed_action is not None:
+                return observed_action
+    except (Exception, asyncio.CancelledError):
+        db.rollback()
+        observed_action = _load_terminal_action(session_factory, terminal_event_id)
+        if observed_action is not None:
+            return observed_action
+
+    if not reconcile_if_absent:
+        return None
+    return _reconcile_chat_terminal(
+        session_factory,
+        terminal_event_id=terminal_event_id,
+        user_id=user_id,
+        conversation_id=conversation_id,
+        prompt=prompt,
+        action=action,
+        status=status,
+        reason=reason,
+        agent_run_id=agent_run_id,
+        detail=detail,
+        outcome_name="agent",
+    )
+
+
 @router.post("/api/agent")
 async def agent_chat(
     payload: ChatRequest,
@@ -76,58 +211,162 @@ async def agent_chat(
         select(Document).where(Document.user_id == user.id)
         .order_by(Document.created_at.desc()).limit(6)
     ))
-    prepared = await request.app.state.agent_orchestrator.prepare(
-        prompt,
-        db,
-        user.id,
-        conversation.id,
-    )
-
-    gemini = request.app.state.coordinator.gemini
-    system_prompt = _build_agent_system_prompt(memories, documents, prepared.context)
-
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.extend({"role": m.role, "content": m.content} for m in history[-12:])
-    messages.append({"role": "user", "content": prompt})
-
+    terminal_event_id = token_id()
+    user_message_id = token_id()
+    assistant_message_id = token_id()
+    prepared = PreparedAgentContext(agent_kind="none", context="")
     tools_used = []
-    for round_num in range(MAX_TOOL_ROUNDS):
-        result = await gemini.chat_with_tools(messages, TOOL_DEFINITIONS)
+    tool_db = None
+    try:
+        prepared = await request.app.state.agent_orchestrator.prepare(
+            prompt,
+            db,
+            user.id,
+            conversation.id,
+            commit=False,
+        )
 
-        if result["function_calls"]:
-            for fc in result["function_calls"]:
-                tool_name = fc.get("name", "")
-                tool_args = fc.get("args", {})
-                log.info("Agent tool call: %s(%s)", tool_name, json.dumps(tool_args)[:200])
+        gemini = request.app.state.coordinator.gemini
+        system_prompt = _build_agent_system_prompt(memories, documents, prepared.context)
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend({"role": m.role, "content": m.content} for m in history[-12:])
+        messages.append({"role": "user", "content": prompt})
+        tool_db = request.app.state.SessionLocal()
 
-                tool_result = await execute_tool(tool_name, tool_args, user.id, db, is_admin=user.is_admin)
-                tools_used.append({"tool": tool_name, "args": tool_args, "result": tool_result})
+        response_text = ""
+        terminal_action = "agent.completed"
+        terminal_status = "completed"
+        terminal_reason = "Agent response persisted successfully."
+        for round_num in range(MAX_TOOL_ROUNDS):
+            result = await gemini.chat_with_tools(messages, TOOL_DEFINITIONS)
 
-                messages.append({"role": "model", "content": [{"functionCall": fc}]})
-                messages.append({"role": "user", "content": [{"functionResponse": {"name": tool_name, "response": tool_result}}]})
+            if result["function_calls"]:
+                for fc in result["function_calls"]:
+                    tool_name = fc.get("name", "")
+                    tool_args = fc.get("args", {})
+                    log.info("Agent tool call: %s(%s)", tool_name, json.dumps(tool_args)[:200])
 
-            continue
+                    tool_result = await execute_tool(
+                        tool_name,
+                        tool_args,
+                        user.id,
+                        tool_db,
+                        is_admin=user.is_admin,
+                    )
+                    tools_used.append({"tool": tool_name, "args": tool_args, "result": tool_result})
 
-        response_text = result.get("text", "")
-        if response_text:
-            user_message = Message(conversation_id=conversation.id, role="user", content=prompt)
-            assistant_message = Message(conversation_id=conversation.id, role="assistant", content=response_text)
+                    messages.append({"role": "model", "content": [{"functionCall": fc}]})
+                    messages.append({
+                        "role": "user",
+                        "content": [{"functionResponse": {"name": tool_name, "response": tool_result}}],
+                    })
+                continue
+
+            response_text = result.get("text", "")
+            if response_text:
+                break
+
+        if not response_text:
+            response_text = (
+                "I reached the processing limit after executing the available tool steps. "
+                "Please review the results and continue if needed."
+            )
+            terminal_action = "agent.partial"
+            terminal_status = "partial"
+            terminal_reason = "Agent reached the tool-processing limit before a final answer."
+
+        with db.begin_nested():
+            user_message = Message(
+                id=user_message_id,
+                conversation_id=conversation.id,
+                role="user",
+                content=prompt,
+            )
+            assistant_message = Message(
+                id=assistant_message_id,
+                conversation_id=conversation.id,
+                role="assistant",
+                content=response_text,
+            )
             db.add_all([user_message, assistant_message])
-            audit_detail = {
-                "conversation_id": conversation.id,
-                "tools": [t["tool"] for t in tools_used],
-                "agent_run_id": prepared.run_id,
-            }
-            db.add(AuditEvent(user_id=user.id, action="agent.completed",
-                              detail_json=json.dumps(audit_detail)))
-            db.commit()
+            db.flush()
             db.refresh(user_message)
             db.refresh(assistant_message)
-            return {
-                "user_message": {"id": user_message.id, "role": "user", "content": prompt, "created_at": str(user_message.created_at)},
-                "assistant_message": {"id": assistant_message.id, "role": "assistant", "content": response_text, "created_at": str(assistant_message.created_at)},
-                "tools_used": tools_used,
-            }
-
-    fallback = "I completed the requested tasks but ran out of processing steps. Please check the results."
-    return {"assistant_message": {"id": "", "role": "assistant", "content": fallback, "created_at": ""}, "tools_used": tools_used}
+        observed_action = _commit_agent_terminal(
+            db,
+            request.app.state.SessionLocal,
+            terminal_event_id=terminal_event_id,
+            user_id=user.id,
+            conversation_id=conversation.id,
+            prompt=prompt,
+            action=terminal_action,
+            status=terminal_status,
+            reason=terminal_reason,
+            agent_run_id=prepared.run_id,
+            detail={"tools": [item["tool"] for item in tools_used]},
+        )
+        if observed_action == terminal_action:
+            committed = _load_committed_agent_response(
+                request.app.state.SessionLocal,
+                terminal_event_id,
+                terminal_action,
+                user_message_id,
+                assistant_message_id,
+                tools_used,
+            )
+            if committed is not None:
+                return committed
+        raise RuntimeError("Agent terminal outcome was not persisted.")
+    except asyncio.CancelledError:
+        agent_run_id = _resolve_prepared_run_id(db, prepared, user.id, conversation.id)
+        _commit_agent_terminal(
+            db,
+            request.app.state.SessionLocal,
+            terminal_event_id=terminal_event_id,
+            user_id=user.id,
+            conversation_id=conversation.id,
+            prompt=prompt,
+            action="agent.cancelled",
+            status="cancelled",
+            reason="Agent processing was cancelled.",
+            agent_run_id=agent_run_id,
+            detail={"tools": [item["tool"] for item in tools_used]},
+            reconcile_if_absent=True,
+        )
+        raise
+    except Exception as error:
+        agent_run_id = _resolve_prepared_run_id(db, prepared, user.id, conversation.id)
+        observed_action = _commit_agent_terminal(
+            db,
+            request.app.state.SessionLocal,
+            terminal_event_id=terminal_event_id,
+            user_id=user.id,
+            conversation_id=conversation.id,
+            prompt=prompt,
+            action="agent.failed",
+            status="failed",
+            reason="Agent processing failed.",
+            agent_run_id=agent_run_id,
+            detail={
+                "tools": [item["tool"] for item in tools_used],
+                "error_class": type(error).__name__[:120],
+                "error_message": "Agent processing failed.",
+            },
+            reconcile_if_absent=True,
+        )
+        if observed_action in {"agent.completed", "agent.partial"}:
+            committed = _load_committed_agent_response(
+                request.app.state.SessionLocal,
+                terminal_event_id,
+                observed_action,
+                user_message_id,
+                assistant_message_id,
+                tools_used,
+            )
+            if committed is not None:
+                return committed
+        log.error("Agent request failed: %s", type(error).__name__)
+        raise RuntimeError("Agent processing failed.") from None
+    finally:
+        if tool_db is not None:
+            tool_db.close()

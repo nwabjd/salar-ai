@@ -17,7 +17,7 @@ from ..security import get_current_user
 from ..services.agents import PreparedAgentContext
 from ..services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
 from ..services.agents.run_store import AgentRunStore
-from .agent import TOOL_DEFINITIONS, execute_tool
+from ..services.agent import TOOL_DEFINITIONS, execute_tool
 from .deps import check_quota
 
 log = logging.getLogger(__name__)
@@ -71,7 +71,13 @@ class DisconnectAwareStreamingResponse(StreamingResponse):
             await self.background()
 
 
-def _stage_agent_chat_outcome(db: Session, run_id: Optional[str], status: str, reason: str) -> None:
+def _stage_agent_chat_outcome(
+    db: Session,
+    run_id: Optional[str],
+    status: str,
+    reason: str,
+    outcome_name: str = "chat",
+) -> None:
     if run_id is None:
         return
     run = db.get(AgentRun, run_id)
@@ -81,7 +87,7 @@ def _stage_agent_chat_outcome(db: Session, run_id: Optional[str], status: str, r
     store = AgentRunStore(db)
     store.step(
         run,
-        "chat",
+        outcome_name,
         status,
         detail={
             "status": status,
@@ -125,6 +131,7 @@ def _stage_chat_terminal_claim(
     agent_run_id: Optional[str],
     detail: Optional[dict] = None,
     create_missing_run: bool = False,
+    outcome_name: str = "chat",
 ) -> Tuple[str, bool]:
     existing = db.get(AuditEvent, terminal_event_id)
     if existing is not None:
@@ -155,7 +162,7 @@ def _stage_chat_terminal_claim(
             input_json=json.dumps({"query": prompt}),
         ))
         db.flush()
-    _stage_agent_chat_outcome(db, agent_run_id, status, reason)
+    _stage_agent_chat_outcome(db, agent_run_id, status, reason, outcome_name)
     return action, True
 
 
@@ -274,6 +281,7 @@ def _reconcile_chat_terminal(
     reason: str,
     agent_run_id: Optional[str] = None,
     detail: dict = None,
+    outcome_name: str = "chat",
 ) -> Optional[str]:
     audit_db = None
     try:
@@ -290,6 +298,7 @@ def _reconcile_chat_terminal(
             agent_run_id=agent_run_id,
             detail=detail,
             create_missing_run=True,
+            outcome_name=outcome_name,
         )
         if not claimed:
             return observed_action
