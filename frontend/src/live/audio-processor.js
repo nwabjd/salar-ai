@@ -45,7 +45,11 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
     this.playbackIndex = 0
     this.playbackStarted = false
     this.wasPlaying = false
+    this.echoGuardEnabled = false
+    this.echoGuardDuration = Math.round(sampleRate * 0.25)
+    this.echoGuardRemaining = 0
     this.port.onmessage = ({ data }) => {
+      if (data.type === 'echo_guard') this.echoGuardEnabled = data.enabled === true
       if (data.type === 'playback' && data.samples) {
         const playbackSamples = this.pcm16ToFloat(data.samples)
         const resampled = this.playbackResampler.push(playbackSamples)
@@ -60,6 +64,7 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
         this.playbackIndex = 0
         this.playbackStarted = false
         this.wasPlaying = false
+        this.echoGuardRemaining = 0
         this.playbackResampler.reset()
       }
     }
@@ -68,8 +73,17 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
   process(inputs, outputs) {
     const input = inputs[0]?.[0]
     const output = outputs[0]?.[0]
-    if (input) this.captureInput(input)
-    if (output) this.renderPlayback(output)
+    const playbackWritten = output ? this.renderPlayback(output) : 0
+    if (input) {
+      if (this.echoGuardEnabled && (playbackWritten > 0 || this.echoGuardRemaining > 0)) {
+        this.capture = []
+        this.echoGuardRemaining = playbackWritten > 0
+          ? this.echoGuardDuration
+          : Math.max(0, this.echoGuardRemaining - input.length)
+      } else {
+        this.captureInput(input)
+      }
+    }
     return true
   }
 
@@ -92,7 +106,7 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
   renderPlayback(output) {
     output.fill(0)
     if (!this.playbackStarted) {
-      if (this.queuedPlaybackSamples < this.minimumPlaybackBuffer) return
+      if (this.queuedPlaybackSamples < this.minimumPlaybackBuffer) return 0
       this.playbackStarted = true
     }
     let energy = 0
@@ -120,6 +134,7 @@ class SalarAudioProcessor extends AudioWorkletProcessor {
       this.playbackStarted = false
       this.port.postMessage({ type: 'playback_drained' })
     }
+    return written
   }
 
   pcm16ToFloat(input) {

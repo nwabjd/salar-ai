@@ -8,11 +8,13 @@ describe('SALAR Live audio worklet contract', () => {
   function createProcessor(deviceSampleRate: number) {
     let Processor: new () => {
       playback: Float32Array[]
-      port: { onmessage: (event: { data: { type: string; samples: Int16Array } }) => void }
+      postedMessages: Array<{ type?: string }>
+      port: { onmessage: (event: { data: { type: string; samples?: Int16Array; enabled?: boolean } }) => void }
       process: (inputs: Float32Array[][], outputs: Float32Array[][]) => boolean
     }
     class AudioWorkletProcessorStub {
-      port = { onmessage: () => {}, postMessage: () => {} }
+      postedMessages: Array<{ type?: string }> = []
+      port = { onmessage: () => {}, postMessage: (message: { type?: string }) => this.postedMessages.push(message) }
     }
     runInNewContext(source, {
       AudioWorkletProcessor: AudioWorkletProcessorStub,
@@ -73,6 +75,34 @@ describe('SALAR Live audio worklet contract', () => {
     processor.port.onmessage({ data: { type: 'playback', samples: packet } })
     processor.process([], [[secondOutput]])
     expect(secondOutput.some((sample) => sample !== 0)).toBe(true)
+  })
+
+  it('does not forward iPhone microphone capture while speaker playback is active', () => {
+    const processor = createProcessor(48_000)
+    const playback = Int16Array.from({ length: 2_400 }, (_, index) => (
+      Math.round(Math.sin(2 * Math.PI * 440 * index / 24_000) * 0.7 * 32_767)
+    ))
+    processor.port.onmessage({ data: { type: 'echo_guard', enabled: true } })
+    processor.port.onmessage({ data: { type: 'playback', samples: playback } })
+    for (let block = 0; block < 20; block += 1) {
+      processor.process([[new Float32Array(128).fill(0.5)]], [[new Float32Array(128)]])
+    }
+    expect(processor.postedMessages.some((message) => message.type === 'capture')).toBe(false)
+  })
+
+  it('holds capture briefly after iPhone speaker playback to reject the acoustic tail', () => {
+    const processor = createProcessor(48_000)
+    const playback = new Int16Array(2_400).fill(12_000)
+    processor.port.onmessage({ data: { type: 'echo_guard', enabled: true } })
+    processor.port.onmessage({ data: { type: 'playback', samples: playback } })
+    for (let block = 0; block < 40; block += 1) {
+      processor.process([[new Float32Array(128)]], [[new Float32Array(128)]])
+    }
+    processor.postedMessages.length = 0
+    for (let block = 0; block < 20; block += 1) {
+      processor.process([[new Float32Array(128).fill(0.5)]], [[new Float32Array(128)]])
+    }
+    expect(processor.postedMessages.some((message) => message.type === 'capture')).toBe(false)
   })
 
   it('clears queued playback on interruption', () => {
