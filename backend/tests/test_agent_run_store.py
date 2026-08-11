@@ -1,9 +1,12 @@
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.exc import IntegrityError
 
+from app.database import Base, create_session_factory
 from app.models import AgentRun, AgentRunStep, User
 from app.services.agents.run_store import AgentRunStore
 
@@ -129,3 +132,74 @@ def test_agent_run_store_fail_persists_truncated_error(client, exchange):
 
     assert saved_run.status == "failed"
     assert saved_run.error == "x" * 1000
+
+
+def test_agent_run_store_allocates_without_update_returning(tmp_path, monkeypatch):
+    engine, session_factory = create_session_factory(f"sqlite:///{tmp_path / 'no-returning.db'}")
+    Base.metadata.create_all(engine)
+    try:
+        with session_factory() as db:
+            user = User(email="no-returning@example.com", password_hash="hash")
+            db.add(user)
+            db.flush()
+            run = AgentRunStore(db).start(
+                user_id=user.id, conversation_id=None, kind="research", input_data={"query": "compatibility"}
+            )
+            run_id = run.id
+            db.commit()
+
+        monkeypatch.setattr(engine.dialect, "update_returning", False)
+        @event.listens_for(engine, "before_cursor_execute")
+        def reject_returning(connection, cursor, statement, parameters, context, executemany):
+            if " RETURNING " in statement.upper():
+                raise AssertionError("SQLite compatibility path must not use RETURNING")
+
+        with session_factory() as db:
+            run = db.get(AgentRun, run_id)
+            AgentRunStore(db).step(run, "search", "running")
+            db.commit()
+    finally:
+        engine.dispose()
+
+
+def test_agent_run_store_allocates_unique_sequences_for_overlapping_sqlite_sessions(tmp_path):
+    engine, session_factory = create_session_factory(f"sqlite:///{tmp_path / 'concurrent-runs.db'}")
+    Base.metadata.create_all(engine)
+    try:
+        with session_factory() as db:
+            user = User(email="concurrent@example.com", password_hash="hash")
+            db.add(user)
+            db.flush()
+            run = AgentRunStore(db).start(
+                user_id=user.id, conversation_id=None, kind="research", input_data={"query": "concurrent"}
+            )
+            run_id = run.id
+            db.commit()
+
+        ready = threading.Barrier(2, timeout=10)
+
+        def add_step(status):
+            with session_factory() as db:
+                run = db.get(AgentRun, run_id)
+                ready.wait()
+                AgentRunStore(db).step(run, "search", status)
+                db.commit()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(add_step, status) for status in ("running", "completed")]
+            for future in futures:
+                future.result(timeout=10)
+
+        with session_factory() as db:
+            run = db.get(AgentRun, run_id)
+            sequences = [
+                step.sequence
+                for step in db.query(AgentRunStep)
+                .filter(AgentRunStep.run_id == run_id)
+                .order_by(AgentRunStep.sequence)
+            ]
+
+        assert sequences == [1, 2]
+        assert run.next_step_sequence == 3
+    finally:
+        engine.dispose()

@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict, Iterable, Optional
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from ...models import AgentRun, AgentRunStep, Conversation
@@ -40,11 +40,16 @@ class AgentRunStore:
         evidence: Optional[Iterable[Dict[str, Any]]] = None,
         attempt: int = 1,
     ) -> AgentRunStep:
-        sequence = self.db.execute(
+        result = self.db.execute(
             update(AgentRun)
             .where(AgentRun.id == run.id)
             .values(next_step_sequence=AgentRun.next_step_sequence + 1)
-            .returning(AgentRun.next_step_sequence)
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            raise ValueError("Agent run does not exist")
+        sequence = self.db.execute(
+            select(AgentRun.next_step_sequence).where(AgentRun.id == run.id)
         ).scalar_one() - 1
         step = AgentRunStep(
             run_id=run.id,
