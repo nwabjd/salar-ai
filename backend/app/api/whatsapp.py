@@ -4,6 +4,7 @@ import logging
 import re
 import secrets
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -59,13 +60,34 @@ _REPEATED_ASSISTANT_IDENTITY = re.compile(
     flags=re.IGNORECASE,
 )
 
+LEASE_TTL_SECONDS = 30
+LEASE_HEARTBEAT_SECONDS = 5
+LEASE_ACQUISITION_WAIT_SECONDS = 120
+LEASE_POLL_SECONDS = 0.25
+
+
+def _lease_now(state):
+    clock = getattr(state, "whatsapp_lease_now", None)
+    return clock() if clock else datetime.now(timezone.utc)
+
+
+def _lease_setting(state, name, default):
+    return getattr(state, name, default)
+
 
 async def _acquire_reply_lease(state, user_id, from_jid, sender_name, lease_token):
-    for _ in range(40):
+    deadline = asyncio.get_running_loop().time() + _lease_setting(
+        state, "whatsapp_lease_wait_seconds", LEASE_ACQUISITION_WAIT_SECONDS,
+    )
+    while True:
         db = state.SessionLocal()
         try:
             store = WhatsAppConversationStore(db)
-            contact = store.acquire_reply_lease(user_id, from_jid, sender_name, lease_token)
+            contact = store.acquire_reply_lease(
+                user_id, from_jid, sender_name, lease_token,
+                now=_lease_now(state),
+                lease_seconds=_lease_setting(state, "whatsapp_lease_ttl_seconds", LEASE_TTL_SECONDS),
+            )
             if contact is not None:
                 snapshot = (contact.introduced, store.history(contact))
                 db.commit()
@@ -73,8 +95,71 @@ async def _acquire_reply_lease(state, user_id, from_jid, sender_name, lease_toke
             db.rollback()
         finally:
             db.close()
-        await asyncio.sleep(0.05)
-    return None
+        if asyncio.get_running_loop().time() >= deadline:
+            return None
+        poll_wait = getattr(state, "whatsapp_lease_poll_wait", None)
+        if poll_wait:
+            await poll_wait()
+        else:
+            await asyncio.sleep(_lease_setting(state, "whatsapp_lease_poll_seconds", LEASE_POLL_SECONDS))
+
+
+def _renew_reply_lease(state, user_id, from_jid, lease_token):
+    db = state.SessionLocal()
+    try:
+        store = WhatsAppConversationStore(db)
+        renewed = store.renew_reply_lease(
+            user_id, from_jid, lease_token,
+            now=_lease_now(state),
+            lease_seconds=_lease_setting(state, "whatsapp_lease_ttl_seconds", LEASE_TTL_SECONDS),
+        )
+        if renewed:
+            db.commit()
+        else:
+            db.rollback()
+        return renewed
+    except Exception:
+        db.rollback()
+        return False
+    finally:
+        db.close()
+
+
+async def _heartbeat_reply_lease(state, user_id, from_jid, lease_token, stop, lost):
+    interval = _lease_setting(state, "whatsapp_lease_heartbeat_seconds", LEASE_HEARTBEAT_SECONDS)
+    while True:
+        heartbeat_wait = getattr(state, "whatsapp_lease_heartbeat_wait", None)
+        if heartbeat_wait:
+            if await heartbeat_wait(stop):
+                return
+        else:
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+                return
+            except asyncio.TimeoutError:
+                pass
+        if not _renew_reply_lease(state, user_id, from_jid, lease_token):
+            lost.set()
+            return
+        renewed = getattr(state, "whatsapp_lease_renewed", None)
+        if renewed:
+            renewed()
+
+
+def _record_auto_reply_deferred(state, user_id, from_jid):
+    db = state.SessionLocal()
+    try:
+        db.add(AuditEvent(
+            user_id=user_id,
+            action="whatsapp.auto_reply_deferred",
+            detail_json=json.dumps({"to": from_jid, "reason": "lease_unavailable"}),
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        log.warning("Auto-reply deferred audit failed")
+    finally:
+        db.close()
 
 
 def _release_reply_lease(state, user_id, from_jid, lease_token):
@@ -349,6 +434,8 @@ async def whatsapp_webhook(payload: WhatsAppWebhook, request: Request):
 async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text: str, is_group: bool):
     lease_token = secrets.token_urlsafe(24)
     lease_acquired = False
+    heartbeat = None
+    heartbeat_stop = None
     try:
         coordinator = getattr(state, "coordinator", None)
         gemini = getattr(coordinator, "gemini", None) if coordinator else None
@@ -359,12 +446,21 @@ async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text
         async with _contact_locks(state).hold((user_id, from_jid)):
             snapshot = await _acquire_reply_lease(state, user_id, from_jid, sender_name, lease_token)
             if snapshot is None:
+                _record_auto_reply_deferred(state, user_id, from_jid)
                 log.warning("Auto-reply lease unavailable")
                 return
             lease_acquired = True
             introduced, history = snapshot
+            heartbeat_stop = asyncio.Event()
+            heartbeat_lost = asyncio.Event()
+            heartbeat = asyncio.create_task(_heartbeat_reply_lease(
+                state, user_id, from_jid, lease_token, heartbeat_stop, heartbeat_lost,
+            ))
             messages = build_auto_reply_messages(sender_name, text, is_group, introduced, history)
             result = await gemini.chat_with_tools(messages, [])
+            if heartbeat_lost.is_set():
+                log.warning("Auto-reply lease lost before send")
+                return
             reply_text, pass_msg = normalize_auto_reply(
                 result.get("text", "") if isinstance(result, dict) else "",
                 introduced,
@@ -373,6 +469,9 @@ async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text
             whatsapp = getattr(state, "whatsapp", None)
             if not whatsapp:
                 raise RuntimeError("WhatsApp client unavailable")
+            if not _renew_reply_lease(state, user_id, from_jid, lease_token):
+                log.warning("Auto-reply lease lost before send")
+                return
             send_result = await whatsapp.send_message(to=from_jid, text=reply_text, user_id=user_id)
             if not (
                 isinstance(send_result, dict)
@@ -393,5 +492,12 @@ async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text
     except Exception as exc:
         log.error("Auto-reply failed (%s)", type(exc).__name__)
     finally:
+        if heartbeat_stop is not None:
+            heartbeat_stop.set()
+        if heartbeat is not None:
+            try:
+                await heartbeat
+            except asyncio.CancelledError:
+                pass
         if lease_acquired:
             _release_reply_lease(state, user_id, from_jid, lease_token)

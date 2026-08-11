@@ -288,6 +288,103 @@ def test_reply_lease_recovers_stale_token(client, exchange):
         assert contact is not None and contact.reply_lease_token == "fresh-token"
 
 
+def test_reply_lease_renewal_is_token_scoped(client, exchange):
+    headers = exchange("renew-lease@example.com")
+    user = client.get("/api/auth/me", headers=headers).json()
+    jid = "15550009@s.whatsapp.net"
+    now = utcnow()
+    with client.app.state.SessionLocal() as db:
+        store = WhatsAppConversationStore(db)
+        assert store.acquire_reply_lease(user["id"], jid, "Aisha", "owner-token", now=now) is not None
+        db.commit()
+        assert store.renew_reply_lease(user["id"], jid, "other-token", now=now + timedelta(seconds=1)) is False
+        assert store.renew_reply_lease(user["id"], jid, "owner-token", now=now + timedelta(seconds=1)) is True
+        db.commit()
+        contact = db.scalar(select(WhatsAppContactState).where(WhatsAppContactState.user_id == user["id"]))
+    assert contact.reply_lease_expires_at.replace(tzinfo=now.tzinfo) > now + timedelta(seconds=20)
+
+
+@pytest.mark.anyio
+async def test_heartbeat_prevents_cross_worker_stale_lease_takeover(client, exchange):
+    headers = exchange("heartbeat@example.com")
+    user = client.get("/api/auth/me", headers=headers).json()
+    now = [utcnow()]
+    heartbeat_tick = asyncio.Event()
+    heartbeat_renewed = asyncio.Event()
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+    second_polling = asyncio.Event()
+    release_second_poll = asyncio.Event()
+    second_model_started = asyncio.Event()
+    sends = []
+
+    async def heartbeat_wait(stop):
+        stop_wait = asyncio.create_task(stop.wait())
+        tick_wait = asyncio.create_task(heartbeat_tick.wait())
+        done, pending = await asyncio.wait({stop_wait, tick_wait}, return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        if stop_wait in done:
+            return True
+        heartbeat_tick.clear()
+        return False
+
+    async def second_poll_wait():
+        second_polling.set()
+        await release_second_poll.wait()
+
+    class Gemini:
+        async def chat_with_tools(self, messages, tools):
+            if "First" in messages[-1]["content"]:
+                first_started.set()
+                await release_first.wait()
+                return {"text": "First reply."}
+            second_model_started.set()
+            return {"text": "Second reply."}
+
+    class WhatsApp:
+        async def send_message(self, **kwargs):
+            sends.append(kwargs["text"])
+            return {"ok": True}
+
+    common = dict(
+        SessionLocal=client.app.state.SessionLocal,
+        coordinator=SimpleNamespace(gemini=Gemini()),
+        whatsapp=WhatsApp(),
+        whatsapp_lease_now=lambda: now[0],
+        whatsapp_lease_ttl_seconds=30,
+        whatsapp_lease_wait_seconds=120,
+    )
+    first_state = SimpleNamespace(
+        **common,
+        whatsapp_lease_heartbeat_wait=heartbeat_wait,
+        whatsapp_lease_renewed=heartbeat_renewed.set,
+    )
+    second_state = SimpleNamespace(**common, whatsapp_lease_poll_wait=second_poll_wait)
+
+    first = asyncio.create_task(_auto_reply(
+        first_state, user["id"], "15550010@s.whatsapp.net", "Aisha", "First", False,
+    ))
+    await first_started.wait()
+    now[0] += timedelta(seconds=31)
+    heartbeat_tick.set()
+    await heartbeat_renewed.wait()
+
+    second = asyncio.create_task(_auto_reply(
+        second_state, user["id"], "15550010@s.whatsapp.net", "Aisha", "Second", False,
+    ))
+    await second_polling.wait()
+    assert second_model_started.is_set() is False
+    release_first.set()
+    await first
+    release_second_poll.set()
+    await second
+
+    assert len(sends) == 2
+    assert sum("JD's assistant" in reply for reply in sends) == 1
+
+
 @pytest.mark.anyio
 async def test_cancelled_auto_reply_releases_its_reply_lease(client, exchange):
     headers = exchange("cancel-lease@example.com")

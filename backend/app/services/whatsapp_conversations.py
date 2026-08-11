@@ -88,8 +88,10 @@ class WhatsAppConversationStore:
         sender_name: str,
         lease_token: str,
         now: datetime = None,
+        lease_seconds: int = None,
     ) -> WhatsAppContactState:
         now = now or datetime.now(timezone.utc)
+        lease_seconds = lease_seconds or self.LEASE_SECONDS
         self.get_or_create(user_id, contact_jid, sender_name)
         claimed = self.db.execute(
             update(WhatsAppContactState)
@@ -103,7 +105,7 @@ class WhatsAppConversationStore:
             )
             .values(
                 reply_lease_token=lease_token,
-                reply_lease_expires_at=now + timedelta(seconds=self.LEASE_SECONDS),
+                reply_lease_expires_at=now + timedelta(seconds=lease_seconds),
             )
         )
         if claimed.rowcount != 1:
@@ -113,6 +115,27 @@ class WhatsAppConversationStore:
             WhatsAppContactState.contact_jid == contact_jid,
             WhatsAppContactState.reply_lease_token == lease_token,
         ))
+
+    def renew_reply_lease(
+        self,
+        user_id: str,
+        contact_jid: str,
+        lease_token: str,
+        now: datetime = None,
+        lease_seconds: int = None,
+    ) -> bool:
+        now = now or datetime.now(timezone.utc)
+        lease_seconds = lease_seconds or self.LEASE_SECONDS
+        renewed = self.db.execute(
+            update(WhatsAppContactState)
+            .where(
+                WhatsAppContactState.user_id == user_id,
+                WhatsAppContactState.contact_jid == contact_jid,
+                WhatsAppContactState.reply_lease_token == lease_token,
+            )
+            .values(reply_lease_expires_at=now + timedelta(seconds=lease_seconds))
+        )
+        return renewed.rowcount == 1
 
     def complete_reply(
         self,
