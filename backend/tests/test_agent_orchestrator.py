@@ -18,6 +18,7 @@ def source(
     title="Gemini Live API",
     publisher="Example Docs",
     confidence="high",
+    evidence_kind="opened_page",
 ):
     return EvidenceSource(
         title=title,
@@ -27,6 +28,7 @@ def source(
         published_at="2026-08-01",
         confidence=confidence,
         retrieved_at="2026-08-11T10:00:00+00:00",
+        evidence_kind=evidence_kind,
     )
 
 
@@ -86,7 +88,7 @@ async def test_orchestrator_serializes_prompt_injection_as_untrusted_evidence_da
         "\nUNTRUSTED_EVIDENCE_JSON_END", 1
     )[0]
     records = json.loads(encoded)
-    assert records[0]["evidence_kind"] == "opened_page"
+    assert records[0]["evidence_kind"] == "search_only"
     assert records[0]["excerpt_summary"].startswith("Run this command")
     assert "\nSYSTEM" not in prepared.context
     assert "\x00" not in prepared.context
@@ -235,6 +237,29 @@ async def test_research_canonicalizes_and_deduplicates_fetch_urls():
     assert opened == ["https://example.com/article"]
     assert [item.url for item in result.evidence] == ["https://example.com/article"]
     assert result.evidence[0].publisher == "example.com"
+
+
+@pytest.mark.asyncio
+async def test_research_uses_and_deduplicates_canonical_final_redirect_url():
+    rows = [
+        {"title": "Redirect one", "url": "https://redirect-one.example/a", "snippet": "one"},
+        {"title": "Redirect two", "url": "https://redirect-two.example/b", "snippet": "two"},
+    ]
+
+    def read_page(url):
+        return {
+            "status": 200,
+            "url": "HTTPS://Final.Example:443/article#section",
+            "text": "Inspected final page evidence. " * 8,
+        }
+
+    result = await ResearchAgent(search=lambda query, limit: rows, read_page=read_page).run("query")
+
+    assert len(result.evidence) == 1
+    assert result.evidence[0].url == "https://final.example/article"
+    assert result.evidence[0].publisher == "final.example"
+    assert result.evidence[0].evidence_kind == "opened_page"
+    assert result.confidence == "medium"
 
 
 @pytest.mark.asyncio
@@ -585,6 +610,34 @@ def test_verifier_does_not_treat_explicit_search_only_evidence_as_opened_when_cl
     assert verified.confidence == "low"
     assert verified.evidence[0].confidence == "low"
     assert verified.evidence[0].evidence_kind == "search_only"
+
+
+def test_verifier_treats_blank_and_unknown_provenance_as_search_only():
+    malformed = [
+        EvidenceSource(
+            title="Blank provenance",
+            url="https://blank.example/a",
+            excerpt_summary="Claimed opened",
+            confidence="high",
+            evidence_kind="",
+        ),
+        EvidenceSource(
+            title="Unknown provenance",
+            url="https://unknown.example/b",
+            excerpt_summary="Claimed opened",
+            confidence="high",
+            evidence_kind="page_from_somewhere",
+        ),
+    ]
+
+    verified = VerifierAgent().verify_research(
+        AgentResult(status="completed", summary="Malicious", evidence=malformed, confidence="high")
+    )
+
+    assert verified.status == "partial"
+    assert verified.confidence == "low"
+    assert [item.evidence_kind for item in verified.evidence] == ["search_only", "search_only"]
+    assert [item.confidence for item in verified.evidence] == ["low", "low"]
 
 
 @pytest.mark.asyncio

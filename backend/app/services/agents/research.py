@@ -109,35 +109,43 @@ class ResearchAgent:
         )
         opened_results = list(reads) + [None] * (len(candidates) - len(reads))
         retrieved_at = self._retrieved_at()
-        evidence = []
-        opened_publishers = set()
+        evidence_by_url = {}
 
         for candidate, opened in zip(candidates, opened_results):
             opened_text = ""
+            final_url = None
             if not isinstance(opened, BaseException) and isinstance(opened, dict):
                 if opened.get("status") == 200:
                     opened_text = _normalized_text(opened.get("text"))
-            successfully_opened = len(opened_text) >= 120
+                    final_url = canonical_public_url(opened.get("url") or candidate["url"])
+            successfully_opened = len(opened_text) >= 120 and final_url is not None
+            evidence_url = final_url if successfully_opened else candidate["url"]
             if successfully_opened:
                 excerpt = opened_text[:600]
                 confidence = "high"
-                opened_publishers.add(candidate["publisher"].lower())
             else:
                 excerpt = candidate["snippet"] or "Page content could not be verified."
                 confidence = "low"
-            evidence.append(
-                EvidenceSource(
-                    title=candidate["title"],
-                    url=candidate["url"],
-                    excerpt_summary=excerpt,
-                    publisher=candidate["publisher"],
-                    published_at=candidate["published_at"],
-                    confidence=confidence,
-                    retrieved_at=retrieved_at,
-                    evidence_kind="opened_page" if successfully_opened else "search_only",
-                )
+            item = EvidenceSource(
+                title=candidate["title"],
+                url=evidence_url,
+                excerpt_summary=excerpt,
+                publisher=canonical_hostname(evidence_url),
+                published_at=candidate["published_at"],
+                confidence=confidence,
+                retrieved_at=retrieved_at,
+                evidence_kind="opened_page" if successfully_opened else "search_only",
             )
+            existing = evidence_by_url.get(evidence_url)
+            if existing is None or (existing.evidence_kind == "search_only" and successfully_opened):
+                evidence_by_url[evidence_url] = item
 
+        evidence = list(evidence_by_url.values())
+        opened_publishers = {
+            item.publisher
+            for item in evidence
+            if item.evidence_kind == "opened_page" and item.confidence == "high"
+        }
         opened_count = sum(item.confidence == "high" for item in evidence)
         if len(opened_publishers) >= 2:
             confidence = "high"

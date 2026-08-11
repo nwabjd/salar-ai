@@ -19,10 +19,8 @@ class VerifierAgent:
             if url is None or url in seen_urls:
                 continue
             seen_urls.add(url)
-            evidence_kind = evidence.evidence_kind or (
-                "opened_page" if evidence.confidence == "high" else "search_only"
-            )
-            confidence = evidence.confidence if evidence_kind == "opened_page" else "low"
+            evidence_kind = "opened_page" if evidence.evidence_kind == "opened_page" else "search_only"
+            confidence = "high" if evidence_kind == "opened_page" and evidence.confidence == "high" else "low"
             unique.append(
                 replace(
                     evidence,

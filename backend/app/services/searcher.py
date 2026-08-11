@@ -43,7 +43,11 @@ def _normalized_url(value: object) -> Optional[str]:
 
 def search_web_results(query: str, max_results: int = 5) -> List[Dict[str, Optional[str]]]:
     try:
-        ddgs = DDGS()
+        try:
+            ddgs = DDGS(timeout=5)
+        except TypeError:
+            # Preserve compatibility with small injected fakes and older DDGS shims.
+            ddgs = DDGS()
         results = list(ddgs.text(query, max_results=max_results))
         normalized_results = []
         for result in results:

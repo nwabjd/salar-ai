@@ -61,6 +61,16 @@ class UrlHardeningDDGS:
         ]
 
 
+class TimeoutAwareDDGS:
+    configured_timeout = None
+
+    def __init__(self, timeout):
+        type(self).configured_timeout = timeout
+
+    def text(self, query, max_results):
+        return []
+
+
 def test_search_web_results_returns_normalized_evidence(monkeypatch):
     monkeypatch.setattr("app.services.searcher.DDGS", FakeDDGS)
 
@@ -122,3 +132,10 @@ def test_search_web_results_uses_published_at_fallback_and_rejects_unsafe_urls(m
             "published_at": "2026-08-02",
         }
     ]
+
+
+def test_search_web_results_configures_finite_lower_layer_timeout(monkeypatch):
+    monkeypatch.setattr("app.services.searcher.DDGS", TimeoutAwareDDGS)
+
+    assert search_web_results("bounded search") == []
+    assert TimeoutAwareDDGS.configured_timeout == 5
