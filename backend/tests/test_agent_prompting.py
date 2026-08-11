@@ -67,7 +67,7 @@ def test_agent_endpoint_prepares_once_and_delivers_context_to_model(client, auth
     call = client.app.state.agent_orchestrator.calls[0]
     assert call["prompt"] == "Find the latest source"
     assert call["conversation_id"] == conversation_id
-    assert call["commit"] is False
+    assert call["commit"] is True
     assert call["user_id"]
     assert isinstance(call["db"], Session)
     system_prompt = client.app.state.coordinator.gemini.calls[0]["messages"][0]["content"]

@@ -53,11 +53,13 @@ class AgentOrchestrator:
         user_id: Optional[str] = None,
         conversation_id: Optional[str] = None,
         commit: bool = True,
+        run_id: Optional[str] = None,
     ) -> PreparedAgentContext:
         if not self.needs_research(prompt):
             return PreparedAgentContext(agent_kind="none", context="")
 
         store = AgentRunStore(db) if db is not None and user_id is not None else None
+        requested_run_id = run_id
         run = None
         run_id = None
         if store is not None:
@@ -67,6 +69,7 @@ class AgentOrchestrator:
                     conversation_id=conversation_id,
                     kind="research",
                     input_data={"query": prompt},
+                    run_id=requested_run_id,
                 )
                 run_id = run.id
                 store.step(run, "search", "running", detail={"query": prompt}, attempt=1)

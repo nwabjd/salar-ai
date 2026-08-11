@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.chat import _reconcile_chat_terminal
-from app.models import AgentRun, AgentRunStep, AuditEvent, Message, token_id
+from app.models import AgentRun, AgentRunStep, AuditEvent, Memory, Message, token_id
 from app.services.agents.contracts import AgentResult, EvidenceSource
 from app.services.agents.orchestrator import AgentOrchestrator
 
@@ -45,6 +45,39 @@ class ToolLoopGemini:
             "function_calls": [{"name": "list_devices", "args": {}}],
             "finish_reason": "STOP",
         }
+
+
+class SaveMemoryGemini:
+    def __init__(self):
+        self.calls = []
+
+    async def chat_with_tools(self, messages, tools):
+        self.calls.append({"messages": messages, "tools": tools})
+        if len(self.calls) == 1:
+            return {
+                "text": "",
+                "function_calls": [{
+                    "name": "save_memory",
+                    "args": {"title": "SQLite lock proof", "content": "Persisted by the agent."},
+                }],
+                "finish_reason": "STOP",
+            }
+        return {"text": "The memory was saved.", "function_calls": [], "finish_reason": "STOP"}
+
+
+class ToolErrorGemini:
+    def __init__(self):
+        self.calls = []
+
+    async def chat_with_tools(self, messages, tools):
+        self.calls.append({"messages": json.loads(json.dumps(messages)), "tools": tools})
+        if len(self.calls) == 1:
+            return {
+                "text": "",
+                "function_calls": [{"name": "list_devices", "args": {"scope": "safe"}}],
+                "finish_reason": "STOP",
+            }
+        return {"text": "The device lookup failed safely.", "function_calls": [], "finish_reason": "STOP"}
 
 
 def _agent_audits(db, conversation_id):
@@ -98,6 +131,95 @@ def test_agent_gemini_failure_persists_failed_terminal_outcome(client, auth_head
     assert messages == []
     assert [audit.action for audit in audits] == ["agent.failed"]
     assert "provider-secret" not in audits[0].detail_json
+
+
+def test_research_agent_can_commit_database_tool_without_sqlite_writer_lock(client, auth_headers):
+    created = client.post("/api/conversations", json={"title": "SQLite tool writer"}, headers=auth_headers)
+    conversation_id = created.json()["id"]
+    client.app.state.agent_orchestrator = AgentOrchestrator(research=SuccessfulResearch())
+    client.app.state.coordinator.gemini = SaveMemoryGemini()
+
+    response = client.post(
+        "/api/agent",
+        json={"conversation_id": conversation_id, "content": "Find the latest source and save memory"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["assistant_message"]["content"] == "The memory was saved."
+    assert body["tools_used"] == [{
+        "tool": "save_memory",
+        "args": {"title": "SQLite lock proof", "content": "Persisted by the agent."},
+        "result": {"status": "saved", "title": "SQLite lock proof"},
+    }]
+    assert "database is locked" not in json.dumps(body).lower()
+
+    with client.app.state.SessionLocal() as db:
+        memory = db.scalar(select(Memory).where(Memory.title == "SQLite lock proof"))
+        run, steps = _run_and_steps(db, conversation_id)
+        audits = _agent_audits(db, conversation_id)
+    assert memory is not None
+    assert memory.content == "Persisted by the agent."
+    assert run.status == "completed"
+    assert [(step.name, step.status) for step in steps][-1] == ("agent", "completed")
+    assert [audit.action for audit in audits] == ["agent.completed"]
+
+
+def test_agent_sanitizes_failed_tool_payload_before_model_response_and_audit(
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    created = client.post("/api/conversations", json={"title": "Tool error safety"}, headers=auth_headers)
+    conversation_id = created.json()["id"]
+    gemini = ToolErrorGemini()
+    client.app.state.coordinator.gemini = gemini
+
+    async def leaky_tool(name, args, user_id, db, is_admin=False):
+        return {
+            "error": (
+                "(sqlite3.OperationalError) INSERT INTO memories VALUES (?) "
+                "parameters=('SENSITIVE-CONTENT', 'internal-id-123') "
+                "path=C:\\private\\vault.db Traceback: raw-stack"
+            ),
+            "sql": "INSERT INTO memories VALUES (?)",
+            "parameters": ["SENSITIVE-CONTENT", "internal-id-123"],
+            "path": "C:\\private\\vault.db",
+            "traceback": "Traceback: raw-stack",
+        }
+
+    monkeypatch.setattr("app.api.agent.execute_tool", leaky_tool)
+    response = client.post(
+        "/api/agent",
+        json={"conversation_id": conversation_id, "content": "Check my devices"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tools_used"] == [{
+        "tool": "list_devices",
+        "args": {},
+        "result": {
+            "status": "error",
+            "code": "tool_execution_failed",
+            "tool": "list_devices",
+            "detail": "The tool could not complete safely.",
+        },
+    }]
+    with client.app.state.SessionLocal() as db:
+        audit_text = "\n".join(audit.detail_json for audit in _agent_audits(db, conversation_id))
+    exposed = json.dumps({"model_calls": gemini.calls, "response": body, "audits": audit_text})
+    for secret in (
+        "INSERT INTO memories",
+        "SENSITIVE-CONTENT",
+        "internal-id-123",
+        "C:\\private\\vault.db",
+        "Traceback",
+        "raw-stack",
+    ):
+        assert secret not in exposed
 
 
 def test_agent_refresh_failure_rolls_back_messages_and_persists_failure(

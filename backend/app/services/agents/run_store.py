@@ -13,7 +13,14 @@ class AgentRunStore:
     def __init__(self, db: Session):
         self.db = db
 
-    def start(self, user_id: str, conversation_id: Optional[str], kind: str, input_data: Dict[str, Any]) -> AgentRun:
+    def start(
+        self,
+        user_id: str,
+        conversation_id: Optional[str],
+        kind: str,
+        input_data: Dict[str, Any],
+        run_id: Optional[str] = None,
+    ) -> AgentRun:
         if conversation_id is not None:
             conversation = (
                 self.db.query(Conversation)
@@ -22,7 +29,9 @@ class AgentRunStore:
             )
             if conversation is None:
                 raise ValueError("Conversation does not belong to user")
+        values = {"id": run_id} if run_id is not None else {}
         run = AgentRun(
+            **values,
             user_id=user_id,
             conversation_id=conversation_id,
             kind=kind,

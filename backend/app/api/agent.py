@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import Iterable, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,14 +9,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import AgentRun, AuditEvent, Conversation, Document, Memory, Message, User, token_id
+from ..models import AuditEvent, Conversation, Document, Memory, Message, User, token_id
 from ..schemas import ChatRequest
 from ..security import get_current_user
 from ..services.agent import TOOL_DEFINITIONS, execute_tool
 from ..services.agents import PreparedAgentContext
 from ..services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
-from ..services.agents.run_store import AgentRunStore
 from .chat import (
+    _agent_run_exists,
     _load_terminal_action,
     _reconcile_chat_terminal,
     _stage_chat_terminal_claim,
@@ -26,6 +27,8 @@ log = logging.getLogger(__name__)
 router = APIRouter(tags=["agent"])
 
 MAX_TOOL_ROUNDS = 5
+_FAILED_TOOL_STATUSES = {"error", "failed", "failure", "exception"}
+_FAILED_TOOL_KEYS = {"error", "exception", "traceback", "stack", "stack_trace"}
 
 
 def _build_agent_system_prompt(memories: Iterable, documents: Iterable, agent_context: str = "") -> str:
@@ -54,6 +57,32 @@ def _build_agent_system_prompt(memories: Iterable, documents: Iterable, agent_co
     if context_parts:
         system += "\n\n" + "\n\n".join(context_parts)
     return system
+
+
+def _safe_tool_name(tool_name: str) -> str:
+    bounded = re.sub(r"[^A-Za-z0-9_.-]", "_", str(tool_name or ""))[:64]
+    return bounded or "tool"
+
+
+def _is_failed_tool_result(result) -> bool:
+    if not isinstance(result, dict):
+        return False
+    status = str(result.get("status", "")).strip().lower()
+    if status in _FAILED_TOOL_STATUSES or result.get("success") is False:
+        return True
+    return any(result.get(key) not in (None, "", False, [], {}) for key in _FAILED_TOOL_KEYS)
+
+
+def _sanitize_tool_exchange(tool_name: str, tool_args, result):
+    if not _is_failed_tool_result(result):
+        return tool_name, tool_args, result
+    safe_name = _safe_tool_name(tool_name)
+    return safe_name, {}, {
+        "status": "error",
+        "code": "tool_execution_failed",
+        "tool": safe_name,
+        "detail": "The tool could not complete safely.",
+    }
 
 
 def _load_committed_agent_response(
@@ -101,22 +130,13 @@ def _load_committed_agent_response(
 
 
 def _resolve_prepared_run_id(
-    db: Session,
+    session_factory,
     prepared: PreparedAgentContext,
-    user_id: str,
-    conversation_id: str,
+    preparation_run_id: str,
 ) -> Optional[str]:
     if prepared.run_id is not None:
         return prepared.run_id
-    for instance in db.identity_map.values():
-        if (
-            isinstance(instance, AgentRun)
-            and instance.user_id == user_id
-            and instance.conversation_id == conversation_id
-            and instance.status in AgentRunStore.TERMINAL_STATUSES
-        ):
-            return instance.id
-    return None
+    return preparation_run_id if _agent_run_exists(session_factory, preparation_run_id) else None
 
 
 def _commit_agent_terminal(
@@ -214,17 +234,26 @@ async def agent_chat(
     terminal_event_id = token_id()
     user_message_id = token_id()
     assistant_message_id = token_id()
+    preparation_run_id = token_id()
     prepared = PreparedAgentContext(agent_kind="none", context="")
     tools_used = []
     tool_db = None
+    preparation_db = None
     try:
-        prepared = await request.app.state.agent_orchestrator.prepare(
-            prompt,
-            db,
-            user.id,
-            conversation.id,
-            commit=False,
-        )
+        try:
+            preparation_db = request.app.state.SessionLocal()
+            prepared = await request.app.state.agent_orchestrator.prepare(
+                prompt,
+                preparation_db,
+                user.id,
+                conversation.id,
+                commit=True,
+                run_id=preparation_run_id,
+            )
+        finally:
+            if preparation_db is not None:
+                preparation_db.close()
+                preparation_db = None
 
         gemini = request.app.state.coordinator.gemini
         system_prompt = _build_agent_system_prompt(memories, documents, prepared.context)
@@ -246,19 +275,35 @@ async def agent_chat(
                     tool_args = fc.get("args", {})
                     log.info("Agent tool call: %s(%s)", tool_name, json.dumps(tool_args)[:200])
 
-                    tool_result = await execute_tool(
+                    raw_tool_result = await execute_tool(
                         tool_name,
                         tool_args,
                         user.id,
                         tool_db,
                         is_admin=user.is_admin,
                     )
-                    tools_used.append({"tool": tool_name, "args": tool_args, "result": tool_result})
+                    public_tool_name, public_tool_args, tool_result = _sanitize_tool_exchange(
+                        tool_name,
+                        tool_args,
+                        raw_tool_result,
+                    )
+                    tools_used.append({
+                        "tool": public_tool_name,
+                        "args": public_tool_args,
+                        "result": tool_result,
+                    })
 
-                    messages.append({"role": "model", "content": [{"functionCall": fc}]})
+                    public_function_call = fc if public_tool_args is tool_args else {
+                        "name": public_tool_name,
+                        "args": public_tool_args,
+                    }
+                    messages.append({"role": "model", "content": [{"functionCall": public_function_call}]})
                     messages.append({
                         "role": "user",
-                        "content": [{"functionResponse": {"name": tool_name, "response": tool_result}}],
+                        "content": [{"functionResponse": {
+                            "name": public_tool_name,
+                            "response": tool_result,
+                        }}],
                     })
                 continue
 
@@ -318,7 +363,11 @@ async def agent_chat(
                 return committed
         raise RuntimeError("Agent terminal outcome was not persisted.")
     except asyncio.CancelledError:
-        agent_run_id = _resolve_prepared_run_id(db, prepared, user.id, conversation.id)
+        agent_run_id = _resolve_prepared_run_id(
+            request.app.state.SessionLocal,
+            prepared,
+            preparation_run_id,
+        )
         _commit_agent_terminal(
             db,
             request.app.state.SessionLocal,
@@ -335,7 +384,11 @@ async def agent_chat(
         )
         raise
     except Exception as error:
-        agent_run_id = _resolve_prepared_run_id(db, prepared, user.id, conversation.id)
+        agent_run_id = _resolve_prepared_run_id(
+            request.app.state.SessionLocal,
+            prepared,
+            preparation_run_id,
+        )
         observed_action = _commit_agent_terminal(
             db,
             request.app.state.SessionLocal,

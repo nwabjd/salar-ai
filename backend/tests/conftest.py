@@ -57,14 +57,17 @@ class FakeAgentOrchestrator:
             run_id="test-agent-run-id",
         )
 
-    async def prepare(self, prompt, db=None, user_id=None, conversation_id=None, commit=True):
-        self.calls.append({
+    async def prepare(self, prompt, db=None, user_id=None, conversation_id=None, commit=True, run_id=None):
+        call = {
             "prompt": prompt,
             "db": db,
             "user_id": user_id,
             "conversation_id": conversation_id,
             "commit": commit,
-        })
+        }
+        if run_id is not None:
+            call["run_id"] = run_id
+        self.calls.append(call)
         return self.prepared
 
 
