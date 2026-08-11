@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Literal, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Literal, Optional
+
+if TYPE_CHECKING:
+    from .worker import JobExecutionContext
 
 
 TERMINAL_STATUSES = frozenset({"completed", "partial", "failed", "cancelled", "expired"})
@@ -17,6 +20,9 @@ class JobOutcome:
             raise ValueError("Job outcome status must be completed or partial")
         if not isinstance(self.result, dict):
             raise ValueError("Job outcome result must be an object")
+
+
+JobHandler = Callable[["JobExecutionContext", Dict[str, Any]], Awaitable[JobOutcome]]
 
 
 @dataclass(frozen=True)

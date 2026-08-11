@@ -427,6 +427,102 @@ class JobStore:
                 ).scalar_one_or_none()
             )
 
+    def lease_state(
+        self,
+        *,
+        job_id: str,
+        lease_token: str,
+        now: Optional[datetime] = None,
+    ) -> str:
+        checked_at = _utc(now)
+        with self.session_factory() as db:
+            row = db.execute(
+                select(Job.id, Job.cancel_requested_at).where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > checked_at,
+                )
+            ).first()
+            if row is None:
+                return "stale"
+            return "cancel_requested" if row.cancel_requested_at is not None else "active"
+
+    def fence_external_action(
+        self,
+        *,
+        job_id: str,
+        lease_token: str,
+        lease_seconds: int,
+        now: Optional[datetime] = None,
+    ) -> str:
+        if lease_seconds <= 0:
+            raise ValueError("Lease duration must be positive")
+        fenced_at = _utc(now)
+        with self.session_factory() as db:
+            result = db.execute(
+                update(Job)
+                .where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > fenced_at,
+                    Job.cancel_requested_at.is_(None),
+                )
+                .values(
+                    lease_expires_at=fenced_at + timedelta(seconds=lease_seconds),
+                    updated_at=fenced_at,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount == 1:
+                db.commit()
+                return "active"
+            db.rollback()
+            cancelled = db.execute(
+                select(Job.id).where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > fenced_at,
+                    Job.cancel_requested_at.is_not(None),
+                )
+            ).scalar_one_or_none()
+            return "cancel_requested" if cancelled is not None else "stale"
+
+    def acknowledge_cancel(
+        self,
+        *,
+        job_id: str,
+        lease_token: str,
+        now: Optional[datetime] = None,
+    ) -> bool:
+        cancelled_at = _utc(now)
+        with self.session_factory() as db:
+            result = db.execute(
+                update(Job)
+                .where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > cancelled_at,
+                )
+                .values(
+                    status="cancelled",
+                    lease_token=None,
+                    lease_expires_at=None,
+                    finished_at=cancelled_at,
+                    updated_at=cancelled_at,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                db.rollback()
+                return False
+            self._append_event(db, job_id, "job.cancelled", {}, cancelled_at)
+            db.commit()
+            return True
+
     def complete(
         self,
         *,
@@ -482,6 +578,8 @@ class JobStore:
         code: Any,
         safe_detail: Any,
         now: Optional[datetime] = None,
+        retry_base_seconds: int = 5,
+        retry_max_seconds: int = 300,
     ) -> str:
         failed_at = _utc(now)
         safe_code, safe_message = _sanitize_error(code, safe_detail)
@@ -508,7 +606,15 @@ class JobStore:
             scheduled_at = (
                 job.scheduled_at
                 if exhausted
-                else failed_at + timedelta(seconds=retry_delay_seconds(job.id, job.attempt_count))
+                else failed_at
+                + timedelta(
+                    seconds=retry_delay_seconds(
+                        job.id,
+                        job.attempt_count,
+                        retry_base_seconds=retry_base_seconds,
+                        retry_max_seconds=retry_max_seconds,
+                    )
+                )
             )
             result = db.execute(
                 update(Job)
@@ -543,6 +649,57 @@ class JobStore:
             self._append_event(db, job_id, f"job.{status}", payload, failed_at)
             db.commit()
             return status
+
+    def fail_terminal(
+        self,
+        *,
+        job_id: str,
+        lease_token: str,
+        code: Any,
+        safe_detail: Any,
+        now: Optional[datetime] = None,
+    ) -> str:
+        failed_at = _utc(now)
+        safe_code, safe_message = _sanitize_error(code, safe_detail)
+        with self.session_factory() as db:
+            if self._finalize_cancel_requested(db, job_id, lease_token, failed_at):
+                db.commit()
+                return "cancelled"
+            result = db.execute(
+                update(Job)
+                .where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > failed_at,
+                    Job.cancel_requested_at.is_(None),
+                )
+                .values(
+                    status="failed",
+                    safe_error_code=safe_code,
+                    safe_error_detail=safe_message,
+                    lease_token=None,
+                    lease_expires_at=None,
+                    finished_at=failed_at,
+                    updated_at=failed_at,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                if self._finalize_cancel_requested(db, job_id, lease_token, failed_at):
+                    db.commit()
+                    return "cancelled"
+                db.rollback()
+                return "stale"
+            self._append_event(
+                db,
+                job_id,
+                "job.failed",
+                {"code": safe_code, "detail": safe_message},
+                failed_at,
+            )
+            db.commit()
+            return "failed"
 
     def recover_abandoned(self, *, now: Optional[datetime] = None) -> int:
         recovered_at = _utc(now)
