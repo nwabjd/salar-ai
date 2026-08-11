@@ -130,6 +130,7 @@ class AgentOrchestrator:
                 lines.append(f"   Published: {item.published_at}")
             lines.extend(
                 [
+                    f"   Retrieved: {item.retrieved_at}",
                     f"   Confidence: {item.confidence}",
                     f"   Excerpt: {item.excerpt_summary}",
                 ]

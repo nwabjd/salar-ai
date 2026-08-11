@@ -80,7 +80,7 @@ class ResearchAgent:
 
     async def run(self, query: str) -> AgentResult:
         try:
-            raw_results = await _call_in_worker(self.search, query, max_results=6)
+            raw_results = await _call_in_worker(self.search, query, 6)
         except Exception as exc:
             return self._search_failure(f"Search failed: {str(exc) or exc.__class__.__name__}")
 
@@ -103,21 +103,22 @@ class ResearchAgent:
                     "published_at": _normalized_text(raw.get("published_at") or raw.get("date")) or None,
                 }
             )
-            if len(candidates) == 3:
+            if len(candidates) == 6:
                 break
 
         if not candidates:
             return self._search_failure("Search returned no safe public-web results.")
 
         reads = await asyncio.gather(
-            *(_call_in_worker(self.read_page, candidate["url"]) for candidate in candidates),
+            *(_call_in_worker(self.read_page, candidate["url"]) for candidate in candidates[:3]),
             return_exceptions=True,
         )
+        opened_results = list(reads) + [None] * (len(candidates) - len(reads))
         retrieved_at = self._retrieved_at()
         evidence = []
         opened_publishers = set()
 
-        for candidate, opened in zip(candidates, reads):
+        for candidate, opened in zip(candidates, opened_results):
             opened_text = ""
             if not isinstance(opened, BaseException) and isinstance(opened, dict):
                 if opened.get("status") == 200:

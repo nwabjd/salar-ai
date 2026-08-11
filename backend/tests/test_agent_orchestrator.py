@@ -61,6 +61,8 @@ async def test_orchestrator_routes_current_web_prompt_and_formats_exact_evidence
     assert research.queries == ["What is the latest Gemini Live API behavior?"]
     assert "1. Gemini Live API" in prepared.context
     assert "https://docs.example.com/live" in prepared.context
+    assert "Published: 2026-08-01" in prepared.context
+    assert "Retrieved: 2026-08-11T10:00:00+00:00" in prepared.context
     assert "Markdown citations" in prepared.context
 
 
@@ -145,6 +147,49 @@ async def test_research_opens_top_results_and_builds_high_confidence_evidence():
     assert {item.confidence for item in result.evidence} == {"high"}
     assert "  " not in result.evidence[0].excerpt_summary
     assert result.evidence[0].excerpt_summary.startswith("Detailed current evidence")
+
+
+@pytest.mark.asyncio
+async def test_research_uses_positional_search_limit_and_keeps_six_results_but_opens_only_three():
+    rows = [
+        {
+            "title": f"Source {index}",
+            "url": f"https://publisher{index}.example/article",
+            "snippet": f"Search snippet {index}",
+            "publisher": f"Publisher {index}",
+        }
+        for index in range(1, 7)
+    ]
+    search_calls = []
+    opened = []
+
+    def search(query, limit):
+        search_calls.append((query, limit))
+        return rows
+
+    def read_page(url):
+        opened.append(url)
+        return {"status": 200, "text": "Opened page evidence. " * 8}
+
+    result = await ResearchAgent(search=search, read_page=read_page).run("six sources")
+
+    assert search_calls == [("six sources", 6)]
+    assert len(opened) == 3
+    assert set(opened) == {row["url"] for row in rows[:3]}
+    assert len(result.evidence) == 6
+    assert [item.confidence for item in result.evidence] == [
+        "high",
+        "high",
+        "high",
+        "low",
+        "low",
+        "low",
+    ]
+    assert [item.excerpt_summary for item in result.evidence[3:]] == [
+        "Search snippet 4",
+        "Search snippet 5",
+        "Search snippet 6",
+    ]
 
 
 @pytest.mark.asyncio
@@ -264,6 +309,41 @@ async def test_recovery_never_exceeds_strict_retry_limit():
     assert result.suggested_next_action
     assert "temporary outage" in result.error
     assert "completed" not in result.summary.lower()
+
+
+@pytest.mark.asyncio
+async def test_recovery_clamps_adversarial_retry_limit_to_global_maximum():
+    attempts = 0
+
+    def operation():
+        nonlocal attempts
+        attempts += 1
+        return AgentResult(status="failed", summary="Still unavailable", error="outage")
+
+    recovery = RecoveryAgent()
+    result = await recovery.run_read_only(operation, retry_limit=5)
+
+    assert attempts == 2
+    assert recovery.last_attempts == 2
+    assert result.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_recovery_zero_limit_makes_no_attempt_and_returns_explicit_failure():
+    attempts = 0
+
+    def operation():
+        nonlocal attempts
+        attempts += 1
+        return AgentResult(status="completed", summary="Unexpected")
+
+    recovery = RecoveryAgent()
+    result = await recovery.run_read_only(operation, retry_limit=0)
+
+    assert attempts == 0
+    assert recovery.last_attempts == 0
+    assert result.status == "failed"
+    assert result.error == "No read-only attempt was made."
 
 
 @pytest.mark.asyncio

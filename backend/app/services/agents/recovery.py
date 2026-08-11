@@ -18,7 +18,7 @@ class RecoveryAgent:
         self.last_attempts = 0
         last_result: Optional[AgentResult] = None
         last_error = ""
-        limit = max(0, int(retry_limit))
+        limit = min(2, max(0, int(retry_limit)))
 
         for _ in range(limit):
             self.last_attempts += 1
