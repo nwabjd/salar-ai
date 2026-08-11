@@ -7,39 +7,46 @@ from .contracts import AgentResult
 class RecoveryAgent:
     """Bounded recovery for operations whose only effects are read-only."""
 
-    def __init__(self) -> None:
-        self.last_attempts = 0
-
     async def run_read_only(
         self,
         operation: Callable[[], Any],
         retry_limit: int = 2,
+        on_attempt: Optional[Callable[[int, AgentResult], Any]] = None,
     ) -> AgentResult:
-        self.last_attempts = 0
         last_result: Optional[AgentResult] = None
         last_error = ""
         limit = min(2, max(0, int(retry_limit)))
 
-        for _ in range(limit):
-            self.last_attempts += 1
+        for attempt in range(1, limit + 1):
             try:
                 value = operation()
                 if inspect.isawaitable(value):
                     value = await value
             except Exception as exc:
                 last_error = str(exc) or exc.__class__.__name__
+                last_result = AgentResult(
+                    status="failed",
+                    summary="The read-only attempt failed.",
+                    confidence="low",
+                    suggested_next_action="Retry later or use another available read-only source.",
+                    error=last_error,
+                )
+                await self._notify(on_attempt, attempt, last_result)
                 continue
 
             if not isinstance(value, AgentResult):
-                return AgentResult(
+                invalid_result = AgentResult(
                     status="failed",
                     summary="The read-only operation returned an unsupported result and was not retried.",
                     confidence="low",
                     suggested_next_action="Retry with an operation that returns AgentResult.",
                     error="Read-only recovery requires an AgentResult.",
                 )
+                await self._notify(on_attempt, attempt, invalid_result)
+                return invalid_result
 
             last_result = value
+            await self._notify(on_attempt, attempt, value)
             if value.status != "failed":
                 return value
             last_error = value.error or value.summary
@@ -64,6 +71,18 @@ class RecoveryAgent:
             suggested_next_action="Retry later or use another available read-only source.",
             error=last_error or "No read-only attempt was made.",
         )
+
+    @staticmethod
+    async def _notify(
+        callback: Optional[Callable[[int, AgentResult], Any]],
+        attempt: int,
+        result: AgentResult,
+    ) -> None:
+        if callback is None:
+            return
+        value = callback(attempt, result)
+        if inspect.isawaitable(value):
+            await value
 
 
 __all__ = ["RecoveryAgent"]

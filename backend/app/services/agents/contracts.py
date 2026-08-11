@@ -16,6 +16,7 @@ class EvidenceSource:
     published_at: Optional[str] = None
     confidence: str = "low"
     retrieved_at: str = field(default_factory=utc_iso)
+    evidence_kind: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)

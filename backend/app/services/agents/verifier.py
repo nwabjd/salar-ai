@@ -1,19 +1,11 @@
-from urllib.parse import urlsplit
+from dataclasses import replace
 
 from .contracts import AgentResult
+from .urls import canonical_hostname, canonical_public_url
 
 
 def _valid_evidence_url(url: object) -> bool:
-    if not isinstance(url, str):
-        return False
-    if any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in url):
-        return False
-    try:
-        parsed = urlsplit(url.strip())
-        parsed.port
-    except ValueError:
-        return False
-    return parsed.scheme.lower() in {"http", "https"} and bool(parsed.netloc and parsed.hostname)
+    return canonical_public_url(url) is not None
 
 
 class VerifierAgent:
@@ -23,19 +15,43 @@ class VerifierAgent:
         unique = []
         seen_urls = set()
         for evidence in result.evidence:
-            url = evidence.url.strip() if isinstance(evidence.url, str) else ""
-            if not _valid_evidence_url(url) or url in seen_urls:
+            url = canonical_public_url(evidence.url)
+            if url is None or url in seen_urls:
                 continue
             seen_urls.add(url)
-            unique.append(evidence)
+            evidence_kind = evidence.evidence_kind or (
+                "opened_page" if evidence.confidence == "high" else "search_only"
+            )
+            confidence = evidence.confidence if evidence_kind == "opened_page" else "low"
+            unique.append(
+                replace(
+                    evidence,
+                    url=url,
+                    publisher=canonical_hostname(url),
+                    confidence=confidence,
+                    evidence_kind=evidence_kind,
+                )
+            )
 
         status = result.status
-        confidence = result.confidence
         next_action = result.suggested_next_action
+        high_publishers = {
+            evidence.publisher
+            for evidence in unique
+            if evidence.evidence_kind == "opened_page" and evidence.confidence == "high"
+        }
+        if len(high_publishers) >= 2:
+            confidence = "high"
+        elif len(high_publishers) == 1:
+            confidence = "medium"
+        else:
+            confidence = "low"
         if status == "completed" and not unique:
             status = "partial"
-            confidence = "low"
             next_action = "Verify the research with at least one valid HTTP(S) source."
+        elif status == "completed" and not high_publishers:
+            status = "partial"
+            next_action = next_action or "Open and verify at least one retained public source."
 
         return AgentResult(
             status=status,

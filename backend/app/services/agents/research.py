@@ -1,14 +1,13 @@
 import asyncio
 import inspect
-import ipaddress
 import re
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
-from urllib.parse import urlsplit
 
-from ..browser import WebBrowser
 from ..searcher import search_web_results
 from .contracts import AgentResult, EvidenceSource, utc_iso
+from .safe_fetch import SafePublicFetcher
+from .urls import canonical_hostname, canonical_public_url
 
 
 def _normalized_text(value: object) -> str:
@@ -21,41 +20,7 @@ def _normalized_text(value: object) -> str:
 
 
 def _public_web_url(value: object) -> bool:
-    if not isinstance(value, str):
-        return False
-    if any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in value):
-        return False
-    try:
-        parsed = urlsplit(value.strip())
-        hostname = parsed.hostname
-        parsed.port
-    except ValueError:
-        return False
-    if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc or not hostname:
-        return False
-    hostname = hostname.rstrip(".").lower()
-    if hostname == "localhost" or hostname.endswith(".localhost"):
-        return False
-    try:
-        address = ipaddress.ip_address(hostname)
-    except ValueError:
-        return True
-    return not (
-        address.is_private
-        or address.is_loopback
-        or address.is_link_local
-        or address.is_reserved
-        or address.is_multicast
-        or address.is_unspecified
-    )
-
-
-def _default_read_page(url: str) -> Dict[str, Any]:
-    browser = WebBrowser()
-    try:
-        return browser.fetch_page(url)
-    finally:
-        browser.close()
+    return canonical_public_url(value) is not None
 
 
 async def _call_in_worker(callable_: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -73,14 +38,35 @@ class ResearchAgent:
         search: Optional[Callable[..., Any]] = None,
         read_page: Optional[Callable[[str], Any]] = None,
         now: Optional[Callable[[], Any]] = None,
+        fetcher: Optional[SafePublicFetcher] = None,
+        search_timeout: float = 8.0,
+        page_timeout: float = 10.0,
+        overall_timeout: float = 20.0,
     ) -> None:
         self.search = search or search_web_results
-        self.read_page = read_page or _default_read_page
+        self.fetcher = fetcher or SafePublicFetcher(timeout=min(float(page_timeout), 8.0))
+        self.read_page = read_page or self.fetcher.fetch_page
         self.now = now or utc_iso
+        self.search_timeout = max(0.001, float(search_timeout))
+        self.page_timeout = max(0.001, float(page_timeout))
+        self.overall_timeout = max(0.001, float(overall_timeout))
 
     async def run(self, query: str) -> AgentResult:
         try:
-            raw_results = await _call_in_worker(self.search, query, 6)
+            return await asyncio.wait_for(self._run(query), timeout=self.overall_timeout)
+        except asyncio.TimeoutError:
+            return self._search_failure("Overall research timed out.")
+
+    async def _run(self, query: str) -> AgentResult:
+        try:
+            # Sync defaults have lower-layer I/O timeouts. Cancelling to_thread
+            # cannot kill a Python worker, but it does bound this orchestration.
+            raw_results = await asyncio.wait_for(
+                _call_in_worker(self.search, query, 6),
+                timeout=self.search_timeout,
+            )
+        except asyncio.TimeoutError:
+            return self._search_failure("Search timed out.")
         except Exception as exc:
             return self._search_failure(f"Search failed: {str(exc) or exc.__class__.__name__}")
 
@@ -88,18 +74,20 @@ class ResearchAgent:
             return self._search_failure("Search returned no results.")
 
         candidates: List[Dict[str, Any]] = []
+        seen_urls = set()
         for raw in raw_results:
             if not isinstance(raw, dict):
                 continue
-            url = _normalized_text(raw.get("url") or raw.get("href"))
-            if not _public_web_url(url):
+            url = canonical_public_url(_normalized_text(raw.get("url") or raw.get("href")))
+            if url is None or url in seen_urls:
                 continue
+            seen_urls.add(url)
             candidates.append(
                 {
                     "title": _normalized_text(raw.get("title")) or url,
                     "url": url,
                     "snippet": _normalized_text(raw.get("snippet") or raw.get("body")),
-                    "publisher": _normalized_text(raw.get("publisher")) or (urlsplit(url).hostname or ""),
+                    "publisher": canonical_hostname(url),
                     "published_at": _normalized_text(raw.get("published_at") or raw.get("date")) or None,
                 }
             )
@@ -110,7 +98,13 @@ class ResearchAgent:
             return self._search_failure("Search returned no safe public-web results.")
 
         reads = await asyncio.gather(
-            *(_call_in_worker(self.read_page, candidate["url"]) for candidate in candidates[:3]),
+            *(
+                asyncio.wait_for(
+                    _call_in_worker(self.read_page, candidate["url"]),
+                    timeout=self.page_timeout,
+                )
+                for candidate in candidates[:3]
+            ),
             return_exceptions=True,
         )
         opened_results = list(reads) + [None] * (len(candidates) - len(reads))
@@ -140,6 +134,7 @@ class ResearchAgent:
                     published_at=candidate["published_at"],
                     confidence=confidence,
                     retrieved_at=retrieved_at,
+                    evidence_kind="opened_page" if successfully_opened else "search_only",
                 )
             )
 

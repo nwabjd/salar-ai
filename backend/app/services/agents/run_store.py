@@ -8,6 +8,8 @@ from ...models import AgentRun, AgentRunStep, Conversation
 
 
 class AgentRunStore:
+    TERMINAL_STATUSES = {"completed", "partial", "failed", "cancelled"}
+
     def __init__(self, db: Session):
         self.db = db
 
@@ -65,12 +67,22 @@ class AgentRunStore:
         return step
 
     def complete(self, run: AgentRun, output: Dict[str, Any]) -> None:
-        run.status = "completed"
-        run.output_json = json.dumps(output)
-        run.error = ""
-        self.db.flush()
+        self.finalize(run, "completed", output=output)
 
     def fail(self, run: AgentRun, error: str) -> None:
-        run.status = "failed"
+        self.finalize(run, "failed", error=error)
+
+    def finalize(
+        self,
+        run: AgentRun,
+        status: str,
+        output: Optional[Dict[str, Any]] = None,
+        error: str = "",
+    ) -> None:
+        if status not in self.TERMINAL_STATUSES:
+            raise ValueError(f"Unsupported terminal status: {status}")
+        run.status = status
+        if output is not None:
+            run.output_json = json.dumps(output)
         run.error = error[:1000]
         self.db.flush()
