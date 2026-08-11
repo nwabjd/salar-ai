@@ -20,6 +20,30 @@ class FakeDDGS:
         ]
 
 
+class EdgeCaseDDGS:
+    def text(self, query, max_results):
+        return [
+            {
+                "title": "  ",
+                "body": "  ",
+                "snippet": "  Snippet fallback  ",
+                "url": "  https://example.com/fallback  ",
+                "date": 20260801,
+            },
+            {"title": "Ignored", "href": " javascript:alert(1) "},
+            {"title": "Ignored", "href": "/relative"},
+            {"title": "Ignored", "href": "   "},
+            {"title": "Ignored", "href": 42},
+            None,
+            "not a result",
+        ]
+
+
+class FailingDDGS:
+    def text(self, query, max_results):
+        raise RuntimeError("DDGS unavailable")
+
+
 def test_search_web_results_returns_normalized_evidence(monkeypatch):
     monkeypatch.setattr("app.services.searcher.DDGS", FakeDDGS)
 
@@ -44,5 +68,27 @@ def test_search_web_preserves_text_contract(monkeypatch):
 
     result = search_web("Gemini Live API", 2)
 
-    assert "Live API: Official bidirectional streaming documentation. (https://ai.google.dev/api/live)" in result
-    assert "Capabilities: Live API capability guide. (https://ai.google.dev/gemini-api/docs/live-api/capabilities)" in result
+    assert result == (
+        "Live API: Official bidirectional streaming documentation. (https://ai.google.dev/api/live)\n"
+        "Capabilities: Live API capability guide. (https://ai.google.dev/gemini-api/docs/live-api/capabilities)"
+    )
+
+
+def test_search_web_results_normalizes_fallbacks_and_skips_invalid_rows(monkeypatch):
+    monkeypatch.setattr("app.services.searcher.DDGS", EdgeCaseDDGS)
+
+    assert search_web_results("edge cases") == [
+        {
+            "title": "https://example.com/fallback",
+            "snippet": "Snippet fallback",
+            "url": "https://example.com/fallback",
+            "published_at": "20260801",
+        }
+    ]
+
+
+def test_search_web_returns_empty_values_when_ddgs_fails(monkeypatch):
+    monkeypatch.setattr("app.services.searcher.DDGS", FailingDDGS)
+
+    assert search_web_results("unavailable") == []
+    assert search_web("unavailable") == ""

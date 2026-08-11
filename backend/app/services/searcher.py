@@ -1,5 +1,30 @@
 from ddgs import DDGS
 from typing import Dict, List, Optional
+from urllib.parse import urlsplit
+
+
+def _normalized_text(value: object) -> str:
+    if value is None:
+        return ""
+    try:
+        return str(value).strip()
+    except (TypeError, ValueError):
+        return ""
+
+
+def _normalized_url(value: object) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    url = value.strip()
+    if not url:
+        return None
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return url
 
 
 def search_web_results(query: str, max_results: int = 5) -> List[Dict[str, Optional[str]]]:
@@ -10,15 +35,18 @@ def search_web_results(query: str, max_results: int = 5) -> List[Dict[str, Optio
         for result in results:
             if not isinstance(result, dict):
                 continue
-            url = result.get("href")
-            if not url:
+            url = _normalized_url(result.get("href")) or _normalized_url(result.get("url"))
+            if url is None:
                 continue
+            title = _normalized_text(result.get("title")) or url
+            snippet = _normalized_text(result.get("body")) or _normalized_text(result.get("snippet"))
+            published_at = _normalized_text(result.get("date")) or None
             normalized_results.append(
                 {
-                    "title": str(result.get("title") or ""),
-                    "snippet": str(result.get("body") or ""),
-                    "url": str(url),
-                    "published_at": result.get("date") or None,
+                    "title": title,
+                    "snippet": snippet,
+                    "url": url,
+                    "published_at": published_at,
                 }
             )
         return normalized_results
