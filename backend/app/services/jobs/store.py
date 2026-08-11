@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -9,6 +10,20 @@ from sqlalchemy.orm import Session
 
 from ...models import Job, JobEvent, Workspace, token_id, utcnow
 from .contracts import CLAIMABLE_STATUSES, ClaimedJob, JobOutcome, JobSnapshot
+
+
+GENERIC_ERROR_CODE = "job_execution_failed"
+GENERIC_ERROR_DETAIL = "The job could not be completed."
+_SAFE_ERROR_CODE = re.compile(r"[a-z0-9][a-z0-9_.-]*")
+_UNSAFE_ERROR_DETAIL = re.compile(
+    r"\btraceback\b"
+    r"|\b(?:select\b.+\bfrom|insert\s+into|update\s+\S+\s+set|delete\s+from|drop\s+table|alter\s+table|create\s+table)\b"
+    r"|[a-z]:\\(?:[^\\\s]+\\)*[^\\\s]+"
+    r"|(?:^|\s)/(?:[^/\s]+/)+[^/\s]+"
+    r"|\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|token|password|secret)\b\s*[:=]"
+    r"|\b(?:authorization\s*:\s*)?bearer\s+[a-z0-9._~+/-]+",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def retry_delay_seconds(
@@ -34,6 +49,21 @@ def _decoded_object(value: Optional[str]) -> Optional[Dict[str, Any]]:
         return None
     decoded = json.loads(value)
     return decoded if isinstance(decoded, dict) else {}
+
+
+def _sanitize_error(code: Any, safe_detail: Any) -> tuple:
+    normalized_code = GENERIC_ERROR_CODE
+    if isinstance(code, str):
+        candidate = code.strip().lower()[:80]
+        if _SAFE_ERROR_CODE.fullmatch(candidate):
+            normalized_code = candidate
+
+    if not isinstance(safe_detail, str):
+        return GENERIC_ERROR_CODE, GENERIC_ERROR_DETAIL
+    detail = safe_detail.strip()
+    if not detail or _UNSAFE_ERROR_DETAIL.search(detail):
+        return GENERIC_ERROR_CODE, GENERIC_ERROR_DETAIL
+    return normalized_code, detail[:500]
 
 
 class JobStore:
@@ -259,27 +289,33 @@ class JobStore:
         progress: float,
         event_type: str,
         payload: Dict[str, Any],
+        now: Optional[datetime] = None,
     ) -> bool:
         if not isinstance(payload, dict):
             raise ValueError("Progress payload must be an object")
         if not event_type:
             raise ValueError("Progress event type must be non-empty")
         progress_value = max(0.0, min(float(progress), 1.0))
-        now = _utc()
+        progress_at = _utc(now)
         with self.session_factory() as db:
             result = db.execute(
                 update(Job)
-                .where(Job.id == job_id, Job.status == "running", Job.lease_token == lease_token)
+                .where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > progress_at,
+                )
                 .values(
                     progress=case((Job.progress < progress_value, progress_value), else_=Job.progress),
-                    updated_at=now,
+                    updated_at=progress_at,
                 )
                 .execution_options(synchronize_session=False)
             )
             if result.rowcount != 1:
                 db.rollback()
                 return False
-            self._append_event(db, job_id, event_type, payload, now)
+            self._append_event(db, job_id, event_type, payload, progress_at)
             db.commit()
             return True
 
@@ -365,7 +401,12 @@ class JobStore:
         with self.session_factory() as db:
             result = db.execute(
                 update(Job)
-                .where(Job.id == job_id, Job.status == "running", Job.lease_token == lease_token)
+                .where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > completed_at,
+                )
                 .values(
                     status=outcome.status,
                     result_json=json.dumps(outcome.result),
@@ -391,16 +432,20 @@ class JobStore:
         *,
         job_id: str,
         lease_token: str,
-        code: str,
-        safe_detail: str,
+        code: Any,
+        safe_detail: Any,
         now: Optional[datetime] = None,
     ) -> str:
         failed_at = _utc(now)
-        safe_code = str(code)[:80]
-        safe_message = str(safe_detail)[:500]
+        safe_code, safe_message = _sanitize_error(code, safe_detail)
         with self.session_factory() as db:
             job = db.execute(
-                select(Job).where(Job.id == job_id, Job.status == "running", Job.lease_token == lease_token)
+                select(Job).where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > failed_at,
+                )
             ).scalar_one_or_none()
             if job is None:
                 return "stale"
@@ -413,7 +458,12 @@ class JobStore:
             )
             result = db.execute(
                 update(Job)
-                .where(Job.id == job_id, Job.status == "running", Job.lease_token == lease_token)
+                .where(
+                    Job.id == job_id,
+                    Job.status == "running",
+                    Job.lease_token == lease_token,
+                    Job.lease_expires_at > failed_at,
+                )
                 .values(
                     status=status,
                     safe_error_code=safe_code,

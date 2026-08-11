@@ -74,6 +74,10 @@ def test_claims_only_due_jobs_in_priority_schedule_creation_order(session_factor
     later_priority = enqueue(store, key="priority-20", priority=20, scheduled_at=now)
     first = enqueue(store, key="priority-10-a", priority=10, scheduled_at=now)
     second = enqueue(store, key="priority-10-b", priority=10, scheduled_at=now)
+    with session_factory() as db:
+        db.get(Job, first.id).created_at = now - timedelta(seconds=2)
+        db.get(Job, second.id).created_at = now - timedelta(seconds=1)
+        db.commit()
 
     claims = [store.claim_next(worker_id="worker", lease_seconds=30, now=now) for _ in range(3)]
 
@@ -195,6 +199,54 @@ def test_expired_lease_is_recovered_and_old_token_is_fenced(session_factory):
     ) is False
 
 
+@pytest.mark.parametrize("operation", ["progress", "complete", "fail"])
+def test_expired_lease_cannot_mutate_before_recovery(session_factory, operation):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=1, now=now)
+    expired_at = now + timedelta(seconds=2)
+
+    if operation == "progress":
+        result = store.record_progress(
+            job_id=job.id,
+            lease_token=claim.lease_token,
+            progress=0.8,
+            event_type="job.progress",
+            payload={"message": "late"},
+            now=expired_at,
+        )
+        assert result is False
+    elif operation == "complete":
+        result = store.complete(
+            job_id=job.id,
+            lease_token=claim.lease_token,
+            outcome=JobOutcome(status="completed", result={"late": True}),
+            now=expired_at,
+        )
+        assert result is False
+    else:
+        result = store.fail_or_retry(
+            job_id=job.id,
+            lease_token=claim.lease_token,
+            code="temporary",
+            safe_detail="Retrying.",
+            now=expired_at,
+        )
+        assert result == "stale"
+
+    unchanged = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    assert unchanged.status == "running"
+    assert unchanged.progress == 0.0
+    assert unchanged.result is None
+    assert unchanged.safe_error_code is None
+    assert unchanged.safe_error_detail is None
+    assert [event["event_type"] for event in store.list_events_for_owner(owner_id="user-a", job_id=job.id)] == [
+        "job.queued",
+        "job.claimed",
+    ]
+
+
 def test_retry_exhaustion_is_terminal_and_sanitized(session_factory):
     store = JobStore(session_factory)
     now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
@@ -219,6 +271,54 @@ def test_retry_exhaustion_is_terminal_and_sanitized(session_factory):
     with session_factory() as db:
         persisted = db.get(Job, job.id)
         assert "Traceback" not in (persisted.safe_error_detail or "")
+
+
+def test_fail_or_retry_replaces_exception_diagnostics_with_generic_safe_error(session_factory):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+    diagnostic = RuntimeError(
+        "Traceback: SELECT password FROM users; File C:\\srv\\jobs.py; "
+        "api_key=sk-secret token=private password=hunter2 Authorization: Bearer abc.def"
+    )
+
+    assert store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code="SQL/DROP_TABLE/password=secret",
+        safe_detail=diagnostic,
+        now=now,
+    ) == "failed"
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    events = store.list_events_for_owner(owner_id="user-a", job_id=job.id)
+    persisted_text = f"{snapshot.safe_error_code} {snapshot.safe_error_detail} {events[-1]['payload']}".lower()
+    assert snapshot.safe_error_code == "job_execution_failed"
+    assert snapshot.safe_error_detail == "The job could not be completed."
+    assert len(snapshot.safe_error_code) <= 80
+    assert len(snapshot.safe_error_detail) <= 500
+    for secret in ("traceback", "select", "c:\\srv", "api_key", "sk-secret", "private", "hunter2", "bearer"):
+        assert secret not in persisted_text
+
+
+def test_fail_or_retry_normalizes_safe_code_without_changing_safe_detail(session_factory):
+    store = JobStore(session_factory)
+    now = datetime(2026, 8, 11, 12, tzinfo=timezone.utc)
+    job = enqueue(store, max_attempts=1, scheduled_at=now)
+    claim = store.claim_next(worker_id="worker", lease_seconds=30, now=now)
+
+    assert store.fail_or_retry(
+        job_id=job.id,
+        lease_token=claim.lease_token,
+        code="PROVIDER_UNAVAILABLE",
+        safe_detail="Please try again later.",
+        now=now,
+    ) == "failed"
+
+    snapshot = store.get_for_owner(owner_id="user-a", job_id=job.id)
+    assert snapshot.safe_error_code == "provider_unavailable"
+    assert snapshot.safe_error_detail == "Please try again later."
 
 
 def test_retry_uses_deterministic_backoff_and_can_be_claimed_when_due(session_factory):
