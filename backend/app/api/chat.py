@@ -420,10 +420,17 @@ async def chat_stream(
                 user_id=user.id, action="chat.completed",
                 detail_json=json.dumps(audit_detail),
             ))
+            save_db.flush()
+            save_db.refresh(assistant_msg)
+            done_payload = {
+                "type": "done",
+                "message_id": assistant_msg.id,
+                "created_at": str(assistant_msg.created_at),
+            }
+            done_event = f"data: {json.dumps(done_payload)}\n\n"
             save_db.commit()
             terminal.claim("chat.completed")
-            save_db.refresh(assistant_msg)
-            yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id, 'created_at': str(assistant_msg.created_at)})}\n\n"
+            yield done_event
         except asyncio.CancelledError:
             save_db.rollback()
             if terminal.claim("chat.cancelled"):

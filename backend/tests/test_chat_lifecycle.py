@@ -129,6 +129,78 @@ def test_stream_success_appends_completed_chat_outcome(client, auth_headers):
     assert [(step.name, step.status) for step in steps][-1] == ("chat", "completed")
 
 
+def test_stream_refresh_failure_rolls_back_completed_outcome(client, auth_headers, monkeypatch):
+    created = client.post("/api/conversations", json={"title": "Refresh failed"}, headers=auth_headers)
+    conversation_id = created.json()["id"]
+    client.app.state.agent_orchestrator = AgentOrchestrator(research=SuccessfulResearch())
+    original_refresh = Session.refresh
+
+    def fail_assistant_refresh(session, instance, *args, **kwargs):
+        if isinstance(instance, Message) and instance.role == "assistant":
+            raise RuntimeError("assistant refresh failed")
+        return original_refresh(session, instance, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "refresh", fail_assistant_refresh)
+    response = client.post(
+        "/api/chat/stream",
+        json={"conversation_id": conversation_id, "content": "Find the latest source"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert '"type": "error"' in response.text
+    assert '"type": "done"' not in response.text
+    with client.app.state.SessionLocal() as db:
+        run, steps = _run_and_steps(db, conversation_id)
+        messages = list(db.scalars(select(Message).where(Message.conversation_id == conversation_id)))
+        audits = _chat_audits(db, conversation_id)
+    assert run.status == "failed"
+    assert [(step.name, step.status) for step in steps][-1] == ("chat", "failed")
+    assert [message.role for message in messages] == ["user"]
+    assert [audit.action for audit in audits] == ["chat.failed"]
+
+
+def test_stream_has_no_fallible_database_work_after_completed_commit(client, auth_headers, monkeypatch):
+    created = client.post("/api/conversations", json={"title": "Post commit"}, headers=auth_headers)
+    conversation_id = created.json()["id"]
+    client.app.state.agent_orchestrator = AgentOrchestrator(research=SuccessfulResearch())
+    original_commit = Session.commit
+    original_refresh = Session.refresh
+
+    def mark_completed_commit(session):
+        committing_completion = any(
+            isinstance(instance, AuditEvent) and instance.action == "chat.completed"
+            for instance in session.new
+        )
+        result = original_commit(session)
+        if committing_completion:
+            session.info["chat_completed_committed"] = True
+        return result
+
+    def reject_post_commit_refresh(session, instance, *args, **kwargs):
+        if session.info.get("chat_completed_committed"):
+            raise RuntimeError("database access after completed commit")
+        return original_refresh(session, instance, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "commit", mark_completed_commit)
+    monkeypatch.setattr(Session, "refresh", reject_post_commit_refresh)
+    response = client.post(
+        "/api/chat/stream",
+        json={"conversation_id": conversation_id, "content": "Find the latest source"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert '"type": "done"' in response.text
+    assert '"type": "error"' not in response.text
+    with client.app.state.SessionLocal() as db:
+        run, steps = _run_and_steps(db, conversation_id)
+        audits = _chat_audits(db, conversation_id)
+    assert run.status == "completed"
+    assert [(step.name, step.status) for step in steps][-1] == ("chat", "completed")
+    assert [audit.action for audit in audits] == ["chat.completed"]
+
+
 def test_stream_failure_reconciles_completed_research_run(client, auth_headers):
     created = client.post("/api/conversations", json={"title": "Stream failed"}, headers=auth_headers)
     conversation_id = created.json()["id"]
