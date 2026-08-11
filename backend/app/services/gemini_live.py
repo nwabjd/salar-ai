@@ -34,10 +34,10 @@ def build_setup(model: str, voice: str = "Kore", handle: str = "") -> Dict:
         "realtimeInputConfig": {
             "automaticActivityDetection": {
                 "disabled": False,
-                "startOfSpeechSensitivity": "START_SENSITIVITY_HIGH",
-                "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
-                "prefixPaddingMs": 20,
-                "silenceDurationMs": 300,
+                "startOfSpeechSensitivity": "START_SENSITIVITY_LOW",
+                "endOfSpeechSensitivity": "END_SENSITIVITY_LOW",
+                "prefixPaddingMs": 100,
+                "silenceDurationMs": 700,
             }
         },
         "contextWindowCompression": {"slidingWindow": {}},

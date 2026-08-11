@@ -20,10 +20,10 @@ def test_setup_requests_native_audio_transcripts_and_session_management():
     assert setup["realtimeInputConfig"] == {
         "automaticActivityDetection": {
             "disabled": False,
-            "startOfSpeechSensitivity": "START_SENSITIVITY_HIGH",
-            "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
-            "prefixPaddingMs": 20,
-            "silenceDurationMs": 300,
+            "startOfSpeechSensitivity": "START_SENSITIVITY_LOW",
+            "endOfSpeechSensitivity": "END_SENSITIVITY_LOW",
+            "prefixPaddingMs": 100,
+            "silenceDurationMs": 700,
         }
     }
     assert setup["contextWindowCompression"] == {"slidingWindow": {}}
