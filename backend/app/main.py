@@ -36,6 +36,7 @@ from .config import Settings
 from .database import Base, create_session_factory
 from .models import User
 from .security import hash_password
+from .services.agents import AgentOrchestrator
 from .services.coordinator import AICoordinator
 from .services.gemini import GeminiClient
 
@@ -95,6 +96,10 @@ def create_app(settings: Settings = None) -> FastAPI:
             except Exception as e:
                 log.error("Gemini client init failed: %s", e)
                 raise
+
+        if not hasattr(app.state, "agent_orchestrator"):
+            app.state.agent_orchestrator = AgentOrchestrator()
+            log.info("Hidden agent orchestrator initialized")
 
         app.state.whatsapp = WhatsAppClient(
             bridge_url=active_settings.bridge_url

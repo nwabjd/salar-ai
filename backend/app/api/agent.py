@@ -11,6 +11,7 @@ from ..models import AuditEvent, Conversation, Document, Memory, Message, User
 from ..schemas import ChatRequest
 from ..security import get_current_user
 from ..services.agent import TOOL_DEFINITIONS, execute_tool
+from ..services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
 from .deps import check_quota
 
 log = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ router = APIRouter(tags=["agent"])
 MAX_TOOL_ROUNDS = 5
 
 
-def _build_agent_system_prompt(memories: Iterable, documents: Iterable, search_results: str = "") -> str:
+def _build_agent_system_prompt(memories: Iterable, documents: Iterable, agent_context: str = "") -> str:
     context_parts = []
     memory_text = "\n".join(f"- {item.title}: {item.content}" for item in memories)
     if memory_text:
@@ -27,8 +28,8 @@ def _build_agent_system_prompt(memories: Iterable, documents: Iterable, search_r
     document_text = "\n".join(f"- {item.filename}: {(getattr(item, 'extracted_text', None) or '')[:800]}" for item in documents)
     if document_text:
         context_parts.append(f"Relevant documents:\n{document_text}")
-    if search_results:
-        context_parts.append(f"Web search results:\n{search_results}")
+    if agent_context:
+        context_parts.append(f"Prepared specialist context:\n{agent_context}")
 
     system = (
         "You are SALAR, an autonomous AI assistant with control over the user's PC and devices. "
@@ -40,6 +41,7 @@ def _build_agent_system_prompt(memories: Iterable, documents: Iterable, search_r
         "After each tool execution, you'll receive the result and can decide the next step.\n\n"
         "Always be helpful, concise, and confirm actions before executing potentially destructive operations "
         "(like deleting files or running system commands)."
+        f"\n\n{RESOURCEFUL_RESPONSE_POLICY}"
     )
     if context_parts:
         system += "\n\n" + "\n\n".join(context_parts)
@@ -74,9 +76,15 @@ async def agent_chat(
         select(Document).where(Document.user_id == user.id)
         .order_by(Document.created_at.desc()).limit(6)
     ))
+    prepared = await request.app.state.agent_orchestrator.prepare(
+        prompt,
+        db,
+        user.id,
+        conversation.id,
+    )
 
     gemini = request.app.state.coordinator.gemini
-    system_prompt = _build_agent_system_prompt(memories, documents)
+    system_prompt = _build_agent_system_prompt(memories, documents, prepared.context)
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend({"role": m.role, "content": m.content} for m in history[-12:])
@@ -105,8 +113,13 @@ async def agent_chat(
             user_message = Message(conversation_id=conversation.id, role="user", content=prompt)
             assistant_message = Message(conversation_id=conversation.id, role="assistant", content=response_text)
             db.add_all([user_message, assistant_message])
+            audit_detail = {
+                "conversation_id": conversation.id,
+                "tools": [t["tool"] for t in tools_used],
+                "agent_run_id": prepared.run_id,
+            }
             db.add(AuditEvent(user_id=user.id, action="agent.completed",
-                              detail_json=json.dumps({"conversation_id": conversation.id, "tools": [t["tool"] for t in tools_used]})))
+                              detail_json=json.dumps(audit_detail)))
             db.commit()
             db.refresh(user_message)
             db.refresh(assistant_message)

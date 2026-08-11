@@ -1,6 +1,7 @@
 from typing import Dict, List
 from urllib.parse import quote_plus
 
+from .agents.policy import RESOURCEFUL_RESPONSE_POLICY
 
 GEMINI_LIVE_ENDPOINT = (
     "wss://generativelanguage.googleapis.com/ws/"
@@ -11,6 +12,7 @@ SYSTEM_PROMPT = (
     "You are SALAR, a warm, concise personal AI companion in a live voice conversation. "
     "Speak naturally. Usually answer in one to three sentences unless the user asks for detail. "
     "Never claim an action completed unless it actually completed. Never talk over the user."
+    f"\n\n{RESOURCEFUL_RESPONSE_POLICY}"
 )
 
 

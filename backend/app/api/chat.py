@@ -11,6 +11,8 @@ from ..database import get_db
 from ..models import AuditEvent, Conversation, Document, Memory, Message, User
 from ..schemas import ChatRequest, ChatResponse, ConversationCreate, ConversationDetail, ConversationResponse
 from ..security import get_current_user
+from ..services.agents import PreparedAgentContext
+from ..services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
 from .agent import TOOL_DEFINITIONS, execute_tool
 from .deps import check_quota
 
@@ -72,8 +74,18 @@ async def chat(
     history = list(conversation.messages)
     memories = list(db.scalars(select(Memory).where(Memory.user_id == user.id).order_by(Memory.updated_at.desc()).limit(12)))
     documents = list(db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.created_at.desc()).limit(6)))
+    prepared = await request.app.state.agent_orchestrator.prepare(
+        prompt,
+        db,
+        user.id,
+        conversation.id,
+    )
     response_text = await request.app.state.coordinator.reply(
-        prompt=prompt, messages=history, memories=memories, documents=documents
+        prompt=prompt,
+        messages=history,
+        memories=memories,
+        documents=documents,
+        agent_context=prepared.context,
     )
     user_message = Message(conversation_id=conversation.id, role="user", content=prompt)
     assistant_message = Message(conversation_id=conversation.id, role="assistant", content=response_text)
@@ -83,7 +95,10 @@ async def chat(
         AuditEvent(
             user_id=user.id,
             action="chat.completed",
-            detail_json=json.dumps({"conversation_id": conversation.id}),
+            detail_json=json.dumps({
+                "conversation_id": conversation.id,
+                "agent_run_id": prepared.run_id,
+            }),
         )
     )
     db.commit()
@@ -106,6 +121,17 @@ async def chat_stream(
         raise HTTPException(status_code=422, detail="Message cannot be empty")
     fast = getattr(payload, "fast", False)
     history = list(conversation.messages)
+    memories = list(db.scalars(select(Memory).where(Memory.user_id == user.id).order_by(Memory.updated_at.desc()).limit(12)))
+    documents = list(db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.created_at.desc()).limit(6)))
+    if fast:
+        prepared = PreparedAgentContext(agent_kind="none", context="")
+    else:
+        prepared = await request.app.state.agent_orchestrator.prepare(
+            prompt,
+            db,
+            user.id,
+            conversation.id,
+        )
 
     user_message = Message(conversation_id=conversation.id, role="user", content=prompt)
     db.add(user_message)
@@ -128,43 +154,26 @@ async def chat_stream(
                 "If it's a simple question, keep it brief. "
                 "No bullet points, no markdown, no formatting — just plain spoken English. "
                 "After using a tool, tell the user the full result naturally."
+                f"\n\n{RESOURCEFUL_RESPONSE_POLICY}"
             )
             recent_history = history[-6:] if len(history) > 6 else history
+            messages = [{"role": "system", "content": agent_system}]
+            messages.extend({"role": m.role, "content": m.content} for m in recent_history)
+            messages.append({"role": "user", "content": prompt})
         else:
-            search_results = await coordinator._search_with_timeout(prompt)
-            context_parts = []
-            memories = list(db.scalars(select(Memory).where(Memory.user_id == user.id).order_by(Memory.updated_at.desc()).limit(12)))
-            documents = list(db.scalars(select(Document).where(Document.user_id == user.id).order_by(Document.created_at.desc()).limit(6)))
-            memory_text = "\n".join(f"- {m.title}: {m.content}" for m in memories)
-            if memory_text:
-                context_parts.append(f"Relevant saved memory:\n{memory_text}")
-            document_text = "\n".join(f"- {d.filename}: {(getattr(d, 'extracted_text', None) or '')[:800]}" for d in documents)
-            if document_text:
-                context_parts.append(f"Relevant documents:\n{document_text}")
-            if search_results:
-                context_parts.append(f"Web search results:\n{search_results}")
-
-            system = coordinator.build_payload(
-                prompt=prompt, messages=history, memories=memories,
-                documents=documents, search_results=search_results,
+            messages = coordinator.build_payload(
+                prompt=prompt,
+                messages=history,
+                memories=memories,
+                documents=documents,
+                agent_context=prepared.context,
             )
-            system_text = system[0]["content"] if system else ""
-            agent_system = (
-                "You are SALAR, a concise and helpful private AI assistant with PC control. "
-                "Use available tools when the user asks you to do something on their computer. "
+            messages[0]["content"] += (
+                "\n\nUse available tools when the user asks you to do something on their computer. "
                 "Always be helpful, concise, and confirm actions. "
                 "CRITICAL: After ANY tool call, you MUST reply with a natural-language message to the user summarizing the result. "
                 "Never leave the user without a spoken response. If a tool returns a time, temperature, file list, etc., tell the user what it said in plain English."
             )
-            if context_parts:
-                agent_system += "\n\n" + "\n\n".join(context_parts)
-
-        messages = [{"role": "system", "content": agent_system}]
-        if fast:
-            messages.extend({"role": m.role, "content": m.content} for m in recent_history)
-        else:
-            messages.extend({"role": m.role, "content": m.content} for m in history[-12:])
-        messages.append({"role": "user", "content": prompt})
 
         max_rounds = 2 if fast else MAX_AGENT_ROUNDS
         tools_used = []
@@ -214,14 +223,24 @@ async def chat_stream(
             response_text = "".join(full_response)
             assistant_msg = Message(conversation_id=conversation.id, role="assistant", content=response_text)
             save_db.add(assistant_msg)
+            audit_detail = {
+                "conversation_id": conversation.id,
+                "tools": [t["tool"] for t in tools_used],
+            }
+            if prepared.run_id is not None:
+                audit_detail["agent_run_id"] = prepared.run_id
             save_db.add(AuditEvent(
                 user_id=user.id, action="chat.completed",
-                detail_json=json.dumps({"conversation_id": conversation.id, "tools": [t["tool"] for t in tools_used]}),
+                detail_json=json.dumps(audit_detail),
             ))
             save_db.commit()
             save_db.refresh(assistant_msg)
             yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id, 'created_at': str(assistant_msg.created_at)})}\n\n"
+        except asyncio.CancelledError:
+            save_db.rollback()
+            raise
         except Exception as e:
+            save_db.rollback()
             log.error("Agent stream failed: %s", e, exc_info=True)
             fallback = "The AI service is temporarily unavailable. Your message was saved — please try again."
             full_response.append(fallback)

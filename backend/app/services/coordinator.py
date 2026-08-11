@@ -1,9 +1,8 @@
-import asyncio
 import logging
 from typing import Iterable
 
+from .agents.policy import RESOURCEFUL_RESPONSE_POLICY
 from .gemini import GeminiClient
-from .searcher import search_web
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +45,15 @@ class AICoordinator:
     def __init__(self, gemini: GeminiClient):
         self.gemini = gemini
 
-    def build_payload(self, *, prompt: str, messages: Iterable, memories: Iterable, documents: Iterable, search_results: str = "") -> list:
+    def build_payload(
+        self,
+        *,
+        prompt: str,
+        messages: Iterable,
+        memories: Iterable,
+        documents: Iterable,
+        agent_context: str = "",
+    ) -> list:
         context_parts = []
         memory_text = "\n".join(f"- {item.title}: {item.content}" for item in memories)
         if memory_text:
@@ -54,10 +61,10 @@ class AICoordinator:
         document_text = "\n".join(f"- {item.filename}: {_safe_extract_text(item)}" for item in documents)
         if document_text:
             context_parts.append(f"Relevant documents:\n{document_text}")
-        if search_results:
-            context_parts.append(f"Web search results:\n{search_results}")
+        if agent_context:
+            context_parts.append(f"Prepared specialist context:\n{agent_context}")
 
-        system = SYSTEM_PROMPT
+        system = f"{SYSTEM_PROMPT}\n\n{RESOURCEFUL_RESPONSE_POLICY}"
         if context_parts:
             system += "\n\n" + "\n\n".join(context_parts)
         payload = [{"role": "system", "content": system}]
@@ -65,19 +72,22 @@ class AICoordinator:
         payload.append({"role": "user", "content": prompt})
         return payload
 
-    async def _search_with_timeout(self, prompt: str, timeout: float = 8.0) -> str:
-        try:
-            return await asyncio.wait_for(asyncio.to_thread(search_web, prompt), timeout=timeout)
-        except asyncio.TimeoutError:
-            log.warning("Web search timed out after %.0fs", timeout)
-            return ""
-        except Exception as e:
-            log.warning("Web search failed: %s", e)
-            return ""
-
-    async def reply(self, *, prompt: str, messages: Iterable, memories: Iterable, documents: Iterable) -> str:
-        results = await self._search_with_timeout(prompt)
-        payload = self.build_payload(prompt=prompt, messages=messages, memories=memories, documents=documents, search_results=results)
+    async def reply(
+        self,
+        *,
+        prompt: str,
+        messages: Iterable,
+        memories: Iterable,
+        documents: Iterable,
+        agent_context: str = "",
+    ) -> str:
+        payload = self.build_payload(
+            prompt=prompt,
+            messages=messages,
+            memories=memories,
+            documents=documents,
+            agent_context=agent_context,
+        )
 
         try:
             return await self.gemini.chat(payload)
