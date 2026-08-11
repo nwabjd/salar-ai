@@ -70,6 +70,7 @@ class AgentRun(Base):
     input_json: Mapped[str] = mapped_column(Text, default="{}")
     output_json: Mapped[str] = mapped_column(Text, default="{}")
     error: Mapped[str] = mapped_column(Text, default="")
+    next_step_sequence: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

@@ -1,10 +1,10 @@
 import json
 from typing import Any, Dict, Iterable, Optional
 
-from sqlalchemy import func
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from ...models import AgentRun, AgentRunStep
+from ...models import AgentRun, AgentRunStep, Conversation
 
 
 class AgentRunStore:
@@ -12,6 +12,14 @@ class AgentRunStore:
         self.db = db
 
     def start(self, user_id: str, conversation_id: Optional[str], kind: str, input_data: Dict[str, Any]) -> AgentRun:
+        if conversation_id is not None:
+            conversation = (
+                self.db.query(Conversation)
+                .filter(Conversation.id == conversation_id, Conversation.user_id == user_id)
+                .first()
+            )
+            if conversation is None:
+                raise ValueError("Conversation does not belong to user")
         run = AgentRun(
             user_id=user_id,
             conversation_id=conversation_id,
@@ -32,12 +40,12 @@ class AgentRunStore:
         evidence: Optional[Iterable[Dict[str, Any]]] = None,
         attempt: int = 1,
     ) -> AgentRunStep:
-        sequence = (
-            self.db.query(func.max(AgentRunStep.sequence))
-            .filter(AgentRunStep.run_id == run.id)
-            .scalar()
-            or 0
-        ) + 1
+        sequence = self.db.execute(
+            update(AgentRun)
+            .where(AgentRun.id == run.id)
+            .values(next_step_sequence=AgentRun.next_step_sequence + 1)
+            .returning(AgentRun.next_step_sequence)
+        ).scalar_one() - 1
         step = AgentRunStep(
             run_id=run.id,
             sequence=sequence,
