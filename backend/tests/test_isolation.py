@@ -89,3 +89,28 @@ def test_whatsapp_route_threads_user(client, exchange):
     assert r.status_code == 200
     assert fake.calls == [me["id"]]
     assert r.json()["user_id"] == me["id"]
+
+
+def test_whatsapp_contact_state_does_not_cross_users(client, exchange):
+    from sqlalchemy import select
+    from app.models import WhatsAppContactState
+
+    headers_a = exchange("contact-owner-a@example.com")
+    headers_b = exchange("contact-owner-b@example.com")
+    user_a = client.get("/api/auth/me", headers=headers_a).json()
+    user_b = client.get("/api/auth/me", headers=headers_b).json()
+
+    with client.app.state.SessionLocal() as db:
+        db.add_all([
+            WhatsAppContactState(user_id=user_a["id"], contact_jid="same@s.whatsapp.net", introduced=True),
+            WhatsAppContactState(user_id=user_b["id"], contact_jid="same@s.whatsapp.net", introduced=False),
+        ])
+        db.commit()
+        rows = list(db.scalars(select(WhatsAppContactState).where(
+            WhatsAppContactState.contact_jid == "same@s.whatsapp.net"
+        )))
+
+    assert {(row.user_id, row.introduced) for row in rows} == {
+        (user_a["id"], True),
+        (user_b["id"], False),
+    }

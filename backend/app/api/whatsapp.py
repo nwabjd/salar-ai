@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..models import AuditEvent, User
 from ..security import get_current_user
+from ..services.whatsapp_conversations import WhatsAppConversationStore
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["whatsapp"])
@@ -32,32 +34,54 @@ class WhatsAppAutoReplyToggle(BaseModel):
     enabled: bool
 
 
-def build_auto_reply_messages(sender_name: str, text: str, is_group: bool):
+def build_auto_reply_messages(sender_name: str, text: str, is_group: bool, introduced: bool, history):
     context = f"WhatsApp {'group' if is_group else 'DM'} message from {sender_name}: {text}"
+    history_text = "\n".join(
+        f"{item['role']}: {item['text']}"
+        for item in history[-8:]
+        if item.get("role") in {"sender", "assistant"} and item.get("text")
+    )
+    identity_rule = (
+        "This is the first reply to this contact. You must introduce yourself briefly as JD's assistant once, then help."
+        if not introduced
+        else "This contact already knows you are JD's assistant. Never introduce yourself again; continue naturally from the conversation."
+    )
     policy = (
-        "You are JD's assistant, replying professionally to a WhatsApp sender on JD's behalf. "
-        "Never pretend to be JD and never introduce yourself as an AI. When a conversation begins with a greeting "
-        "or no clear request, introduce yourself briefly as JD's assistant and ask what query you can help with. "
-        "When the sender gives a specific query, address it directly and helpfully using reliable information. "
-        "If essential details are missing, acknowledge the request and ask a focused follow-up question. "
-        "Do not fabricate facts, promises, availability, prices, dates, or actions. Do not use blunt refusal phrases "
-        "such as 'I will not' or 'I cannot'; explain the limitation briefly and offer the most useful next step. "
-        "Use a warm, authentic, professional tone in one to three short sentences with plain text only. "
+        "You are replying professionally to a WhatsApp sender on JD's behalf. Never pretend to be JD and never "
+        "introduce yourself as an AI. "
+        f"{identity_rule} "
+        "Address specific queries directly. Ask one focused question only when essential details are missing. "
+        "Do not fabricate facts, promises, availability, prices, dates, or actions. "
+        "Use a warm, authentic, professional tone in one to three short plain-text sentences. "
         "If the sender asks to speak with JD, offer to help first and ask for the purpose or key details. "
         "If the sender explicitly asks you to tell JD something or pass a message, respond only with "
         "GOTOPASS: followed by the exact concise message for JD. Use GOTOPASS only for explicit pass-message requests."
     )
+    if history_text:
+        policy += f"\n\nRecent conversation:\n{history_text}"
     return [{"role": "system", "content": policy}, {"role": "user", "content": context}]
 
 
-def normalize_auto_reply(reply_text: str):
+def normalize_auto_reply(reply_text: str, introduced: bool):
     clean = (reply_text or "").strip()
     if not clean:
-        return "Hello, this is JD’s assistant. How may I help you today?", None
+        clean = "How may I help you?"
+    pass_message = None
     if clean.startswith("GOTOPASS:"):
-        message = clean[len("GOTOPASS:"):].strip()
-        return "Thank you. I’ll make sure JD receives your message. Is there anything else I can help you with?", message or None
-    return clean, None
+        pass_message = clean[len("GOTOPASS:"):].strip() or None
+        clean = "Thank you. I'll make sure JD receives your message. Is there anything else I can help you with?"
+    if introduced:
+        clean = re.sub(
+            r"^(?:hello|hi|hey)[,!]?\s*(?:(?:this is|i am|i'm)\s+)?jd(?:'s|s|’s)\s+assistant[.!,:\-]*\s*",
+            "",
+            clean,
+            flags=re.IGNORECASE,
+        ).strip()
+        if not clean:
+            clean = "How may I help you?"
+    elif not re.search(r"\bjd(?:'s|s|’s)\s+assistant\b", clean, flags=re.IGNORECASE):
+        clean = "Hello, this is JD's assistant. " + clean
+    return clean, pass_message
 
 
 @router.get("/api/whatsapp/pass-messages")
@@ -218,6 +242,7 @@ async def whatsapp_webhook(payload: WhatsAppWebhook, request: Request):
 
 
 async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text: str, is_group: bool):
+    save_db = None
     try:
         coordinator = getattr(state, "coordinator", None)
         gemini = getattr(coordinator, "gemini", None) if coordinator else None
@@ -225,38 +250,47 @@ async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text
             log.warning("Auto-reply: no Gemini client available")
             return
 
-        messages = build_auto_reply_messages(sender_name, text, is_group)
-
+        save_db = state.SessionLocal()
+        store = WhatsAppConversationStore(save_db)
+        contact = store.get_or_create(user_id, from_jid, sender_name)
+        messages = build_auto_reply_messages(sender_name, text, is_group, contact.introduced, store.history(contact))
         result = await gemini.chat_with_tools(messages, [])
-        reply_text = result.get("text", "").strip()
-        reply_text, pass_msg = normalize_auto_reply(reply_text)
+        reply_text, pass_msg = normalize_auto_reply(
+            result.get("text", "") if isinstance(result, dict) else "",
+            contact.introduced,
+        )
 
         whatsapp = getattr(state, "whatsapp", None)
-        if whatsapp:
-            await whatsapp.send_message(to=from_jid, text=reply_text, user_id=user_id)
-            log.info("Auto-reply sent to %s (%s): %s", sender_name, from_jid, reply_text[:100])
+        if not whatsapp:
+            raise RuntimeError("WhatsApp client unavailable")
+        send_result = await whatsapp.send_message(to=from_jid, text=reply_text, user_id=user_id)
+        if isinstance(send_result, dict) and send_result.get("error"):
+            raise RuntimeError("WhatsApp send failed")
 
-            save_db = state.SessionLocal()
-            try:
-                save_db.add(AuditEvent(
-                    user_id=user_id,
-                    action="whatsapp.auto_reply",
-                    detail_json=json.dumps({
-                        "to": from_jid, "sender_name": sender_name,
-                        "incoming": text[:300], "reply": reply_text[:300],
-                    }),
-                ))
-                if pass_msg:
-                    save_db.add(AuditEvent(
-                        user_id=user_id,
-                        action="whatsapp.pass_message",
-                        detail_json=json.dumps({
-                            "from": from_jid, "sender_name": sender_name,
-                            "message": pass_msg[:500], "acknowledged": False,
-                        }),
-                    ))
-                save_db.commit()
-            finally:
-                save_db.close()
-    except Exception as e:
-        log.error("Auto-reply failed: %s", e, exc_info=True)
+        store.record_exchange(contact, text, reply_text, introduced=True)
+        save_db.add(AuditEvent(
+            user_id=user_id,
+            action="whatsapp.auto_reply",
+            detail_json=json.dumps({
+                "to": from_jid, "sender_name": sender_name,
+                "incoming": text[:300], "reply": reply_text[:300],
+            }),
+        ))
+        if pass_msg:
+            save_db.add(AuditEvent(
+                user_id=user_id,
+                action="whatsapp.pass_message",
+                detail_json=json.dumps({
+                    "from": from_jid, "sender_name": sender_name,
+                    "message": pass_msg[:500], "acknowledged": False,
+                }),
+            ))
+        save_db.commit()
+        log.info("Auto-reply sent to %s (%s)", sender_name, from_jid)
+    except Exception as exc:
+        if save_db is not None:
+            save_db.rollback()
+        log.error("Auto-reply failed (%s)", type(exc).__name__)
+    finally:
+        if save_db is not None:
+            save_db.close()

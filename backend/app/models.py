@@ -148,6 +148,21 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class WhatsAppContactState(Base):
+    __tablename__ = "whatsapp_contact_states"
+    __table_args__ = (UniqueConstraint("user_id", "contact_jid", name="uq_whatsapp_owner_contact"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    contact_jid: Mapped[str] = mapped_column(String(255), index=True)
+    sender_name: Mapped[str] = mapped_column(String(255), default="")
+    introduced: Mapped[bool] = mapped_column(Boolean, default=False)
+    history_json: Mapped[str] = mapped_column(Text, default="[]")
+    active_topic: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class Workspace(Base):
     __tablename__ = "workspaces"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
