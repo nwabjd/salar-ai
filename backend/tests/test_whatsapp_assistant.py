@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -43,6 +44,20 @@ def test_whatsapp_later_reply_strips_a_repeated_model_introduction():
         introduced=True,
     )
     assert reply == "Your delivery is scheduled for Tuesday."
+
+
+@pytest.mark.parametrize(("model_reply", "expected"), [
+    ("This is JD's assistant. Your delivery is scheduled for Tuesday.", "Your delivery is scheduled for Tuesday."),
+    ("I'm JD's assistant. Your delivery is scheduled for Tuesday.", "Your delivery is scheduled for Tuesday."),
+    ("I am JD's assistant. Your delivery is scheduled for Tuesday.", "Your delivery is scheduled for Tuesday."),
+    ("As JD's assistant, your delivery is scheduled for Tuesday.", "your delivery is scheduled for Tuesday."),
+    ("JD's assistant here: Your delivery is scheduled for Tuesday.", "Your delivery is scheduled for Tuesday."),
+    ("Hi, I’m JD’s assistant — Your delivery is scheduled for Tuesday.", "Your delivery is scheduled for Tuesday."),
+    ("As JD's assistant", "How may I help you?"),
+])
+def test_whatsapp_later_reply_strips_common_leading_identity_prefixes(model_reply, expected):
+    reply, _ = normalize_auto_reply(model_reply, introduced=True)
+    assert reply == expected
 
 
 def test_contact_state_is_per_owner_and_contact(client, exchange):
@@ -145,3 +160,67 @@ async def test_failed_send_does_not_mark_contact_introduced(client, exchange):
             WhatsAppContactState.contact_jid == "15550003@s.whatsapp.net",
         ))
     assert saved is None or saved.introduced is False
+
+
+@pytest.mark.anyio
+async def test_overlapping_auto_replies_serialize_contact_state(client, exchange):
+    headers = exchange("overlap@example.com")
+    user = client.get("/api/auth/me", headers=headers).json()
+    first_model_started = asyncio.Event()
+    allow_first_model = asyncio.Event()
+    second_invoked = asyncio.Event()
+    second_model_started = asyncio.Event()
+    model_prompts = []
+    sent = []
+
+    class FakeGemini:
+        async def chat_with_tools(self, messages, tools):
+            model_prompts.append(messages)
+            if len(model_prompts) == 1:
+                first_model_started.set()
+                await allow_first_model.wait()
+                return {"text": "First reply."}
+            second_model_started.set()
+            return {"text": "Second reply."}
+
+    class FakeWhatsApp:
+        async def send_message(self, **kwargs):
+            sent.append(kwargs["text"])
+            return {"ok": True}
+
+    state = SimpleNamespace(
+        SessionLocal=client.app.state.SessionLocal,
+        coordinator=SimpleNamespace(gemini=FakeGemini()),
+        whatsapp=FakeWhatsApp(),
+    )
+
+    first = asyncio.create_task(_auto_reply(
+        state, user["id"], "15550004@s.whatsapp.net", "Aisha", "First", False,
+    ))
+    await first_model_started.wait()
+
+    async def second_reply():
+        second_invoked.set()
+        await _auto_reply(state, user["id"], "15550004@s.whatsapp.net", "Aisha", "Second", False)
+
+    second = asyncio.create_task(second_reply())
+    await second_invoked.wait()
+    assert second_model_started.is_set() is False
+    allow_first_model.set()
+    await asyncio.gather(first, second)
+
+    with client.app.state.SessionLocal() as db:
+        contact = db.scalar(select(WhatsAppContactState).where(
+            WhatsAppContactState.user_id == user["id"],
+            WhatsAppContactState.contact_jid == "15550004@s.whatsapp.net",
+        ))
+
+    assert sum("JD's assistant" in text for text in sent) == 1
+    assert [item["content"] for item in model_prompts[1] if item["role"] == "system"][0].count("First") >= 1
+    assert WhatsAppConversationStore.history(contact) == [
+        {"role": "sender", "text": "First"},
+        {"role": "assistant", "text": sent[0]},
+        {"role": "sender", "text": "Second"},
+        {"role": "assistant", "text": sent[1]},
+    ]
+    assert state._whatsapp_contact_locks._entries == {}

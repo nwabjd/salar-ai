@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -13,6 +14,49 @@ from ..services.whatsapp_conversations import WhatsAppConversationStore
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["whatsapp"])
+
+
+class _ContactLockPool:
+    def __init__(self):
+        self._entries = {}
+        self._guard = asyncio.Lock()
+
+    @asynccontextmanager
+    async def hold(self, key):
+        async with self._guard:
+            entry = self._entries.get(key)
+            if entry is None:
+                entry = {"lock": asyncio.Lock(), "references": 0}
+                self._entries[key] = entry
+            entry["references"] += 1
+
+        acquired = False
+        try:
+            await entry["lock"].acquire()
+            acquired = True
+            yield
+        finally:
+            if acquired:
+                entry["lock"].release()
+            async with self._guard:
+                entry["references"] -= 1
+                if entry["references"] == 0 and not entry["lock"].locked():
+                    self._entries.pop(key, None)
+
+
+def _contact_locks(state):
+    pool = getattr(state, "_whatsapp_contact_locks", None)
+    if pool is None:
+        pool = _ContactLockPool()
+        setattr(state, "_whatsapp_contact_locks", pool)
+    return pool
+
+
+_REPEATED_ASSISTANT_IDENTITY = re.compile(
+    r"^\s*(?:(?:hello|hi|hey)[,!]?\s*)?(?:(?:this\s+is|i\s*(?:am|['\u2019]m)|as)\s+)?"
+    r"jd(?:['\u2019]s|s)\s+assistant(?:\s+here)?[\s.,!:\-\u2013\u2014]*",
+    flags=re.IGNORECASE,
+)
 
 
 class WhatsAppSendRequest(BaseModel):
@@ -71,15 +115,10 @@ def normalize_auto_reply(reply_text: str, introduced: bool):
         pass_message = clean[len("GOTOPASS:"):].strip() or None
         clean = "Thank you. I'll make sure JD receives your message. Is there anything else I can help you with?"
     if introduced:
-        clean = re.sub(
-            r"^(?:hello|hi|hey)[,!]?\s*(?:(?:this is|i am|i'm)\s+)?jd(?:'s|s|’s)\s+assistant[.!,:\-]*\s*",
-            "",
-            clean,
-            flags=re.IGNORECASE,
-        ).strip()
+        clean = _REPEATED_ASSISTANT_IDENTITY.sub("", clean).strip()
         if not clean:
             clean = "How may I help you?"
-    elif not re.search(r"\bjd(?:'s|s|’s)\s+assistant\b", clean, flags=re.IGNORECASE):
+    elif not re.search(r"\bjd(?:['\u2019]s|s)\s+assistant\b", clean, flags=re.IGNORECASE):
         clean = "Hello, this is JD's assistant. " + clean
     return clean, pass_message
 
@@ -250,43 +289,44 @@ async def _auto_reply(state, user_id: str, from_jid: str, sender_name: str, text
             log.warning("Auto-reply: no Gemini client available")
             return
 
-        save_db = state.SessionLocal()
-        store = WhatsAppConversationStore(save_db)
-        contact = store.get_or_create(user_id, from_jid, sender_name)
-        messages = build_auto_reply_messages(sender_name, text, is_group, contact.introduced, store.history(contact))
-        result = await gemini.chat_with_tools(messages, [])
-        reply_text, pass_msg = normalize_auto_reply(
-            result.get("text", "") if isinstance(result, dict) else "",
-            contact.introduced,
-        )
+        async with _contact_locks(state).hold((user_id, from_jid)):
+            save_db = state.SessionLocal()
+            store = WhatsAppConversationStore(save_db)
+            contact = store.get_or_create(user_id, from_jid, sender_name)
+            messages = build_auto_reply_messages(sender_name, text, is_group, contact.introduced, store.history(contact))
+            result = await gemini.chat_with_tools(messages, [])
+            reply_text, pass_msg = normalize_auto_reply(
+                result.get("text", "") if isinstance(result, dict) else "",
+                contact.introduced,
+            )
 
-        whatsapp = getattr(state, "whatsapp", None)
-        if not whatsapp:
-            raise RuntimeError("WhatsApp client unavailable")
-        send_result = await whatsapp.send_message(to=from_jid, text=reply_text, user_id=user_id)
-        if isinstance(send_result, dict) and send_result.get("error"):
-            raise RuntimeError("WhatsApp send failed")
+            whatsapp = getattr(state, "whatsapp", None)
+            if not whatsapp:
+                raise RuntimeError("WhatsApp client unavailable")
+            send_result = await whatsapp.send_message(to=from_jid, text=reply_text, user_id=user_id)
+            if isinstance(send_result, dict) and send_result.get("error"):
+                raise RuntimeError("WhatsApp send failed")
 
-        store.record_exchange(contact, text, reply_text, introduced=True)
-        save_db.add(AuditEvent(
-            user_id=user_id,
-            action="whatsapp.auto_reply",
-            detail_json=json.dumps({
-                "to": from_jid, "sender_name": sender_name,
-                "incoming": text[:300], "reply": reply_text[:300],
-            }),
-        ))
-        if pass_msg:
+            store.record_exchange(contact, text, reply_text, introduced=True)
             save_db.add(AuditEvent(
                 user_id=user_id,
-                action="whatsapp.pass_message",
+                action="whatsapp.auto_reply",
                 detail_json=json.dumps({
-                    "from": from_jid, "sender_name": sender_name,
-                    "message": pass_msg[:500], "acknowledged": False,
+                    "to": from_jid, "sender_name": sender_name,
+                    "incoming": text[:300], "reply": reply_text[:300],
                 }),
             ))
-        save_db.commit()
-        log.info("Auto-reply sent to %s (%s)", sender_name, from_jid)
+            if pass_msg:
+                save_db.add(AuditEvent(
+                    user_id=user_id,
+                    action="whatsapp.pass_message",
+                    detail_json=json.dumps({
+                        "from": from_jid, "sender_name": sender_name,
+                        "message": pass_msg[:500], "acknowledged": False,
+                    }),
+                ))
+            save_db.commit()
+            log.info("Auto-reply sent to %s (%s)", sender_name, from_jid)
     except Exception as exc:
         if save_db is not None:
             save_db.rollback()
