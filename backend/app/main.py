@@ -32,6 +32,7 @@ from .api.workflows import router as workflows_router
 from .api.live import router as live_router
 from .api.billing import router as billing_router
 from .api.intel import router as intel_router
+from .api.missions import router as missions_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -143,6 +144,16 @@ def create_app(settings: Settings = None) -> FastAPI:
             await app.state.intel_scheduler.start()
             log.info("Intel scheduler started")
 
+            from .services.missions.runner import MissionRunner
+            from .services.agent import execute_tool as _execute_tool
+            app.state.mission_runner = MissionRunner(
+                session_factory=session_factory,
+                gemini=app.state.coordinator.gemini,
+                execute_tool_fn=_execute_tool,
+            )
+            await app.state.mission_runner.start()
+            log.info("Mission runner started")
+
         yield
 
         log.info("SALAR backend shutting down...")
@@ -164,6 +175,11 @@ def create_app(settings: Settings = None) -> FastAPI:
         if hasattr(app.state, "job_worker"):
             try:
                 await app.state.job_worker.stop()
+            except Exception:
+                pass
+        if hasattr(app.state, "mission_runner"):
+            try:
+                await app.state.mission_runner.stop()
             except Exception:
                 pass
         engine.dispose()
@@ -213,6 +229,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(live_router)
     app.include_router(billing_router)
     app.include_router(intel_router)
+    app.include_router(missions_router)
     return app
 
 
