@@ -58,6 +58,10 @@ from .api.dynamic_memory import router as dynamic_memory_router
 from .api.knowledge_viz import router as knowledge_viz_router
 from .api.insights import router as insights_router
 from .api.email_classifier import router as email_classifier_router
+from .api.notifications import router as notifications_router
+from .api.automation import router as automation_router
+from .api.file_assistant import router as file_assistant_router
+from .api.file_organizer import router as file_organizer_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -280,6 +284,10 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(knowledge_viz_router)
     app.include_router(insights_router)
     app.include_router(email_classifier_router)
+    app.include_router(notifications_router)
+    app.include_router(automation_router)
+    app.include_router(file_assistant_router)
+    app.include_router(file_organizer_router)
     return app
 
 
