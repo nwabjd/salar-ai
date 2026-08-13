@@ -37,6 +37,7 @@ from .api.missions import router as missions_router
 from .api.models import router as models_router
 from .api.permissions import router as permissions_router
 from .api.search import router as search_router
+from .api.command_center import router as command_center_router
 from .api.thought_stream import router as thought_stream_router
 from .api.action_log import router as action_log_router
 from .api.guardian import router as guardian_router
@@ -242,6 +243,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(thought_stream_router)
     app.include_router(memory_graph_router)
     app.include_router(search_router)
+    app.include_router(command_center_router)
     app.include_router(action_log_router)
     app.include_router(guardian_router)
     return app
