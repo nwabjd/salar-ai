@@ -500,3 +500,27 @@ class Notification(Base):
     severity: Mapped[str] = mapped_column(String(16), default="info")
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Consent(Base):
+    __tablename__ = "consents"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    category: Mapped[str] = mapped_column(String(40), index=True)
+    granted: Mapped[bool] = mapped_column(Boolean, default=False)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class PrivacyPreferences(Base):
+    __tablename__ = "privacy_preferences"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    local_ai_mode: Mapped[bool] = mapped_column(Boolean, default=False)
+    data_retention_days: Mapped[int] = mapped_column(Integer, default=30)
+    action_log_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    intel_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    analytics_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

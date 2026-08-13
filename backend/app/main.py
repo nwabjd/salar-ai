@@ -68,6 +68,10 @@ from .api.audio_intel import router as audio_intel_router
 from .api.perf_dashboard import router as perf_dashboard_router
 from .api.network_intel import router as network_intel_router
 from .api.device_automation import router as device_automation_router
+from .api.consent import router as consent_router
+from .api.vault import router as vault_router
+from .api.privacy_scan import router as privacy_scan_router
+from .api.privacy_prefs import router as privacy_prefs_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -300,6 +304,10 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(perf_dashboard_router)
     app.include_router(network_intel_router)
     app.include_router(device_automation_router)
+    app.include_router(consent_router)
+    app.include_router(vault_router)
+    app.include_router(privacy_scan_router)
+    app.include_router(privacy_prefs_router)
     return app
 
 
