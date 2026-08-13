@@ -75,6 +75,13 @@ from .api.privacy_prefs import router as privacy_prefs_router
 from .api.dev_docs import router as dev_docs_router
 from .api.multi_device import router as multi_device_router
 from .api.plugins import router as plugins_router
+from .api.image_gen import router as image_gen_router
+from .api.media_memory import router as media_memory_router
+from .api.creative_templates import router as creative_templates_router
+from .api.presentation import router as presentation_router
+from .api.widgets import router as widgets_router
+from .api.ar_status import router as ar_status_router
+from .api.wallpapers import router as wallpapers_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -314,6 +321,13 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(dev_docs_router)
     app.include_router(multi_device_router)
     app.include_router(plugins_router)
+    app.include_router(image_gen_router)
+    app.include_router(media_memory_router)
+    app.include_router(creative_templates_router)
+    app.include_router(presentation_router)
+    app.include_router(widgets_router)
+    app.include_router(ar_status_router)
+    app.include_router(wallpapers_router)
     return app
 
 
