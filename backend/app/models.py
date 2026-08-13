@@ -98,8 +98,20 @@ class Memory(Base):
     layer: Mapped[str] = mapped_column(String(32), default="long_term")
     title: Mapped[str] = mapped_column(String(240))
     content: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(32), default="memory")  # person, project, file, preference, decision, place, event, memory
+    tags_json: Mapped[str] = mapped_column(Text, default="[]")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class MemoryRelation(Base):
+    __tablename__ = "memory_relations"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    from_memory_id: Mapped[str] = mapped_column(ForeignKey("memories.id", ondelete="CASCADE"), index=True)
+    to_memory_id: Mapped[str] = mapped_column(ForeignKey("memories.id", ondelete="CASCADE"), index=True)
+    relation: Mapped[str] = mapped_column(String(48), default="related")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class Document(Base):

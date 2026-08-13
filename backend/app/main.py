@@ -11,6 +11,7 @@ from . import __version__
 from .api.auth import router as auth_router
 from .api.chat import router as chat_router
 from .api.memory import router as memory_router
+from .api.memory_graph import router as memory_graph_router
 from .api.projects import router as projects_router
 from .api.documents import router as documents_router
 from .api.devices import router as devices_router
@@ -238,6 +239,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(models_router)
     app.include_router(permissions_router)
     app.include_router(thought_stream_router)
+    app.include_router(memory_graph_router)
     app.include_router(action_log_router)
     app.include_router(guardian_router)
     return app

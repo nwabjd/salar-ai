@@ -35,12 +35,15 @@ def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), user: Us
 @router.get("", response_model=list[MemoryResponse])
 def list_memories(
     layer: Optional[str] = None,
+    kind: Optional[str] = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     query = select(Memory).where(Memory.user_id == user.id)
     if layer:
         query = query.where(Memory.layer == layer)
+    if kind:
+        query = query.where(Memory.kind == kind)
     return list(db.scalars(query.order_by(Memory.updated_at.desc())))
 
 
