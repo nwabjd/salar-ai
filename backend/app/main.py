@@ -73,6 +73,7 @@ from .api.vault import router as vault_router
 from .api.privacy_scan import router as privacy_scan_router
 from .api.privacy_prefs import router as privacy_prefs_router
 from .api.dev_docs import router as dev_docs_router
+from .api.multi_device import router as multi_device_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -310,6 +311,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(privacy_scan_router)
     app.include_router(privacy_prefs_router)
     app.include_router(dev_docs_router)
+    app.include_router(multi_device_router)
     return app
 
 
