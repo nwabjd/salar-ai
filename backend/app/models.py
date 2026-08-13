@@ -424,3 +424,16 @@ class ActionLog(Base):
     is_undoable: Mapped[bool] = mapped_column(Boolean, default=False)
     undo_status: Mapped[str] = mapped_column(String(16), default="none")  # none, undoable, undone, undo_failed
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DeepResearch(Base):
+    __tablename__ = "deep_research"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    goal: Mapped[str] = mapped_column(Text, default="")
+    agents_json: Mapped[str] = mapped_column(Text, default="[]")
+    synthesis_json: Mapped[str] = mapped_column(Text, default="{}")
+    findings_json: Mapped[str] = mapped_column(Text, default="[]")
+    status: Mapped[str] = mapped_column(String(24), default="running")
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
