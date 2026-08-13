@@ -31,6 +31,7 @@ from .api.knowledge import router as knowledge_router
 from .api.workflows import router as workflows_router
 from .api.live import router as live_router
 from .api.billing import router as billing_router
+from .api.intel import router as intel_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -117,6 +118,31 @@ def create_app(settings: Settings = None) -> FastAPI:
         await reminder_engine.start(interval=30)
         log.info("Reminder engine started")
 
+        from .services.jobs.contracts import JobRegistry
+        from .services.jobs import handlers as job_handlers
+        from .services.jobs.worker import JobWorker
+        from .services.jobs.scheduler import IntelScheduler
+        job_registry = JobRegistry()
+        job_handlers.register_all(job_registry)
+        app.state.job_registry = job_registry
+
+        if active_settings.environment != "test":
+            app.state.job_worker = JobWorker(
+                session_factory=session_factory,
+                settings=active_settings,
+                registry=job_registry,
+            )
+            await app.state.job_worker.start()
+            log.info("Job worker started (kinds: %s)", ", ".join(job_registry.kinds()))
+
+            app.state.intel_scheduler = IntelScheduler(
+                session_factory=session_factory,
+                email_watch_interval_seconds=int(getattr(active_settings, "intel_email_watch_interval_seconds", 900)),
+                morning_brief_hour=int(getattr(active_settings, "intel_morning_brief_hour", 7)),
+            )
+            await app.state.intel_scheduler.start()
+            log.info("Intel scheduler started")
+
         yield
 
         log.info("SALAR backend shutting down...")
@@ -128,6 +154,16 @@ def create_app(settings: Settings = None) -> FastAPI:
         if hasattr(app.state, "whatsapp"):
             try:
                 await app.state.whatsapp.close()
+            except Exception:
+                pass
+        if hasattr(app.state, "intel_scheduler"):
+            try:
+                await app.state.intel_scheduler.stop()
+            except Exception:
+                pass
+        if hasattr(app.state, "job_worker"):
+            try:
+                await app.state.job_worker.stop()
             except Exception:
                 pass
         engine.dispose()
@@ -176,6 +212,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(workflows_router)
     app.include_router(live_router)
     app.include_router(billing_router)
+    app.include_router(intel_router)
     return app
 
 

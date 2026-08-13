@@ -22,6 +22,12 @@ _RESEARCH_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_INTEL_PATTERN = re.compile(
+    r"\b(?:important|brief(?:ing)?|intel(?:ligence)?|anything\s+(?:new|going\s+on|happening)|"
+    r"what'?s?\s+(?:new|up|happening))\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class PreparedAgentContext:
@@ -55,8 +61,16 @@ class AgentOrchestrator:
         commit: bool = True,
         run_id: Optional[str] = None,
     ) -> PreparedAgentContext:
-        if not self.needs_research(prompt):
-            return PreparedAgentContext(agent_kind="none", context="")
+        intel_context = ""
+        if db is not None and user_id:
+            from ..intel.briefing import intel_context_for_chat
+            intel_context = intel_context_for_chat(db, user_id)
+
+        # "Anything important?" style prompts should read the background intel
+        # ledger, not fire a research run - even when they contain research-ish
+        # words like "today".
+        if _INTEL_PATTERN.search(prompt or "") or not self.needs_research(prompt):
+            return PreparedAgentContext(agent_kind="none", context=intel_context)
 
         store = AgentRunStore(db) if db is not None and user_id is not None else None
         requested_run_id = run_id

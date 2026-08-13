@@ -51,3 +51,7 @@ class Settings(BaseSettings):
     payment_wallet_address: str = "0x0000000000000000000000000000000000000000"
     free_monthly_quota: int = 500
     pro_monthly_quota: int = 5000
+
+    intel_email_watch_interval_seconds: int = 900
+    intel_morning_brief_hour: int = 7
+    intel_email_watch_limit: int = 50
