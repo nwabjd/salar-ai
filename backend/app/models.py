@@ -462,6 +462,17 @@ class ContactInteraction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class Bookmark(Base):
+    __tablename__ = "bookmarks"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    url: Mapped[str] = mapped_column(String(1024))
+    title: Mapped[str] = mapped_column(String(300), default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    tags_json: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class VoicePreferences(Base):
     __tablename__ = "voice_preferences"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
