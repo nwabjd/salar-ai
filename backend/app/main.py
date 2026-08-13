@@ -44,6 +44,7 @@ from .api.guardian import router as guardian_router
 from .api.swarm import router as swarm_router
 from .api.deep_research import router as deep_research_router
 from .api.proactive import router as proactive_router
+from .api.eod import router as eod_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -252,6 +253,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(swarm_router)
     app.include_router(deep_research_router)
     app.include_router(proactive_router)
+    app.include_router(eod_router)
     return app
 
 
