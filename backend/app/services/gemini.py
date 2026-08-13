@@ -102,6 +102,27 @@ class GeminiClient:
             log.error("Unexpected Gemini response structure: %s", json.dumps(data)[:500])
             raise RuntimeError(f"Gemini returned unexpected response: {e}") from e
 
+    async def chat_with_image(self, prompt: str, image_bytes: bytes, mime_type: str = "image/png") -> str:
+        import base64
+        body = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": prompt},
+                        {"inline_data": {"mime_type": mime_type, "data": base64.b64encode(image_bytes).decode()}},
+                    ],
+                }
+            ]
+        }
+        data = await self._request_with_retry(
+            f"{self.BASE}/models/{self.model}:generateContent", body
+        )
+        try:
+            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except (KeyError, IndexError) as e:
+            raise RuntimeError(f"Gemini vision returned unexpected response: {e}") from e
+
     async def chat_stream(self, messages: List[Dict[str, str]]) -> AsyncIterator[str]:
         body = self._body(messages)
         url = f"{self.BASE}/models/{self.model}:streamGenerateContent"

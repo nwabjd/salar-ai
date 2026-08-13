@@ -48,6 +48,10 @@ from .api.eod import router as eod_router
 from .api.predictive import router as predictive_router
 from .api.decision_simulator import router as decision_simulator_router
 from .api.contacts import router as contacts_router
+from .api.vision import router as vision_router
+from .api.clipboard import router as clipboard_router
+from .api.browser_intel import router as browser_intel_router
+from .api.ui_analyzer import router as ui_analyzer_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -260,6 +264,10 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(predictive_router)
     app.include_router(decision_simulator_router)
     app.include_router(contacts_router)
+    app.include_router(vision_router)
+    app.include_router(clipboard_router)
+    app.include_router(browser_intel_router)
+    app.include_router(ui_analyzer_router)
     return app
 
 

@@ -933,7 +933,13 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         elif name == "get_system_info":
             return await _get_system_info()
         elif name == "screenshot":
-            return {"status": "screenshot_requested", "detail": "Screenshot requires Tauri desktop app"}
+            try:
+                from .vision import VisionService
+                png = VisionService().capture_screenshot()
+                import base64
+                return {"status": "ok", "mime_type": "image/png", "image_base64": base64.b64encode(png).decode()[:200000]}
+            except Exception as exc:
+                return {"status": "screenshot_requested", "detail": f"Screenshot requires Tauri desktop app ({exc})"}
         elif name == "create_task":
             return await _create_task(args.get("title", ""), args.get("description", ""), args.get("priority", "medium"), args.get("due_date", ""), user_id)
         elif name == "list_tasks":
