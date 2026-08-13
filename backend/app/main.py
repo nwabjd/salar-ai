@@ -62,6 +62,12 @@ from .api.notifications import router as notifications_router
 from .api.automation import router as automation_router
 from .api.file_assistant import router as file_assistant_router
 from .api.file_organizer import router as file_organizer_router
+from .api.app_launcher import router as app_launcher_router
+from .api.media_controller import router as media_controller_router
+from .api.audio_intel import router as audio_intel_router
+from .api.perf_dashboard import router as perf_dashboard_router
+from .api.network_intel import router as network_intel_router
+from .api.device_automation import router as device_automation_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -288,6 +294,12 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(automation_router)
     app.include_router(file_assistant_router)
     app.include_router(file_organizer_router)
+    app.include_router(app_launcher_router)
+    app.include_router(media_controller_router)
+    app.include_router(audio_intel_router)
+    app.include_router(perf_dashboard_router)
+    app.include_router(network_intel_router)
+    app.include_router(device_automation_router)
     return app
 
 
