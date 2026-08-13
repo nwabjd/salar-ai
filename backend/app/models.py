@@ -279,6 +279,7 @@ class IntelEvent(Base):
     detail_json: Mapped[str] = mapped_column(Text, default="{}")
     evidence_json: Mapped[str] = mapped_column(Text, default="[]")
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    seq: Mapped[int] = mapped_column(Integer, default=0, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -396,3 +397,18 @@ class PermissionProfile(Base):
             return json.loads(self.levels_json)
         except Exception:
             return {}
+
+
+class ActionLog(Base):
+    __tablename__ = "action_logs"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(16), default="chat")  # chat, mission, device, workflow
+    tool: Mapped[str] = mapped_column(String(64))
+    args_json: Mapped[str] = mapped_column(Text, default="{}")
+    result_json: Mapped[str] = mapped_column(Text, default="{}")
+    before_state_json: Mapped[str] = mapped_column(Text, default="{}")
+    undo_action_json: Mapped[str] = mapped_column(Text, default="")
+    is_undoable: Mapped[bool] = mapped_column(Boolean, default=False)
+    undo_status: Mapped[str] = mapped_column(String(16), default="none")  # none, undoable, undone, undo_failed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

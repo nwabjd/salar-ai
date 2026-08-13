@@ -7,7 +7,7 @@ from typing import Any, Awaitable, Callable, Dict, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...models import Mission, MissionStep, token_id, utcnow
+from ...models import ActionLog, Mission, MissionStep, token_id, utcnow
 from .events import MissionEventStore
 from .safety import classify_tool
 from .planner import MissionPlanner, PlanningError
@@ -231,19 +231,52 @@ class MissionRunner:
             self._tasks.pop(mission_id, None)
 
     async def _execute(self, tool: str, args: dict, mission_id: str, step_id: str) -> dict:
+        from ..action_log import ActionLogger
         with self._sf() as db:
             mission = db.get(Mission, mission_id)
-            result = await self._execute_tool(tool, args, mission.user_id, db, is_admin=False)
-            step = db.get(MissionStep, step_id)
-            step.status = "completed"
-            step.output_json = json.dumps(result)
-            step.finished_at = utcnow()
-            mission.completed_count += 1
-            mission.total_attempts += 1
-            mission.updated_at = utcnow()
-            events = MissionEventStore(db)
-            events.append(mission_id, "step_completed", {"step_id": step_id, "tool": tool})
+            before_state = {}
+            undo_action = None
+            is_undoable = False
+            if tool in ("file_write", "write_file"):
+                path = args.get("path")
+                if path:
+                    import os
+                    if os.path.exists(path):
+                        try:
+                            with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                                before_state = {"path": path, "content": fh.read()}
+                            undo_action = {"tool": "file_write", "args": {"path": path, "content": before_state["content"]}}
+                            is_undoable = True
+                        except OSError:
+                            pass
+            logger = ActionLogger(db)
+            action = logger.record(
+                user_id=mission.user_id, source="mission", tool=tool,
+                args=args, result={}, is_undoable=is_undoable,
+                before_state=before_state, undo_action=undo_action,
+            )
             db.commit()
+            action_id = action.id
+
+            result = await self._execute_tool(tool, args, mission.user_id, db, is_admin=False)
+
+            with self._sf() as db:
+                action = db.get(ActionLog, action_id)
+                if action is not None:
+                    action.result_json = json.dumps(result or {})
+                    action.undo_status = "undoable" if (action.is_undoable and action.undo_action_json) else "none"
+                    db.add(action)
+                step = db.get(MissionStep, step_id)
+                step.status = "completed"
+                step.output_json = json.dumps(result)
+                step.finished_at = utcnow()
+                mission = db.get(Mission, mission_id)
+                mission.completed_count += 1
+                mission.total_attempts += 1
+                mission.updated_at = utcnow()
+                events = MissionEventStore(db)
+                events.append(mission_id, "step_completed", {"step_id": step_id, "tool": tool})
+                db.commit()
         return result
 
     # ---- plan persistence ----

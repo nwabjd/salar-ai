@@ -49,11 +49,18 @@ class IntelEventStore:
             source=source,
             detail_json=json.dumps(detail or {}),
             evidence_json=json.dumps(evidence or []),
+            seq=self._next_seq(user_id),
             expires_at=utcnow() + timedelta(seconds=ttl_seconds) if ttl_seconds else None,
         )
         self.db.add(event)
         self.db.flush()
         return event
+
+    def _next_seq(self, user_id: str) -> int:
+        current = self.db.scalar(
+            select(func.max(IntelEvent.seq)).where(IntelEvent.user_id == user_id)
+        ) or 0
+        return int(current) + 1
 
     def ack(self, event_id: str, user_id: str) -> bool:
         event = self.db.get(IntelEvent, event_id)
@@ -94,7 +101,7 @@ class IntelEventStore:
             statement = statement.where(IntelEvent.is_read.is_(False))
         if severity:
             statement = statement.where(IntelEvent.severity == severity)
-        statement = statement.order_by(IntelEvent.created_at.desc()).limit(limit)
+        statement = statement.order_by(IntelEvent.seq.desc()).limit(limit)
         return list(self.db.scalars(statement).all())
 
     def unread_count(self, user_id: str) -> int:
