@@ -41,6 +41,7 @@ from .api.command_center import router as command_center_router
 from .api.thought_stream import router as thought_stream_router
 from .api.action_log import router as action_log_router
 from .api.guardian import router as guardian_router
+from .api.swarm import router as swarm_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -246,6 +247,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(command_center_router)
     app.include_router(action_log_router)
     app.include_router(guardian_router)
+    app.include_router(swarm_router)
     return app
 
 
