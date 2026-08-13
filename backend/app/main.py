@@ -52,6 +52,7 @@ from .api.vision import router as vision_router
 from .api.clipboard import router as clipboard_router
 from .api.browser_intel import router as browser_intel_router
 from .api.ui_analyzer import router as ui_analyzer_router
+from .api.voice import router as voice_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -268,6 +269,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(clipboard_router)
     app.include_router(browser_intel_router)
     app.include_router(ui_analyzer_router)
+    app.include_router(voice_router)
     return app
 
 

@@ -460,3 +460,19 @@ class ContactInteraction(Base):
     kind: Mapped[str] = mapped_column(String(32))  # conversation, meeting, project, follow_up, note
     detail_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class VoicePreferences(Base):
+    __tablename__ = "voice_preferences"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    voice: Mapped[str] = mapped_column(String(120), default="en-US-AriaNeural")
+    style: Mapped[str] = mapped_column(String(32), default="neutral")   # neutral, cheerful, serious, whisper, energetic
+    personality: Mapped[str] = mapped_column(String(32), default="default")  # default, professional, friendly, concise
+    rate: Mapped[str] = mapped_column(String(16), default="+0%")
+    pitch: Mapped[str] = mapped_column(String(16), default="+0Hz")
+    wake_word_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    wake_phrase: Mapped[str] = mapped_column(String(64), default="hey salar")
+    interruption_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
