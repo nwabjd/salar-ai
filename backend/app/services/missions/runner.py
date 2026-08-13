@@ -250,6 +250,8 @@ class MissionRunner:
                         except OSError:
                             pass
             logger = ActionLogger(db)
+            from ..guardian import GuardianAnalyzer
+            GuardianAnalyzer().flag_and_record(db, mission.user_id, tool, args, source="mission")
             action = logger.record(
                 user_id=mission.user_id, source="mission", tool=tool,
                 args=args, result={}, is_undoable=is_undoable,

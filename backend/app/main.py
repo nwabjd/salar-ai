@@ -35,6 +35,7 @@ from .api.intel import router as intel_router
 from .api.missions import router as missions_router
 from .api.permissions import router as permissions_router
 from .api.action_log import router as action_log_router
+from .api.guardian import router as guardian_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -234,6 +235,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(missions_router)
     app.include_router(permissions_router)
     app.include_router(action_log_router)
+    app.include_router(guardian_router)
     return app
 
 
