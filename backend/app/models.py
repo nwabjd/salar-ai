@@ -380,3 +380,19 @@ class MissionEvent(Base):
     kind: Mapped[str] = mapped_column(String(32))
     detail_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PermissionProfile(Base):
+    __tablename__ = "permission_profiles"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    levels_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    def levels_dict(self) -> dict:
+        import json
+        try:
+            return json.loads(self.levels_json)
+        except Exception:
+            return {}

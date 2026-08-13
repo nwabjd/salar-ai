@@ -33,6 +33,7 @@ from .api.live import router as live_router
 from .api.billing import router as billing_router
 from .api.intel import router as intel_router
 from .api.missions import router as missions_router
+from .api.permissions import router as permissions_router
 from .services.whatsapp import WhatsAppClient
 from .config import Settings
 from .database import Base, create_session_factory
@@ -230,6 +231,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(billing_router)
     app.include_router(intel_router)
     app.include_router(missions_router)
+    app.include_router(permissions_router)
     return app
 
 
