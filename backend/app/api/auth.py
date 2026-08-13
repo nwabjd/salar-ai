@@ -6,13 +6,25 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import AuditEvent, User
-from ..schemas import SupabaseExchangeRequest, TokenResponse, UserResponse
-from ..security import create_access_token, get_current_user, hash_password, verify_supabase_jwt
+from ..schemas import LoginRequest, SupabaseExchangeRequest, TokenResponse, UserResponse
+from ..security import create_access_token, get_current_user, hash_password, verify_password, verify_supabase_jwt
 
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 SOLE_ADMIN_EMAIL = "nwabjd@gmail.com"
+
+
+@router.post("/login", response_model=TokenResponse)
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(User.email == payload.email.strip().lower()))
+    if user is None or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    db.add(AuditEvent(user_id=user.id, action="auth.login", detail_json="{}"))
+    db.commit()
+    return TokenResponse(
+        access_token=create_access_token(user, request.app.state.settings.jwt_secret, request.app.state.settings.token_minutes)
+    )
 
 
 @router.post("/supabase", response_model=TokenResponse)
