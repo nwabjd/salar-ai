@@ -333,3 +333,50 @@ class IntelEmailSeen(Base):
     folder: Mapped[str] = mapped_column(String(80), default="INBOX")
     message_uid: Mapped[str] = mapped_column(String(120), index=True)
     seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Mission(Base):
+    __tablename__ = "missions"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    goal: Mapped[str] = mapped_column(Text, default="")
+    mode: Mapped[str] = mapped_column(String(16), default="autonomous")
+    status: Mapped[str] = mapped_column(String(24), default="queued", index=True)
+    plan_json: Mapped[str] = mapped_column(Text, default="[]")
+    result_summary: Mapped[str] = mapped_column(Text, default="")
+    error: Mapped[str] = mapped_column(Text, default="")
+    step_count: Mapped[int] = mapped_column(Integer, default=0)
+    completed_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    replan_count: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class MissionStep(Base):
+    __tablename__ = "mission_steps"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    mission_id: Mapped[str] = mapped_column(ForeignKey("missions.id", ondelete="CASCADE"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    tool: Mapped[str] = mapped_column(String(64))
+    args_json: Mapped[str] = mapped_column(Text, default="{}")
+    danger_level: Mapped[str] = mapped_column(String(16), default="safe")
+    status: Mapped[str] = mapped_column(String(24), default="pending")
+    output_json: Mapped[str] = mapped_column(Text, default="{}")
+    error: Mapped[str] = mapped_column(Text, default="")
+    approval_note: Mapped[str] = mapped_column(Text, default="")
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MissionEvent(Base):
+    __tablename__ = "mission_events"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    mission_id: Mapped[str] = mapped_column(ForeignKey("missions.id", ondelete="CASCADE"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(32))
+    detail_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
