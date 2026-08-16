@@ -1,575 +1,2144 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  BarChart2, 
-  Cpu, 
-  Activity, 
-  Shield, 
-  Workflow, 
-  Globe, 
-  Zap, 
-  Send, 
-  Mic, 
-  Compass, 
-  Clock, 
-  Bell, 
-  Users, 
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LayoutDashboard,
+  Brain,
+  Target,
+  Layers,
+  Database,
+  Users,
+  Monitor,
+  Zap,
+  Shield,
+  Settings,
+  Cpu,
   Search,
+  Bell,
+  Mic,
+  Send,
+  Activity,
+  Wifi,
+  Server,
+  Thermometer,
+  Clock,
+  Network,
+  RefreshCw,
+  ArrowUpRight,
   Sparkles,
-  Key,
-  FolderTree,
-  Dna
-} from 'lucide-react'
-import { SalarApi } from '../../api'
+  Terminal,
+  Radio
+} from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
+import { AmbientBackground } from './components/AmbientBackground';
+import { EnhancedQuantumCore } from './components/EnhancedQuantumCore';
+import { Waveform } from './components/Waveform';
+import { LiveMetric, TypingIndicator } from './components/LiveMetric';
+import { SalarApi } from '../../api';
+import './quantum-engine.css';
 
-interface QuantumEngineProps {
-  api: SalarApi
-  onExitNova?: () => void
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
-export default function QuantumEngine({ api, onExitNova }: QuantumEngineProps) {
-  const [activeTab, setActiveTab] = useState('DASHBOARD')
-  const [input, setInput] = useState('')
-  const [response, setResponse] = useState('How can I assist you today?')
-  const [isThinking, setIsThinking] = useState(false)
-  const [isListening, setIsListening] = useState(false)
-  const [telemetry, setTelemetry] = useState({
-    cpu: 32.5,
-    gpu: 44.2,
-    memory: 64.1,
-    temp: 41.2,
-    activeAgents: 5,
-    uptime: '12D 6H 24M'
-  })
+type NavItem = {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+};
 
-  // Real-time telemetry updates
+type CoreState = 'idle' | 'listening' | 'thinking' | 'planning' | 'acting' | 'verifying' | 'complete' | 'warning' | 'error';
+
+type Agent = {
+  id: string;
+  name: string;
+  role: string;
+  status: 'active' | 'idle' | 'busy';
+  avatar: string;
+};
+
+type SystemStatus = {
+  coreTemp: number;
+  quantumCores: { active: number; total: number };
+  memoryUsage: number;
+  cpuUsage: number;
+  gpuUsage: number;
+  uptime: string;
+};
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const NAV_ITEMS: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'intelligence', label: 'Intelligence', icon: Brain },
+  { id: 'missions', label: 'Missions', icon: Target },
+  { id: 'spaces', label: 'Spaces', icon: Layers },
+  { id: 'memory', label: 'Memory', icon: Database },
+  { id: 'agents', label: 'Agents', icon: Users },
+  { id: 'devices', label: 'Devices', icon: Monitor },
+  { id: 'automations', label: 'Automations', icon: Zap },
+  { id: 'security', label: 'Security', icon: Shield },
+  { id: 'system', label: 'System', icon: Settings },
+];
+
+const AGENTS: Agent[] = [
+  { id: '1', name: 'Optimizer', role: 'System Optimization', status: 'active', avatar: 'O' },
+  { id: '2', name: 'Researcher', role: 'Data Analysis', status: 'busy', avatar: 'R' },
+  { id: '3', name: 'Analyst', role: 'Pattern Recognition', status: 'active', avatar: 'A' },
+  { id: '4', name: 'Guardian', role: 'Security Monitor', status: 'active', avatar: 'G' },
+  { id: '5', name: 'Architect', role: 'System Design', status: 'idle', avatar: 'R' },
+  { id: '6', name: 'Synthesizer', role: 'Content Generation', status: 'busy', avatar: 'S' },
+];
+
+const COLORS = {
+  gold: '#C9A56E',
+  champagne: '#D9C09A',
+  paleGold: '#E7D6B7',
+  goldHighlight: '#F2E5CC',
+  green: '#2F6E59',
+  softGreen: '#78A891',
+  amber: '#C58A42',
+  coral: '#B95750',
+};
+
+// ============================================================================
+// STATUS DOT
+// ============================================================================
+
+const StatusDot: React.FC<{ status: 'green' | 'amber' | 'coral' | 'pulse-green'; size?: number }> = ({ status, size = 8 }) => (
+  <span className={`status-dot ${status}`} style={{ width: size, height: size }} />
+);
+
+// ============================================================================
+// ANIMATED WORLD MAP
+// ============================================================================
+
+const WorldMap: React.FC = () => {
+  const [activePoints, setActivePoints] = useState<{ x: number; y: number }[]>([]);
+  const [packets, setPackets] = useState<{ from: number; to: number; progress: number }[]>([]);
+
   useEffect(() => {
-    const fetchTelemetry = async () => {
-      try {
-        const stats = await api.monitorProcesses()
-        const totalCpu = stats.processes.reduce((sum, p) => sum + p.cpu_percent, 0)
-        const totalMem = stats.processes.reduce((sum, p) => sum + p.memory_percent, 0)
-        setTelemetry(prev => ({
-          ...prev,
-          cpu: Math.min(99, Math.max(12, Math.round(totalCpu))),
-          memory: Math.min(99, Math.max(15, Math.round(totalMem)))
-        }))
-      } catch (e) {
-        console.error('Telemetry fetch failed', e)
-      }
-    }
-    fetchTelemetry()
-    const timer = setInterval(fetchTelemetry, 10000)
-    return () => clearInterval(timer)
-  }, [api])
+    const generatePoints = () => {
+      const points = Array.from({ length: 18 }, () => ({
+        x: 10 + Math.random() * 80,
+        y: 15 + Math.random() * 70,
+      }));
+      setActivePoints(points);
+    };
+    generatePoints();
+    const interval = setInterval(generatePoints, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleSendCommand = async () => {
-    if (!input.trim()) return
-    setIsThinking(true)
-    setResponse('Processing your request across the quantum node...')
-    try {
-      const convs = await api.conversations()
-      const conv = convs[0] || await api.createConversation()
-      
-      let replyBuffer = ''
-      await api.chatStream(
-        conv.id,
-        input,
-        (token) => {
-          replyBuffer += token
-          setResponse(replyBuffer)
-        },
-        () => {
-          setIsThinking(false)
-        },
-        (err) => {
-          setIsThinking(false)
-          setResponse(`Quantum core exception: ${err.message}`)
-        }
-      )
-    } catch (err: any) {
-      setIsThinking(false)
-      setResponse(`Failed to establish quantum node communication: ${err.message}`)
-    }
-    setInput('')
-  }
+  useEffect(() => {
+    const generatePackets = () => {
+      if (activePoints.length < 2) return;
+      const newPacket = {
+        from: Math.floor(Math.random() * activePoints.length),
+        to: Math.floor(Math.random() * activePoints.length),
+        progress: 0,
+      };
+      setPackets(prev => [...prev.slice(-4), newPacket]);
+    };
+    const interval = setInterval(generatePackets, 1500);
+    return () => clearInterval(interval);
+  }, [activePoints]);
+
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setPackets(prev => prev
+        .map(p => ({ ...p, progress: p.progress + 0.04 }))
+        .filter(p => p.progress < 1)
+      );
+    }, 30);
+    return () => clearInterval(tick);
+  }, []);
 
   return (
-    <div className="quantum-app-shell" style={{
-      width: '100vw',
-      height: '100vh',
-      padding: '20px',
-      display: 'grid',
-      gridTemplateColumns: '235px minmax(0, 1fr)',
-      gap: '16px',
-      background: 'radial-gradient(circle at 50% -10%,rgba(255,255,255,.95),transparent 40%), radial-gradient(circle at 87% 68%,rgba(214,188,151,.11),transparent 28%), linear-gradient(135deg,#f4f0e9,#eee7de)',
-      color: 'var(--ink)',
-      fontFamily: 'Inter, Segoe UI, system-ui, sans-serif'
-    }}>
-      
-      {/* LEFT SIDEBAR */}
-      <aside className="quantum-sidebar" style={{
-        minHeight: 'calc(100vh - 40px)',
-        padding: '14px 12px 12px',
-        border: '1px solid rgba(255,255,255,.55)',
-        borderRadius: '20px',
-        background: 'linear-gradient(180deg,rgba(250,247,242,.82),rgba(241,235,226,.72))',
-        boxShadow: '0 10px 45px rgba(70,50,30,.05), inset 0 1px 0 rgba(255,255,255,.7)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between'
-      }}>
-        <div>
-          {/* Logo Area */}
-          <div className="brand" style={{ height: '94px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 9px 12px' }}>
-            <div className="brand-mark" style={{ width: '70px', height: '70px', position: 'relative', display: 'grid', placeItems: 'center', flex: 'none' }}>
-              <span className="orbit orbit-a" style={{ position: 'absolute', inset: '5px', border: '1px solid rgba(178,139,86,.55)', borderRadius: '50%' }}></span>
-              <span className="orbit orbit-b" style={{ position: 'absolute', inset: '10px', transform: 'rotate(55deg)', borderStyle: 'dashed', opacity: 0.65, borderRadius: '50%', border: '1px solid rgba(178,139,86,.55)' }}></span>
-              <div className="brand-core" style={{
-                width: '48px', height: '48px', borderRadius: '50%',
-                display: 'grid', placeItems: 'center',
-                color: '#5c421f', fontWeight: 900, fontSize: '34px',
-                background: 'radial-gradient(circle at 35% 30%,#fff9ed,#d3b17d 78%)',
-                border: '1px solid rgba(134,96,51,.30)',
-                boxShadow: '0 4px 18px rgba(154,108,57,.20), inset 0 0 0 5px rgba(255,255,255,.5)'
-              }}>S</div>
+    <div className="relative w-full h-full">
+      <svg className="w-full h-full" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <radialGradient id="mapGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.15" />
+            <stop offset="100%" stopColor={COLORS.gold} stopOpacity="0" />
+          </radialGradient>
+          <filter id="mapBlur">
+            <feGaussianBlur stdDeviation="2" />
+          </filter>
+        </defs>
+
+        {/* Background glow */}
+        <rect width="800" height="400" fill="url(#mapGlow)" />
+
+        {/* Grid */}
+        <g opacity="0.15">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <line
+              key={`v-${i}`}
+              x1={i * 40} y1={0} x2={i * 40} y2={400}
+              stroke={COLORS.gold}
+              strokeWidth="0.5"
+              strokeDasharray="2 4"
+            />
+          ))}
+          {Array.from({ length: 10 }).map((_, i) => (
+            <line
+              key={`h-${i}`}
+              x1={0} y1={i * 40} x2={800} y2={i * 40}
+              stroke={COLORS.gold}
+              strokeWidth="0.5"
+              strokeDasharray="2 4"
+            />
+          ))}
+        </g>
+
+        {/* Continent silhouettes (stylized) */}
+        <g opacity="0.25" fill={COLORS.gold}>
+          <path d="M120,80 Q150,60 200,70 T280,100 T340,90 T400,110 T460,100 T520,120 T580,110 T640,130 T700,120 L720,140 Q680,160 640,150 T580,170 T520,160 T460,180 T400,170 T340,190 T280,180 T220,200 T160,190 L140,170 Q130,130 120,80 Z" />
+          <path d="M150,220 Q200,200 260,210 T340,230 T420,220 T500,240 T580,230 T660,250 L680,270 Q640,290 580,280 T500,300 T420,290 T340,310 T260,300 T180,320 L160,300 Q140,260 150,220 Z" />
+        </g>
+
+        {/* Connections */}
+        {activePoints.map((point, i) =>
+          activePoints.slice(i + 1, i + 4).map((target, j) => (
+            <motion.line
+              key={`line-${i}-${j}`}
+              x1={point.x * 8}
+              y1={point.y * 4}
+              x2={target.x * 8}
+              y2={target.y * 4}
+              stroke={COLORS.gold}
+              strokeWidth="0.5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.3, 0] }}
+              transition={{ duration: 3, repeat: Infinity, delay: (i * 0.3 + j * 0.2) % 2 }}
+            />
+          ))
+        )}
+
+        {/* Traveling packets */}
+        {packets.map((packet, i) => {
+          if (activePoints.length < 2) return null;
+          const from = activePoints[packet.from % activePoints.length];
+          const to = activePoints[packet.to % activePoints.length];
+          const x = from.x * 8 + (to.x * 8 - from.x * 8) * packet.progress;
+          const y = from.y * 4 + (to.y * 4 - from.y * 4) * packet.progress;
+          return (
+            <motion.g key={`packet-${i}-${packet.progress}`}>
+              <circle cx={x} cy={y} r="4" fill={COLORS.goldHighlight} filter="url(#mapBlur)" />
+              <circle cx={x} cy={y} r="2" fill={COLORS.gold} />
+              <motion.circle
+                cx={x}
+                cy={y}
+                r="6"
+                fill="none"
+                stroke={COLORS.gold}
+                strokeWidth="1"
+                animate={{ opacity: [0.6, 0], r: [6, 10] }}
+                transition={{ duration: 0.8 }}
+              />
+            </motion.g>
+          );
+        })}
+
+        {/* Active points */}
+        {activePoints.map((point, i) => (
+          <motion.g key={i}>
+            <motion.circle
+              cx={point.x * 8}
+              cy={point.y * 4}
+              r="3"
+              fill={COLORS.gold}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: [1, 1.3, 1], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.15 }}
+            />
+            <motion.circle
+              cx={point.x * 8}
+              cy={point.y * 4}
+              r="8"
+              fill="none"
+              stroke={COLORS.gold}
+              strokeWidth="0.8"
+              animate={{ scale: [1, 1.8, 1], opacity: [0.4, 0, 0.4] }}
+              transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.15 }}
+            />
+          </motion.g>
+        ))}
+      </svg>
+
+      <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full glass-dark">
+        <motion.div
+          className="w-2 h-2 rounded-full bg-red-500"
+          animate={{ opacity: [1, 0.3, 1] }}
+          transition={{ duration: 1, repeat: Infinity }}
+        />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-white/80">LIVE FEED</span>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// AGENT NETWORK
+// ============================================================================
+
+const AgentNetwork: React.FC<{ agents: Agent[] }> = ({ agents }) => {
+  const centerX = 150;
+  const centerY = 150;
+  const radius = 80;
+
+  return (
+    <svg className="w-full h-full" viewBox="0 0 300 300">
+      <defs>
+        <radialGradient id="agentGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.4" />
+          <stop offset="100%" stopColor={COLORS.gold} stopOpacity="0" />
+        </radialGradient>
+        <filter id="agentBlur">
+          <feGaussianBlur stdDeviation="2" />
+        </filter>
+      </defs>
+
+      {/* Background glow */}
+      <circle cx={centerX} cy={centerY} r="120" fill="url(#agentGlow)" />
+
+      {/* Rotating orbital rings */}
+      <motion.circle
+        cx={centerX} cy={centerY} r={radius + 20}
+        fill="none"
+        stroke={COLORS.gold}
+        strokeWidth="0.5"
+        strokeDasharray="4 6"
+        opacity="0.3"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
+        style={{ transformOrigin: `${centerX}px ${centerY}px` }}
+      />
+      <motion.circle
+        cx={centerX} cy={centerY} r={radius}
+        fill="none"
+        stroke={COLORS.champagne}
+        strokeWidth="0.8"
+        strokeDasharray="2 8"
+        opacity="0.4"
+        animate={{ rotate: -360 }}
+        transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
+        style={{ transformOrigin: `${centerX}px ${centerY}px` }}
+      />
+
+      {/* Connection lines with flowing data */}
+      {agents.map((_, i) => {
+        const angle = (i * 60 - 90) * (Math.PI / 180);
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+        return (
+          <g key={`line-${i}`}>
+            <line
+              x1={centerX} y1={centerY}
+              x2={x} y2={y}
+              stroke={COLORS.gold}
+              strokeWidth="1"
+              opacity="0.2"
+            />
+            <motion.circle r="2" fill={COLORS.goldHighlight} filter="url(#agentBlur)">
+              <animateMotion
+                dur="2s"
+                repeatCount="indefinite"
+                path={`M${centerX},${centerY} L${x},${y}`}
+                begin={`${i * 0.3}s`}
+              />
+            </motion.circle>
+          </g>
+        );
+      })}
+
+      {/* Center hub */}
+      <motion.circle
+        cx={centerX} cy={centerY} r="28"
+        fill={COLORS.gold}
+        opacity="0.15"
+        animate={{ scale: [1, 1.1, 1] }}
+        transition={{ duration: 2, repeat: Infinity }}
+      />
+      <motion.circle
+        cx={centerX} cy={centerY} r="20"
+        fill="none"
+        stroke={COLORS.gold}
+        strokeWidth="2"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+        strokeDasharray="6 3"
+        style={{ transformOrigin: `${centerX}px ${centerY}px` }}
+      />
+      <text x={centerX} y={centerY + 5} textAnchor="middle" fill={COLORS.gold} fontSize="14" fontWeight="700">S</text>
+
+      {/* Agent nodes */}
+      {agents.map((agent, i) => {
+        const angle = (i * 60 - 90) * (Math.PI / 180);
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+        const isActive = agent.status === 'active' || agent.status === 'busy';
+        const nodeColor = isActive ? COLORS.gold : 'rgba(255,255,255,0.25)';
+
+        return (
+          <motion.g
+            key={agent.id}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: i * 0.1 }}
+          >
+            {isActive && (
+              <motion.circle
+                cx={x} cy={y} r="18"
+                fill={COLORS.gold}
+                opacity="0.15"
+                animate={{ scale: [1, 1.4, 1], opacity: [0.15, 0, 0.15] }}
+                transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+              />
+            )}
+            <motion.circle
+              cx={x} cy={y} r="13"
+              fill="rgba(20, 20, 20, 0.6)"
+              stroke={nodeColor}
+              strokeWidth="1.5"
+              animate={isActive ? { scale: [1, 1.05, 1] } : {}}
+              transition={{ duration: 2, repeat: Infinity, delay: i * 0.25 }}
+            />
+            <text x={x} y={y + 4} textAnchor="middle" fill={nodeColor} fontSize="10" fontWeight="700">
+              {agent.avatar}
+            </text>
+            <text x={x} y={y + 30} textAnchor="middle" fill="rgba(245, 242, 236, 0.7)" fontSize="8" fontWeight="500">
+              {agent.name}
+            </text>
+          </motion.g>
+        );
+      })}
+    </svg>
+  );
+};
+
+// ============================================================================
+// KNOWLEDGE GRAPH
+// ============================================================================
+
+const KnowledgeGraph: React.FC = () => {
+  const [nodes, setNodes] = useState<{ x: number; y: number; size: number }[]>([]);
+
+  useEffect(() => {
+    const generateNodes = () => {
+      const newNodes = Array.from({ length: 14 }, (_, i) => ({
+        x: 15 + ((i * 37) % 70),
+        y: 15 + ((i * 53) % 70),
+        size: 3 + ((i * 7) % 5),
+      }));
+      setNodes(newNodes);
+    };
+    generateNodes();
+    const interval = setInterval(generateNodes, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <filter id="nodeGlow">
+          <feGaussianBlur stdDeviation="0.4" />
+        </filter>
+      </defs>
+
+      {/* Connection lines */}
+      {nodes.map((node, i) =>
+        nodes.slice(i + 1, i + 4).map((target, j) => {
+          const dist = Math.sqrt((node.x - target.x) ** 2 + (node.y - target.y) ** 2);
+          if (dist > 35) return null;
+          return (
+            <motion.line
+              key={`${i}-${j}`}
+              x1={node.x} y1={node.y}
+              x2={target.x} y2={target.y}
+              stroke={COLORS.gold}
+              strokeWidth="0.2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.3, 0] }}
+              transition={{ duration: 3, repeat: Infinity, delay: (i * 0.2 + j * 0.3) % 2 }}
+            />
+          );
+        })
+      )}
+
+      {/* Nodes */}
+      {nodes.map((node, i) => (
+        <motion.g key={i}>
+          <motion.circle
+            cx={node.x} cy={node.y}
+            r={node.size / 2}
+            fill={COLORS.gold}
+            filter="url(#nodeGlow)"
+            animate={{
+              scale: [1, 1.15, 1],
+              opacity: [0.7, 1, 0.7],
+            }}
+            transition={{
+              duration: 3 + (i % 3),
+              repeat: Infinity,
+              delay: i * 0.15,
+              ease: 'easeInOut',
+            }}
+            style={{ transformOrigin: `${node.x}px ${node.y}px` }}
+          />
+          <motion.circle
+            cx={node.x} cy={node.y}
+            r={node.size}
+            fill="none"
+            stroke={COLORS.gold}
+            strokeWidth="0.15"
+            animate={{
+              scale: [1, 2, 1],
+              opacity: [0.3, 0, 0.3],
+            }}
+            transition={{
+              duration: 3 + (i % 3),
+              repeat: Infinity,
+              delay: i * 0.15,
+              ease: 'easeOut',
+            }}
+            style={{ transformOrigin: `${node.x}px ${node.y}px` }}
+          />
+        </motion.g>
+      ))}
+    </svg>
+  );
+};
+
+// ============================================================================
+// SECURITY SHIELD
+// ============================================================================
+
+const SecurityShield: React.FC = () => {
+  return (
+    <svg className="w-full h-full" viewBox="0 0 200 200">
+      <defs>
+        <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={COLORS.green} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={COLORS.green} stopOpacity="0.1" />
+        </linearGradient>
+        <filter id="shieldGlow">
+          <feGaussianBlur stdDeviation="3" />
+        </filter>
+      </defs>
+
+      {/* Outer defense rings */}
+      {[90, 75, 60].map((r, i) => (
+        <motion.circle
+          key={i}
+          cx="100" cy="100" r={r}
+          fill="none"
+          stroke={COLORS.green}
+          strokeWidth="0.8"
+          strokeDasharray={i === 0 ? '6 4' : i === 1 ? '10 6' : '3 5'}
+          opacity={0.3 - i * 0.05}
+          animate={{ rotate: i % 2 === 0 ? 360 : -360 }}
+          transition={{ duration: 15 + i * 5, repeat: Infinity, ease: 'linear' }}
+          style={{ transformOrigin: '100px 100px' }}
+        />
+      ))}
+
+      {/* Radar sweep */}
+      <motion.line
+        x1="100" y1="100"
+        x2="100" y2="30"
+        stroke={COLORS.green}
+        strokeWidth="1.5"
+        opacity="0.5"
+        filter="url(#shieldGlow)"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+        style={{ transformOrigin: '100px 100px' }}
+      />
+
+      {/* Shield body */}
+      <motion.path
+        d="M100 30 L140 50 L140 100 Q140 150 100 175 Q60 150 60 100 L60 50 Z"
+        fill="url(#shieldGradient)"
+        stroke={COLORS.green}
+        strokeWidth="2"
+        animate={{ scale: [1, 1.02, 1] }}
+        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ transformOrigin: '100px 100px' }}
+      />
+
+      {/* Inner check/star */}
+      <motion.path
+        d="M100 70 L105 85 L120 85 L108 95 L112 110 L100 100 L88 110 L92 95 L80 85 L95 85 Z"
+        fill={COLORS.softGreen}
+        filter="url(#shieldGlow)"
+        animate={{ opacity: [0.6, 1, 0.6] }}
+        transition={{ duration: 2, repeat: Infinity }}
+      />
+
+      {/* Threat particles being blocked */}
+      {Array.from({ length: 6 }).map((_, i) => {
+        const angle = (i * 60) * (Math.PI / 180);
+        const startX = 100 + 120 * Math.cos(angle);
+        const startY = 100 + 120 * Math.sin(angle);
+        return (
+          <motion.circle
+            key={i}
+            r="2"
+            fill={COLORS.coral}
+            initial={{ x: startX, y: startY, opacity: 1 }}
+            animate={{
+              x: [startX, 100 + 50 * Math.cos(angle), startX],
+              y: [startY, 100 + 50 * Math.sin(angle), startY],
+              opacity: [0.8, 0, 0.8],
+            }}
+            transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }}
+          />
+        );
+      })}
+    </svg>
+  );
+};
+
+// ============================================================================
+// PANEL WRAPPER (for entrance animation)
+// ============================================================================
+
+const AnimatedPanel: React.FC<{
+  children: React.ReactNode;
+  delay?: number;
+  dark?: boolean;
+  elevated?: boolean;
+  className?: string;
+}> = ({ children, delay = 0, dark = false, elevated = true, className = '' }) => (
+  <motion.div
+    className={`${elevated ? (dark ? 'dark-card-elevated' : 'light-card-elevated') : (dark ? 'dark-card' : 'light-card')} ${className}`}
+    initial={{ opacity: 0, y: 16, scale: 0.98 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ duration: 0.6, delay, ease: [0.2, 0.8, 0.2, 1] }}
+    whileHover={{ y: -3, transition: { duration: 0.3 } }}
+  >
+    {children}
+  </motion.div>
+);
+
+// ============================================================================
+// MAIN APP
+// ============================================================================
+
+interface QuantumEngineProps {
+  api: SalarApi;
+  onExitNova?: () => void;
+}
+
+const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
+  const [activeNav, setActiveNav] = useState('dashboard');
+  const [coreState, setCoreState] = useState<CoreState>('idle');
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [commandInput, setCommandInput] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [responseText, setResponseText] = useState('');
+  const [showResponse, setShowResponse] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
+    coreTemp: 41.2,
+    quantumCores: { active: 32, total: 64 },
+    memoryUsage: 67.4,
+    cpuUsage: 38.6,
+    gpuUsage: 44.8,
+    uptime: '—',
+  });
+  const [liveRequests, setLiveRequests] = useState(12.48);
+  const [latency, setLatency] = useState(23);
+  const [liveAgents, setLiveAgents] = useState<Agent[]>(AGENTS);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
+  const [diskPct, setDiskPct] = useState(52);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [knowledgeStats, setKnowledgeStats] = useState({ topics: 0, docs: 0, chunks: 0 });
+  const conversationRef = useRef<{ id: string } | null>(null);
+  const micRef = useRef<MediaRecorder | null>(null);
+  const micChunksRef = useRef<Blob[]>([]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const states: CoreState[] = ['idle', 'listening', 'thinking', 'planning', 'acting', 'verifying', 'complete'];
+    let index = 0;
+    const interval = setInterval(() => {
+      if (!showResponse) setCoreState(states[index % states.length]);
+      index++;
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [showResponse]);
+
+  // Real-time backend telemetry
+  useEffect(() => {
+    const loadSystem = async () => {
+      try {
+        const [perf, snapshot, agents, unread, alerts, predictive, topics] = await Promise.allSettled([
+          api.systemPerf(),
+          api.monitorSnapshot(),
+          api.swarmAgents(),
+          api.notificationUnreadCount(),
+          api.alertTriggered(10, true),
+          api.predictiveNow(),
+          api.knowledgeTopics(),
+        ]);
+        if (perf.status === 'fulfilled') {
+          const p = perf.value;
+          if (p?.cpu && p?.memory) {
+            const activeCores = p.cpu.cores ?? 32;
+            setSystemStatus(prev => ({
+              ...prev,
+              cpuUsage: p.cpu.percent ?? prev.cpuUsage,
+              memoryUsage: p.memory.percent ?? prev.memoryUsage,
+              quantumCores: { active: Math.min(activeCores, 64), total: 64 },
+              uptime: formatUptime(p.uptime_seconds),
+            }));
+            if (p.disk?.percent) setDiskPct(Math.round(p.disk.percent));
+          }
+        }
+        if (snapshot.status === 'fulfilled' && snapshot.value) {
+          const s = snapshot.value;
+          setSystemStatus(prev => ({
+            ...prev,
+            cpuUsage: s.cpu?.percent ?? prev.cpuUsage,
+            memoryUsage: s.memory?.percent ?? prev.memoryUsage,
+            uptime: s.os?.uptime_seconds ? formatUptime(s.os.uptime_seconds) : prev.uptime,
+          }));
+        }
+        if (agents.status === 'fulfilled' && agents.value?.agents?.length) {
+          setLiveAgents(agents.value.agents.slice(0, 6).map((a: any, i: number) => ({
+            id: a.name,
+            name: a.name,
+            role: a.description || a.purpose || 'AI Agent',
+            status: (i % 3 === 1 ? 'busy' : i % 4 === 3 ? 'idle' : 'active') as Agent['status'],
+            avatar: (a.name || 'A')[0],
+          })));
+        }
+        if (unread.status === 'fulfilled' && unread.value?.unread_count) setUnreadCount(unread.value.unread_count);
+        if (alerts.status === 'fulfilled' && alerts.value?.alerts?.length) setAlertCount(alerts.value.alerts.length);
+        if (predictive.status === 'fulfilled' && predictive.value?.suggestions?.length) {
+          setPredictions(predictive.value.suggestions.slice(0, 4));
+        }
+        if (topics.status === 'fulfilled' && topics.value?.clusters) {
+          setKnowledgeStats(prev => ({ ...prev, topics: topics.value.clusters.length ?? 0 }));
+        }
+      } catch {
+        /* keep defaults */
+      }
+    };
+    loadSystem();
+    const timer = setInterval(loadSystem, 10000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveRequests(prev => Math.max(5, prev + (Math.random() - 0.3) * 0.05));
+      setLatency(prev => Math.max(15, Math.min(35, prev + (Math.random() - 0.5) * 3)));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleSendCommand = useCallback(async () => {
+    if (!commandInput.trim()) return;
+    const input = commandInput.trim();
+    setShowResponse(true);
+    setResponseText('Analyzing your request…');
+    setCoreState('thinking');
+    setCommandInput('');
+    try {
+      if (!conversationRef.current) {
+        const convs = await api.conversations();
+        conversationRef.current = convs[0] || (await api.createConversation());
+      }
+      let buf = '';
+      setCoreState('acting');
+      await api.chatStream(
+        conversationRef.current.id,
+        input,
+        (token) => {
+          buf += token;
+          setResponseText(buf);
+        },
+        () => {
+          setCoreState('complete');
+          setTimeout(() => {
+            setCoreState('idle');
+            setShowResponse(false);
+          }, 4000);
+        },
+        (err) => {
+          setResponseText(`Command failed: ${err.message}`);
+          setCoreState('error');
+          setTimeout(() => {
+            setCoreState('idle');
+            setShowResponse(false);
+          }, 4000);
+        },
+      );
+    } catch (e: any) {
+      setResponseText(`Command failed: ${e?.message || 'network error'}`);
+      setCoreState('error');
+      setTimeout(() => {
+        setCoreState('idle');
+        setShowResponse(false);
+      }, 4000);
+    }
+  }, [commandInput, api]);
+
+  const handleQuickAction = useCallback(async (action: string) => {
+    setShowResponse(true);
+    setCoreState('thinking');
+    setResponseText('Executing…');
+    try {
+      let message = '';
+      switch (action) {
+        case 'New Analysis':
+          await api.coreRun('Analyze current system state and knowledge', 'analysis');
+          message = 'Analysis task dispatched to the agent core.';
+          break;
+        case 'Deep Research': {
+          const docs = await api.knowledgeDocs();
+          message = `Research ready. ${docs.length} documents indexed across the knowledge base.`;
+          break;
+        }
+        case 'Optimize System': {
+          const procs = await api.monitorProcesses();
+          const top = procs.processes.slice(0, 3).map(p => p.name).join(', ') || 'none';
+          message = `Optimization survey complete. Top consumers: ${top}.`;
+          break;
+        }
+        case 'Generate Report': {
+          const [stats, missions] = await Promise.allSettled([api.taskStats(), api.missions()]);
+          const s = stats.status === 'fulfilled' ? stats.value : {};
+          const m = missions.status === 'fulfilled' ? missions.value : [];
+          message = `Report compiled: ${s.total ?? 0} tasks, ${s.active ?? 0} active, ${m.length} missions.`;
+          break;
+        }
+        case 'Security Scan': {
+          const scan = await api.privacyScan();
+          message = `Security scan complete. ${scan?.findings?.length ?? scan?.total ?? 0} findings reviewed.`;
+          break;
+        }
+        case 'Clear Memory': {
+          const mem = await api.memories();
+          message = `Memory audit done. ${mem.length} long-term memories retained.`;
+          break;
+        }
+        default:
+          message = 'Action complete.';
+      }
+      setResponseText(message);
+      setCoreState('complete');
+    } catch (e: any) {
+      setResponseText(`Action failed: ${e?.message || 'network error'}`);
+      setCoreState('error');
+    }
+    setTimeout(() => {
+      setCoreState('idle');
+      setShowResponse(false);
+    }, 4000);
+  }, [api]);
+
+  const toggleMic = useCallback(() => {
+    if (isListening) {
+      micRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setShowResponse(true);
+      setResponseText('Microphone access is not supported in this browser.');
+      return;
+    }
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then(async (stream) => {
+        const recorder = new MediaRecorder(stream);
+        micChunksRef.current = [];
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) micChunksRef.current.push(e.data); };
+        recorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(micChunksRef.current, { type: 'audio/webm' });
+          if (blob.size === 0) return;
+          try {
+            const text = await api.stt(blob);
+            if (text?.trim()) {
+              setCommandInput(text.trim());
+              setShowResponse(true);
+              setResponseText(`Heard: "${text.trim()}"`);
+            }
+          } catch (e: any) {
+            setShowResponse(true);
+            setResponseText(`Voice capture failed: ${e?.message || 'STT error'}`);
+          }
+        };
+        recorder.start();
+        micRef.current = recorder;
+        setIsListening(true);
+      })
+      .catch(() => {
+        setShowResponse(true);
+        setResponseText('Microphone access was denied.');
+      });
+  }, [isListening, api]);
+
+  const runSearch = useCallback(async () => {
+    if (!searchQuery.trim()) return;
+    try {
+      const results = await api.searchKnowledge(searchQuery, 5);
+      const items = results?.results ?? results ?? [];
+      const text = Array.isArray(items)
+        ? items.map((r: any) => `• ${r.title || r.filename || 'Result'}`).join('\n')
+        : 'No results found.';
+      setResponseText(`Search: ${searchQuery}\n${text}`);
+      setShowResponse(true);
+    } catch (e: any) {
+      setResponseText(`Search failed: ${e?.message || 'network error'}`);
+      setShowResponse(true);
+    }
+  }, [searchQuery, api]);
+
+  const formatUptime = (secs: number) => {
+    if (!secs) return '—';
+    const d = Math.floor(secs / 86400);
+    const h = Math.floor((secs % 86400) / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    return `${d}D ${h}H ${m}M`;
+  };
+
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+  const formatDate = (date: Date) =>
+    date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+  const predictionData = predictions.length > 0
+    ? predictions.map((p: any, i: number) => ({
+        name: p.title || p.name || `Prediction ${i + 1}`,
+        value: typeof p.confidence === 'number' ? p.confidence : Math.max(80, 96 - i * 2),
+      }))
+    : [
+        { name: 'NLP Understanding', value: 94.1 },
+        { name: 'Reasoning', value: 93.6 },
+        { name: 'Forecasting', value: 93.2 },
+        { name: 'Anomaly Detection', value: 91.8 },
+        { name: 'General Knowledge', value: 95.9 },
+      ];
+
+  const resourceData = [
+    { name: 'CPU', value: Math.round(systemStatus.cpuUsage), fill: COLORS.gold },
+    { name: 'GPU', value: Math.round(systemStatus.gpuUsage), fill: COLORS.champagne },
+    { name: 'Memory', value: Math.round(systemStatus.memoryUsage), fill: COLORS.paleGold },
+    { name: 'Disk', value: diskPct, fill: COLORS.softGreen },
+  ];
+
+  const activityData = Array.from({ length: 24 }, (_, i) => ({
+    time: `${i}:00`,
+    requests: Math.floor(800 + Math.random() * 400 + Math.sin(i / 3) * 200),
+    latency: Math.floor(15 + Math.random() * 15),
+  }));
+
+  const topPredictions = predictions.length > 0
+    ? predictions.map((p: any) => ({
+        label: p.title || p.name || 'Prediction',
+        value: typeof p.confidence === 'number' ? Math.round(p.confidence) : 90,
+      }))
+    : [
+        { label: 'Market Trend (Q3)', value: 94 },
+        { label: 'User Growth', value: 92 },
+        { label: 'System Load', value: 90 },
+        { label: 'Security Risk', value: 87 },
+      ];
+
+  const riskLevel = alertCount === 0 ? 'LOW' : alertCount < 4 ? 'MEDIUM' : 'HIGH';
+  const riskColor = alertCount === 0 ? COLORS.green : alertCount < 4 ? COLORS.amber : COLORS.coral;
+
+  return (
+    <div className="h-screen w-screen overflow-hidden flex relative" style={{ background: 'var(--quantum-ivory)' }}>
+      {/* Ambient animated background */}
+      <AmbientBackground />
+
+      {/* ==========================================================================
+          LEFT SIDEBAR
+      ========================================================================== */}
+      <motion.aside
+        className="w-[250px] flex flex-col border-r relative z-10"
+        style={{
+          background: 'rgba(245, 240, 233, 0.75)',
+          backdropFilter: 'blur(24px)',
+          borderColor: 'rgba(60, 50, 40, 0.07)',
+        }}
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+      >
+        {/* Logo */}
+        <div className="p-5 pb-4">
+          <div className="flex items-center gap-3 mb-1">
+            <motion.div
+              className="relative w-12 h-12"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
+            >
+              <svg viewBox="0 0 48 48" className="w-full h-full">
+                <circle cx="24" cy="24" r="22" fill="none" stroke={COLORS.gold} strokeWidth="1.5" opacity="0.3" />
+                <motion.circle
+                  cx="24" cy="24" r="18"
+                  fill="none" stroke={COLORS.gold} strokeWidth="1" strokeDasharray="4 2"
+                  animate={{ rotate: -360 }}
+                  transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
+                  style={{ transformOrigin: '24px 24px' }}
+                />
+                <circle cx="24" cy="24" r="12" fill={COLORS.gold} opacity="0.9" />
+                <motion.circle
+                  cx="24" cy="24" r="12"
+                  fill={COLORS.goldHighlight} opacity="0.5"
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  style={{ transformOrigin: '24px 24px' }}
+                />
+                <text x="24" y="28" textAnchor="middle" fill="#141414" fontSize="14" fontWeight="700">S</text>
+              </svg>
+            </motion.div>
+            <div>
+              <h1 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>SALAAR</h1>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                Quantum Engine
+              </p>
             </div>
-            <div className="brand-copy">
-              <div className="brand-name" style={{ fontSize: '28px', lineHeight: 1, fontWeight: 800, letterSpacing: '.02em' }}>SALAAR</div>
-              <div className="brand-sub" style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '.08em', marginTop: '7px', whiteSpace: 'nowrap' }}>QUANTUM INTELLIGENCE</div>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <motion.span
+              className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider"
+              style={{
+                background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.champagne})`,
+                color: '#141414',
+              }}
+              animate={{ boxShadow: ['0 0 0 rgba(201,165,110,0)', '0 0 12px rgba(201,165,110,0.5)', '0 0 0 rgba(201,165,110,0)'] }}
+              transition={{ duration: 2.5, repeat: Infinity }}
+            >
+              ENGINE MODE
+            </motion.span>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {NAV_ITEMS.map((item, idx) => {
+            const Icon = item.icon;
+            const isActive = activeNav === item.id;
+            return (
+              <motion.button
+                key={item.id}
+                onClick={() => setActiveNav(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? 'nav-active'
+                    : 'hover:bg-white/50'
+                }`}
+                style={{
+                  color: isActive ? '#141414' : 'var(--text-secondary)',
+                }}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 + idx * 0.04 }}
+                whileHover={{ x: isActive ? 0 : 4 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? 'text-black' : ''}`} />
+                <span>{item.label}</span>
+                {isActive && (
+                  <motion.div
+                    className="ml-auto"
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  >
+                    <ArrowUpRight className="w-3 h-3" />
+                  </motion.div>
+                )}
+              </motion.button>
+            );
+          })}
+        </nav>
+
+        {/* System Status */}
+        <div className="p-4 border-t" style={{ borderColor: 'rgba(60, 50, 40, 0.07)' }}>
+          <div className="mb-3">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+              System Status
+            </h3>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>OPTIMAL</span>
+              <StatusDot status="pulse-green" />
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="nav" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '5px' }}>
-            {[
-              { id: 'DASHBOARD', label: 'DASHBOARD', icon: '▦' },
-              { id: 'INTELLIGENCE', label: 'INTELLIGENCE', icon: '◉' },
-              { id: 'NEURAL', label: 'NEURAL NETWORK', icon: '⌬' },
-              { id: 'AUTOMATION', label: 'AUTOMATION', icon: '⚙' },
-              { id: 'SECURITY', label: 'SECURITY', icon: '◇' }
-            ].map(item => (
-              <button 
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                style={{
-                  height: '46px', padding: '0 16px', borderRadius: '13px',
-                  display: 'flex', alignItems: 'center', gap: '14px',
-                  border: 'none', width: '100%', textAlign: 'left',
-                  textDecoration: 'none', color: activeTab === item.id ? '#fff' : '#282725', 
-                  fontWeight: 650, fontSize: '12px',
-                  background: activeTab === item.id ? 'linear-gradient(135deg,#8c6e49,#c5a473 65%,#b9925e)' : 'transparent',
-                  boxShadow: activeTab === item.id ? '0 8px 18px rgba(137,100,58,.19),inset 0 1px 0 rgba(255,255,255,.25)' : 'none',
-                  cursor: 'pointer',
-                  transition: '.18s ease'
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <Thermometer className="w-3 h-3" />
+                Core Temp
+              </span>
+              <motion.span
+                key={systemStatus.coreTemp.toFixed(1)}
+                className="font-semibold tabular-nums"
+                style={{ color: 'var(--text-main)' }}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                {systemStatus.coreTemp.toFixed(1)}°C
+              </motion.span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <Cpu className="w-3 h-3" />
+                Quantum Cores
+              </span>
+              <span className="font-semibold" style={{ color: 'var(--text-main)' }}>
+                {systemStatus.quantumCores.active}/{systemStatus.quantumCores.total}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <Database className="w-3 h-3" />
+                Memory
+              </span>
+              <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main)' }}>
+                {systemStatus.memoryUsage.toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <Activity className="w-3 h-3" />
+                CPU / GPU
+              </span>
+              <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main)' }}>
+                {systemStatus.cpuUsage.toFixed(0)}% / {systemStatus.gpuUsage.toFixed(0)}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <Clock className="w-3 h-3" />
+                Uptime
+              </span>
+              <span className="font-semibold" style={{ color: 'var(--text-main)' }}>{systemStatus.uptime}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Quantum Link */}
+        <div className="p-4 border-t" style={{ borderColor: 'rgba(60, 50, 40, 0.07)' }}>
+          <div className="flex items-center gap-3 p-3 rounded-xl relative overflow-hidden"
+            style={{ background: 'rgba(201, 165, 110, 0.08)' }}>
+            <motion.div
+              className="absolute inset-0 opacity-30"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${COLORS.gold}, transparent)`,
+                backgroundSize: '200% 100%',
+              }}
+              animate={{ backgroundPosition: ['200% 0', '-200% 0'] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            />
+            <div className="relative">
+              <Wifi className="w-5 h-5" style={{ color: COLORS.green }} />
+              <motion.span
+                className="absolute -top-1 -right-1 w-2 h-2 rounded-full block"
+                style={{ background: COLORS.green }}
+                animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity }}
+              />
+            </div>
+            <div className="relative z-10">
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
+                Quantum Link
+              </h3>
+              <p className="text-[10px] font-medium" style={{ color: COLORS.green }}>Stable Connection</p>
+            </div>
+          </div>
+        </div>
+      </motion.aside>
+
+      {/* ==========================================================================
+          MAIN CONTENT AREA
+      ========================================================================== */}
+      <main className="flex-1 flex flex-col overflow-hidden relative z-10">
+        {/* Top Bar */}
+        <motion.header
+          className="h-16 flex items-center justify-between px-6 border-b relative"
+          style={{
+            background: 'rgba(250, 248, 244, 0.85)',
+            backdropFilter: 'blur(24px)',
+            borderColor: 'rgba(110, 96, 80, 0.08)',
+          }}
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
+              <Sparkles className="w-4 h-4" style={{ color: COLORS.gold }} />
+              SALAAR
+              <span className="font-normal gradient-text-animated" style={{ color: 'var(--text-main)' }}>— QUANTUM ENGINE</span>
+            </h2>
+            <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'var(--text-muted)' }}>
+              AI Command & Control Center
+            </p>
+          </div>
+
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  AI MODE
+                </span>
+                <motion.span
+                  className="text-xs font-bold flex items-center gap-1.5"
+                  style={{ color: COLORS.gold }}
+                  animate={{ opacity: [0.8, 1, 0.8] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: COLORS.gold }} />
+                  QUANTUM MODE
+                </motion.span>
+              </div>
+              <div className="w-px h-8" style={{ background: 'rgba(110, 96, 80, 0.15)' }} />
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  QUANTUM STATE
+                </span>
+                <span className="text-xs font-bold flex items-center gap-1.5" style={{ color: COLORS.green }}>
+                  <StatusDot status="pulse-green" size={6} />
+                  STABLE
+                </span>
+              </div>
+              <div className="w-px h-8" style={{ background: 'rgba(110, 96, 80, 0.15)' }} />
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  SYSTEM UPTIME
+                </span>
+                <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-main)' }}>
+                  {systemStatus.uptime}
+                </span>
+              </div>
+            </div>
+
+            <div className="w-px h-8" style={{ background: 'rgba(110, 96, 80, 0.15)' }} />
+
+            <div className="text-right">
+              <motion.p
+                key={currentTime.toISOString()}
+                className="text-sm font-bold tabular-nums"
+                style={{ color: 'var(--text-main)' }}
+                initial={{ opacity: 0.7, y: 2 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                {formatTime(currentTime)}
+              </motion.p>
+              <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>{formatDate(currentTime)}</p>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+              <motion.input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') runSearch(); }}
+                placeholder="Search command or ask SALAAR..."
+                className="input-quantum pl-10 pr-4 py-2 w-72 text-sm"
+                style={{ background: 'rgba(255, 255, 255, 0.6)' }}
+                whileFocus={{ width: 320 }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <motion.button
+                className="p-2 rounded-xl relative"
+                style={{ background: 'rgba(201, 165, 110, 0.1)' }}
+                whileHover={{ scale: 1.05, background: 'rgba(201, 165, 110, 0.2)' }}
+                whileTap={{ scale: 0.95 }}
+                onClick={async () => {
+                  try {
+                    const perf = await api.systemPerf();
+                    setResponseText(
+                      `System: CPU ${perf.cpu?.percent ?? '—'}% · Mem ${perf.memory?.percent ?? '—'}% · Disk ${perf.disk?.percent ?? '—'}% · Uptime ${formatUptime(perf.uptime_seconds ?? 0)}`,
+                    );
+                  } catch (e: any) {
+                    setResponseText(`Could not reach system telemetry: ${e?.message || 'network error'}`);
+                  }
+                  setShowResponse(true);
+                  setTimeout(() => setShowResponse(false), 5000);
                 }}
               >
-                <span className="nav-icon" style={{ fontSize: '20px', width: '21px', textAlign: 'center' }}>{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </nav>
+                <Activity className="w-4 h-4" style={{ color: COLORS.gold }} />
+              </motion.button>
+              <motion.button
+                className="p-2 rounded-xl relative"
+                style={{ background: 'rgba(201, 165, 110, 0.1)' }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={async () => {
+                  try {
+                    const unread = await api.notificationUnreadCount();
+                    setResponseText(
+                      unread.unread_count > 0 ? `You have ${unread.unread_count} unread notification${unread.unread_count === 1 ? '' : 's'}.` : 'You are all caught up.',
+                    );
+                    setUnreadCount(0);
+                  } catch (e: any) {
+                    setResponseText(`Could not fetch notifications: ${e?.message || 'network error'}`);
+                  }
+                  setShowResponse(true);
+                  setTimeout(() => setShowResponse(false), 5000);
+                }}
+              >
+                <Bell className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                {unreadCount > 0 && (
+                  <motion.span
+                    className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full"
+                    style={{ background: COLORS.coral }}
+                    animate={{ scale: [1, 1.5, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                )}
+              </motion.button>
+              <motion.button
+                className="w-9 h-9 rounded-full flex items-center justify-center relative overflow-hidden"
+                style={{ background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.champagne})` }}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onExitNova?.()}
+                title="Exit Nova"
+              >
+                <motion.div
+                  className="absolute inset-0"
+                  style={{ background: 'linear-gradient(135deg, transparent, rgba(255,255,255,0.4), transparent)' }}
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                />
+                <span className="text-sm font-bold relative z-10" style={{ color: '#141414' }}>A</span>
+              </motion.button>
+            </div>
+          </div>
+        </motion.header>
+
+        {/* Dashboard Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid grid-cols-12 gap-5">
+            {/* ========================================================================
+                GLOBAL ACTIVITY PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.05} dark className="col-span-4 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>GLOBAL ACTIVITY</h3>
+                  <p className="text-xs" style={{ color: 'var(--dark-secondary-text)' }}>Real-time Feed</p>
+                </div>
+              </div>
+
+              <div className="h-44 mb-4">
+                <WorldMap />
+              </div>
+
+              <div className="grid grid-cols-4 gap-3">
+                <LiveMetric
+                  dark
+                  label="Requests"
+                  value={liveRequests}
+                  prefix=""
+                  suffix=" M"
+                  decimals={2}
+                  format={(v) => v.toFixed(2)}
+                  trend={12.5}
+                  icon={Activity}
+                />
+                <LiveMetric
+                  dark
+                  label="Data In"
+                  value={2.14}
+                  suffix=" TB"
+                  decimals={2}
+                  trend={8.2}
+                  icon={ArrowUpRight}
+                />
+                <LiveMetric
+                  dark
+                  label="Data Out"
+                  value={1.67}
+                  suffix=" TB"
+                  decimals={2}
+                  trend={5.4}
+                  icon={ArrowUpRight}
+                />
+                <LiveMetric
+                  dark
+                  label="Latency"
+                  value={latency}
+                  suffix=" ms"
+                  decimals={0}
+                  format={(v) => Math.round(v).toString()}
+                  trend={-15.3}
+                  icon={Clock}
+                />
+              </div>
+            </AnimatedPanel>
+
+            {/* ========================================================================
+                QUANTUM CORE PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.1} dark className="col-span-4 p-5 relative overflow-hidden">
+              {/* Background glow */}
+              <motion.div
+                className="absolute inset-0"
+                style={{
+                  background: `radial-gradient(circle at 50% 50%, ${COLORS.gold}20 0%, transparent 70%)`,
+                }}
+                animate={{
+                  opacity: [0.4, 0.7, 0.4],
+                }}
+                transition={{ duration: 3, repeat: Infinity }}
+              />
+
+              <div className="flex items-center justify-between mb-3 relative z-10">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>SALAAR QUANTUM CORE</h3>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                    Quantum Compute Engine
+                  </p>
+                </div>
+                <motion.div
+                  className="flex items-center gap-2 px-3 py-1 rounded-full"
+                  style={{ background: `${COLORS.green}20` }}
+                  animate={{ boxShadow: ['0 0 0 rgba(47,110,89,0)', '0 0 16px rgba(47,110,89,0.4)', '0 0 0 rgba(47,110,89,0)'] }}
+                  transition={{ duration: 2.5, repeat: Infinity }}
+                >
+                  <StatusDot status="pulse-green" size={6} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: COLORS.green }}>ACTIVE</span>
+                </motion.div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3 relative z-10">
+                {[
+                  { label: 'Thinking Depth', value: '8.6', suffix: '/10', accent: COLORS.gold },
+                  { label: 'Context Window', value: '128', suffix: 'K', accent: COLORS.champagne },
+                  { label: 'Learning Rate', value: '0.091', suffix: '', accent: COLORS.paleGold },
+                  { label: 'Model Efficiency', value: '94.7', suffix: '%', accent: COLORS.softGreen },
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    className="p-3 rounded-xl relative overflow-hidden"
+                    style={{ background: 'rgba(255, 255, 255, 0.05)' }}
+                    whileHover={{ background: 'rgba(255, 255, 255, 0.08)' }}
+                  >
+                    <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--dark-secondary-text)' }}>
+                      {item.label}
+                    </p>
+                    <p className="text-lg font-bold flex items-baseline gap-1" style={{ color: 'var(--dark-primary-text)' }}>
+                      {item.value}
+                      <span className="text-xs font-medium" style={{ color: item.accent }}>{item.suffix}</span>
+                    </p>
+                    <motion.div
+                      className="absolute bottom-0 left-0 h-[1.5px]"
+                      style={{ background: item.accent }}
+                      initial={{ width: 0 }}
+                      animate={{ width: '100%' }}
+                      transition={{ duration: 1.5, delay: 0.5 + i * 0.1 }}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="h-56 relative z-10">
+                <EnhancedQuantumCore state={coreState} />
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 mt-3 relative z-10">
+                {[
+                  { label: 'Processing', value: '2.48 PFLOPS' },
+                  { label: 'Response', value: '18 ms' },
+                  { label: 'Active Agents', value: '16' },
+                  { label: 'Tasks Queued', value: '7' },
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    className="text-center p-2.5 rounded-xl relative overflow-hidden"
+                    style={{ background: 'rgba(255, 255, 255, 0.04)' }}
+                    whileHover={{ background: 'rgba(255, 255, 255, 0.07)' }}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 + i * 0.08 }}
+                  >
+                    <p className="text-[8px] uppercase tracking-wider mb-1" style={{ color: 'var(--dark-secondary-text)' }}>
+                      {item.label}
+                    </p>
+                    <p className="text-xs font-bold" style={{ color: 'var(--dark-primary-text)' }}>{item.value}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </AnimatedPanel>
+
+            {/* ========================================================================
+                PREDICTION ACCURACY PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.15} className="col-span-4 p-5">
+              <div className="mb-4">
+                <h3 className="text-sm font-bold" style={{ color: 'var(--text-main)' }}>PREDICTION ACCURACY</h3>
+                <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  Model Performance
+                </p>
+              </div>
+
+              <div className="flex items-center gap-6 mb-5">
+                <div className="relative w-32 h-32">
+                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(201, 165, 110, 0.15)" strokeWidth="8" />
+                    <motion.circle
+                      cx="50" cy="50" r="42"
+                      fill="none"
+                      stroke={COLORS.gold}
+                      strokeWidth="8"
+                      strokeDasharray="264"
+                      initial={{ strokeDashoffset: 264 }}
+                      animate={{ strokeDashoffset: 264 - (264 * 93.8) / 100 }}
+                      transition={{ duration: 2, ease: 'easeOut', delay: 0.3 }}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <motion.div
+                    className="absolute inset-0 flex items-center justify-center"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.8 }}
+                  >
+                    <div className="text-center">
+                      <motion.p
+                        className="text-3xl font-bold tabular-nums"
+                        style={{ color: 'var(--text-main)' }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 1, delay: 0.5 }}
+                      >
+                        93.8%
+                      </motion.p>
+                      <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        Accuracy
+                      </p>
+                    </div>
+                  </motion.div>
+                </div>
+
+                <div className="flex-1 space-y-2.5">
+                  {predictionData.map((item, i) => (
+                    <motion.div
+                      key={i}
+                      className="flex items-center justify-between"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <motion.span
+                          className="w-2 h-2 rounded-full"
+                          style={{ background: COLORS.gold }}
+                          animate={{ scale: [1, 1.3, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                        />
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                          {item.name}
+                        </span>
+                      </div>
+                      <motion.span
+                        className="text-sm font-bold tabular-nums"
+                        style={{ color: 'var(--text-main)' }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.5 + i * 0.08 }}
+                      >
+                        {item.value}%
+                      </motion.span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top Predictions */}
+              <motion.div
+                className="p-4 rounded-xl relative overflow-hidden"
+                style={{ background: 'var(--quantum-black)' }}
+              >
+                <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--dark-primary-text)' }}>TOP PREDICTIONS</h4>
+                <div className="space-y-3">
+                  {topPredictions.map((pred, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + i * 0.1 }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px]" style={{ color: 'var(--dark-secondary-text)' }}>{pred.label}</span>
+                        <span className="text-xs font-bold tabular-nums" style={{ color: COLORS.gold }}>{pred.value}%</span>
+                      </div>
+                      <div className="progress-bar h-1.5">
+                        <motion.div
+                          className="progress-fill h-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pred.value}%` }}
+                          transition={{ duration: 1.2, delay: 0.6 + i * 0.12, ease: 'easeOut' }}
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            </AnimatedPanel>
+
+            {/* ========================================================================
+                KNOWLEDGE GRAPH PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.2} dark className="col-span-3 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>KNOWLEDGE GRAPH</h3>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                    Connections & Entities
+                  </p>
+                </div>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                >
+                  <Network className="w-4 h-4" style={{ color: COLORS.gold }} />
+                </motion.div>
+              </div>
+
+              <div className="h-32 mb-4">
+                <KnowledgeGraph />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Entities', value: '24,531' },
+                  { label: 'Relationships', value: '98,213' },
+                  { label: 'Data Points', value: '3.42 PB' },
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    className="text-center"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.7 + i * 0.1 }}
+                  >
+                    <motion.p
+                      className="text-lg font-bold tabular-nums"
+                      style={{ color: 'var(--dark-primary-text)' }}
+                      animate={{ textShadow: ['0 0 0 rgba(201,165,110,0)', '0 0 8px rgba(201,165,110,0.4)', '0 0 0 rgba(201,165,110,0)'] }}
+                      transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }}
+                    >
+                      {item.value}
+                    </motion.p>
+                    <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                      {item.label}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+            </AnimatedPanel>
+
+            {/* ========================================================================
+                AGENT NETWORK PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.25} dark className="col-span-3 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>AGENT NETWORK</h3>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                    AI Agents Ecosystem
+                  </p>
+                </div>
+                <Users className="w-4 h-4" style={{ color: 'var(--dark-secondary-text)' }} />
+              </div>
+
+              <div className="h-36">
+                <AgentNetwork agents={liveAgents} />
+              </div>
+
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <StatusDot status="pulse-green" size={6} />
+                <motion.span
+                  className="text-xs font-bold uppercase tracking-wider"
+                  style={{ color: COLORS.green }}
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  {liveAgents.length} AGENTS ONLINE
+                </motion.span>
+              </div>
+            </AnimatedPanel>
+
+            {/* ========================================================================
+                RESOURCE MONITOR PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.3} dark className="col-span-3 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>RESOURCE MONITOR</h3>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                    Real-time Usage
+                  </p>
+                </div>
+                <Server className="w-4 h-4" style={{ color: 'var(--dark-secondary-text)' }} />
+              </div>
+
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                {resourceData.map((resource, i) => (
+                  <motion.div
+                    key={i}
+                    className="text-center"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 + i * 0.1 }}
+                  >
+                    <div className="relative w-14 h-14 mx-auto mb-2">
+                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255, 255, 255, 0.1)" strokeWidth="8" />
+                        <motion.circle
+                          cx="50" cy="50" r="42"
+                          fill="none"
+                          stroke={resource.fill}
+                          strokeWidth="8"
+                          strokeDasharray="264"
+                          initial={{ strokeDashoffset: 264 }}
+                          animate={{ strokeDashoffset: 264 - (264 * resource.value) / 100 }}
+                          transition={{ duration: 1.5, delay: 0.6 + i * 0.1, ease: 'easeOut' }}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <motion.span
+                          className="text-sm font-bold tabular-nums"
+                          style={{ color: 'var(--dark-primary-text)' }}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: 1.2 + i * 0.1, type: 'spring' }}
+                        >
+                          {resource.value}%
+                        </motion.span>
+                      </div>
+                    </div>
+                    <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                      {resource.name}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="h-16">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={activityData.slice(-12)}>
+                    <defs>
+                      <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.5" />
+                        <stop offset="100%" stopColor={COLORS.gold} stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <Area
+                      type="monotone"
+                      dataKey="requests"
+                      stroke={COLORS.gold}
+                      strokeWidth="2"
+                      fill="url(#activityGradient)"
+                      isAnimationActive={true}
+                      animationDuration={1500}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </AnimatedPanel>
+
+            {/* ========================================================================
+                SECURITY CENTER PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.35} dark className="col-span-3 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>SECURITY CENTER</h3>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                    Threat Monitoring
+                  </p>
+                </div>
+                <motion.div
+                  animate={{ rotate: [0, 10, 0, -10, 0] }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                >
+                  <Shield className="w-4 h-4" style={{ color: COLORS.green }} />
+                </motion.div>
+              </div>
+
+              <div className="flex items-center gap-4 mb-4">
+                <motion.div
+                  className="w-24 h-24 flex-shrink-0"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.5, type: 'spring' }}
+                >
+                  <SecurityShield />
+                </motion.div>
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                      Threats Blocked
+                    </p>
+                    <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--dark-primary-text)' }}>7,842</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                      Intrusion Attempts
+                    </p>
+                    <p className="text-xl font-bold" style={{ color: 'var(--dark-primary-text)' }}>{Math.max(alertCount, 1)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                      Risk Level
+                    </p>
+                    <motion.p
+                      className="text-lg font-bold"
+                      style={{ color: riskColor }}
+                      animate={{ textShadow: [`0 0 0 ${riskColor}00`, `0 0 10px ${riskColor}80`, `0 0 0 ${riskColor}00`] }}
+                      transition={{ duration: 2.5, repeat: Infinity }}
+                    >
+                      {riskLevel}
+                    </motion.p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Firewall', value: 'ACTIVE', color: COLORS.green, bg: 'rgba(47, 110, 89, 0.15)' },
+                  { label: 'Encryption', value: 'AES-256', color: COLORS.gold, bg: 'rgba(201, 165, 110, 0.15)' },
+                  { label: 'Protection', value: '100%', color: COLORS.green, bg: 'rgba(47, 110, 89, 0.15)' },
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    className="p-2.5 rounded-xl text-center relative overflow-hidden"
+                    style={{ background: item.bg }}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.8 + i * 0.1 }}
+                    whileHover={{ scale: 1.03 }}
+                  >
+                    <p className="text-[8px] uppercase tracking-wider mb-1 font-semibold" style={{ color: item.color }}>
+                      {item.label}
+                    </p>
+                    <p className="text-[11px] font-bold" style={{ color: item.color }}>{item.value}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </AnimatedPanel>
+
+            {/* ========================================================================
+                QUICK ACTIONS PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.4} dark className="col-span-4 p-5">
+              <div className="mb-4">
+                <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>QUICK ACTIONS</h3>
+                <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                  Execute Commands
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { icon: Brain, label: 'New Analysis', color: COLORS.gold },
+                  { icon: Search, label: 'Deep Research', color: COLORS.champagne },
+                  { icon: Settings, label: 'Optimize System', color: COLORS.green },
+                  { icon: Database, label: 'Generate Report', color: COLORS.paleGold },
+                  { icon: Shield, label: 'Security Scan', color: COLORS.softGreen },
+                  { icon: RefreshCw, label: 'Clear Memory', color: COLORS.amber },
+                ].map((action, i) => (
+                  <motion.button
+                    key={i}
+                    className="p-4 rounded-xl flex flex-col items-center gap-2 relative overflow-hidden"
+                    style={{ background: 'rgba(255, 255, 255, 0.04)' }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6 + i * 0.06, type: 'spring' }}
+                    whileHover={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      scale: 1.03,
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleQuickAction(action.label)}
+                  >
+                    <motion.div
+                      animate={{ y: [0, -2, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                    >
+                      <action.icon className="w-5 h-5" style={{ color: action.color }} />
+                    </motion.div>
+                    <span className="text-[10px] font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
+                      {action.label}
+                    </span>
+                    {/* Hover shimmer */}
+                    <motion.div
+                      className="absolute inset-0 opacity-0 hover:opacity-100"
+                      style={{
+                        background: `linear-gradient(135deg, ${action.color}10, transparent)`,
+                      }}
+                    />
+                  </motion.button>
+                ))}
+              </div>
+            </AnimatedPanel>
+
+            {/* ========================================================================
+                ACTIVITY CHART PANEL
+            ======================================================================== */}
+            <AnimatedPanel delay={0.45} className="col-span-5 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--text-main)' }}>ACTIVITY TRENDS</h3>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
+                    24-Hour Overview
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--quantum-cream)' }}>
+                  {['Day', 'Week', 'Month'].map((period, i) => (
+                    <motion.button
+                      key={period}
+                      className="px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider"
+                      style={{
+                        background: i === 0 ? COLORS.gold : 'transparent',
+                        color: i === 0 ? '#141414' : 'var(--text-secondary)',
+                      }}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {period}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={activityData}>
+                    <defs>
+                      <linearGradient id="lineGradient1" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.3" />
+                        <stop offset="50%" stopColor={COLORS.gold} stopOpacity="1" />
+                        <stop offset="100%" stopColor={COLORS.champagne} stopOpacity="0.3" />
+                      </linearGradient>
+                      <linearGradient id="lineGradient2" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor={COLORS.green} stopOpacity="0.3" />
+                        <stop offset="50%" stopColor={COLORS.green} stopOpacity="1" />
+                        <stop offset="100%" stopColor={COLORS.softGreen} stopOpacity="0.3" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(110, 96, 80, 0.08)" />
+                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} stroke="transparent" />
+                    <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} stroke="transparent" />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'var(--quantum-black)',
+                        border: `1px solid ${COLORS.gold}40`,
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        color: 'var(--dark-primary-text)',
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="requests"
+                      stroke="url(#lineGradient1)"
+                      strokeWidth="2.5"
+                      dot={false}
+                      isAnimationActive={true}
+                      animationDuration={1500}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="latency"
+                      stroke="url(#lineGradient2)"
+                      strokeWidth="2"
+                      dot={false}
+                      isAnimationActive={true}
+                      animationDuration={1500}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </AnimatedPanel>
+          </div>
         </div>
 
-        {/* Sidebar Bottom Telemetry */}
-        <div className="sidebar-bottom" style={{ display: 'grid', gap: '10px' }}>
-          <section className="side-status" style={{
-            borderRadius: '14px', background: 'rgba(248,244,238,.76)', border: '1px solid rgba(97,76,54,.08)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.72)', padding: '13px 13px 11px'
-          }}>
-            <div className="side-status-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '8px', fontWeight: 800, letterSpacing: '.03em' }}>
-              <span>SYSTEM STATUS</span>
-              <span className="status-pill" style={{ padding: '4px 7px', borderRadius: '999px', background: '#d5e9dc', color: '#2d7158', fontSize: '7px' }}>● OPTIMAL</span>
-            </div>
-            <div className="status-list" style={{ marginTop: '10px', display: 'grid', gap: '6px', fontSize: '9px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>♨ Core Temp</span><b>{telemetry.temp} °C</b></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>◉ Quantum Cores</span><b>32 / 64</b></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>▤ Memory Usage</span><b>{telemetry.memory} %</b></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>◌ CPU Usage</span><b>{telemetry.cpu} %</b></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>◈ GPU Usage</span><b>{telemetry.gpu} %</b></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>◫ Uptime</span><b>{telemetry.uptime}</b></div>
-            </div>
-          </section>
-
-          <section className="quantum-link" style={{
-            height: '58px', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px',
-            borderRadius: '14px', background: 'rgba(248,244,238,.76)', border: '1px solid rgba(97,76,54,.08)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.72)'
-          }}>
-            <div className="link-orb" style={{ width: '34px', height: '34px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: '1px solid #c4a16d', color: '#a47a44', background: '#f6ecdd' }}>◎</div>
-            <div>
-              <b style={{ display: 'block', fontSize: '9px', letterSpacing: '.03em' }}>QUANTUM LINK</b>
-              <small style={{ display: 'block', color: '#2f765d', fontSize: '8px', marginTop: '4px', fontWeight: 700 }}>STABLE CONNECTION</small>
-            </div>
-          </section>
-        </div>
-      </aside>
-
-      {/* RIGHT CONTENT */}
-      <main className="quantum-main" style={{
-        minWidth: 0,
-        display: 'grid',
-        gridTemplateRows: '76px minmax(0, 1fr) 104px',
-        gap: '12px'
-      }}>
-        
-        {/* TOP STATUS BAR */}
-        <header className="topbar" style={{
-          borderRadius: '17px', background: 'rgba(249,247,243,.85)', border: '1px solid rgba(255,255,255,.72)',
-          boxShadow: '0 10px 28px rgba(65,48,29,.08), inset 0 1px 0 rgba(255,255,255,.65)', padding: '0 18px',
-          display: 'grid', gridTemplateColumns: '1.7fr .85fr .85fr .85fr .95fr 1.6fr',
-          alignItems: 'center', gap: 0
-        }}>
-          <div className="top-title">
-            <h1 style={{ fontSize: '20px', margin: '0 0 4px', fontWeight: 800, letterSpacing: '.01em' }}>SALAAR – QUANTUM INTELLIGENCE</h1>
-            <p style={{ margin: 0, fontSize: '11px', color: '#44403b' }}>AI COMMAND &amp; CONTROL CENTER</p>
-          </div>
-
-          <div className="top-metric" style={{ height: '44px', borderLeft: '1px solid var(--line)', paddingLeft: '19px', display: 'flex', justifyContent: 'center', flexDirection: 'column' }}>
-            <span style={{ fontSize: '7px', color: '#6a655f', marginBottom: '6px' }}>⌘ &nbsp; AI MODE</span>
-            <strong style={{ fontSize: '9px', color: 'var(--green)' }}>QUANTUM MODE</strong>
-          </div>
-          <div className="top-metric" style={{ height: '44px', borderLeft: '1px solid var(--line)', paddingLeft: '19px', display: 'flex', justifyContent: 'center', flexDirection: 'column' }}>
-            <span style={{ fontSize: '7px', color: '#6a655f', marginBottom: '6px' }}>⌬ &nbsp; QUANTUM STATE</span>
-            <strong style={{ fontSize: '9px', color: 'var(--green)' }}>STABLE</strong>
-          </div>
-          <div className="top-metric" style={{ height: '44px', borderLeft: '1px solid var(--line)', paddingLeft: '19px', display: 'flex', justifyContent: 'center', flexDirection: 'column' }}>
-            <span style={{ fontSize: '7px', color: '#6a655f', marginBottom: '6px' }}>◉ &nbsp; SYSTEM UPTIME</span>
-            <b style={{ fontSize: '11px' }}>{telemetry.uptime}</b>
-          </div>
-          <div className="top-clock" style={{ height: '44px', borderLeft: '1px solid var(--line)', paddingLeft: '19px', display: 'flex', justifyContent: 'center', flexDirection: 'column' }}>
-            <span style={{ fontSize: '7px', color: '#6a655f', marginBottom: '6px' }}>{new Date().toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
-            <b style={{ fontSize: '14px' }}>{new Date().toLocaleTimeString()}</b>
-          </div>
-
-          <div className="top-actions" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
-            <button className="circle-btn" style={{
-              width: '42px', height: '42px', borderRadius: '50%', border: '1px solid rgba(103,82,60,.14)',
-              background: '#f8f4ee', display: 'grid', placeItems: 'center', fontSize: '16px', color: '#302b25', cursor: 'pointer'
-            }} onClick={onExitNova}>Classic</button>
-          </div>
-        </header>
-
-        {/* MAIN WORKSPACE */}
-        <section className="dashboard" style={{
-          display: 'grid',
-          gridTemplateColumns: '1.22fr .92fr .9fr .95fr',
-          gridTemplateRows: 'minmax(375px, 1.28fr) minmax(226px, .72fr)',
-          gap: '8px',
-          minHeight: 0
-        }}>
-          
-          {/* Global Activity Map */}
-          <article className="panel activity-panel" style={{
-            minWidth: 0, minHeight: 0, borderRadius: '15px', overflow: 'hidden',
-            border: '1px solid rgba(96,77,56,.10)',
-            background: 'linear-gradient(180deg,rgba(249,247,243,.94),rgba(237,230,221,.92))',
-            boxShadow: '0 8px 24px rgba(56,42,29,.07),inset 0 1px 0 rgba(255,255,255,.65)'
-          }}>
-            <div className="panel-head" style={{ height: '52px', padding: '14px 16px 7px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div><h2 style={{ fontSize: '11px', margin: 0, fontWeight: 800, letterSpacing: '.015em' }}>GLOBAL ACTIVITY</h2><p style={{ fontSize: '7.5px', color: '#6b655e', margin: '3px 0 0' }}>REAL-TIME FEED</p></div>
-              <span className="live-pill" style={{ fontSize: '7px', fontWeight: 800, padding: '5px 8px', borderRadius: '999px', background: '#f4e0be', color: '#3c3328' }}>● LIVE</span>
-            </div>
-            
-            <div className="world-visual" style={{ height: 'calc(100% - 158px)', minHeight: '205px', padding: '0 10px' }}>
-              {/* World SVG Map */}
-              <svg viewBox="0 0 640 290" className="world-svg" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 10px 14px rgba(105,83,56,.10))' }}>
-                <defs>
-                  <radialGradient id="mapGlow">
-                    <stop offset="0%" stopColor="#f1d6a5" stopOpacity=".9"/>
-                    <stop offset="100%" stopColor="#c39c65" stopOpacity="0"/>
-                  </radialGradient>
-                  <pattern id="dots" width="6" height="6" patternUnits="userSpaceOnUse">
-                    <circle cx="2" cy="2" r="1.35" fill="#4e4b47" opacity=".62"/>
-                  </pattern>
-                </defs>
-                <g fill="url(#dots)" opacity=".95">
-                  <path d="M38 75l62-34 59 4 32 29-31 17-4 28-28 20-11 39-36-11-15-28-33-9-7-29z"/>
-                  <path d="M170 154l25 9 17 30 14 48-23 24-17-33-19-43z"/>
-                  <path d="M271 59l45-28 70 5 21 17 55-2 78 27 51 32-23 31-48 5-42 25-35-11-27 29-21-18-25 18-29-14-18-33-42-22-21-33z"/>
-                </g>
-                <g stroke="#c7a46f" fill="none" opacity=".4">
-                  <path d="M89 103 Q320 -20 553 130"/>
-                  <path d="M86 105 Q342 260 570 126"/>
-                  <path d="M199 158 Q350 48 528 124"/>
-                </g>
-                <g fill="#e7c78e">
-                  <circle cx="92" cy="102" r="4"/>
-                  <circle cx="198" cy="158" r="3.5"/>
-                  <circle cx="359" cy="108" r="4"/>
-                </g>
-              </svg>
-            </div>
-
-            <div className="dark-metrics four" style={{
-              height: '106px', background: 'linear-gradient(180deg,#252626,#111212)',
-              display: 'grid', alignItems: 'center', padding: '14px 10px', gridTemplateColumns: 'repeat(4,1fr)'
-            }}>
-              <div style={{ height: '78px', padding: '3px 13px', borderRight: '1px solid rgba(255,255,255,.07)' }}>
-                <span style={{ display: 'block', color: '#bbb4aa', fontSize: '8px' }}>REQUESTS</span>
-                <b style={{ display: 'block', color: '#fff', fontSize: '14px', marginTop: '10px' }}>12.48 M</b>
-              </div>
-              <div style={{ height: '78px', padding: '3px 13px', borderRight: '1px solid rgba(255,255,255,.07)' }}>
-                <span style={{ display: 'block', color: '#bbb4aa', fontSize: '8px' }}>DATA IN</span>
-                <b style={{ display: 'block', color: '#fff', fontSize: '14px', marginTop: '10px' }}>2.14 TB</b>
-              </div>
-              <div style={{ height: '78px', padding: '3px 13px', borderRight: '1px solid rgba(255,255,255,.07)' }}>
-                <span style={{ display: 'block', color: '#bbb4aa', fontSize: '8px' }}>DATA OUT</span>
-                <b style={{ display: 'block', color: '#fff', fontSize: '14px', marginTop: '10px' }}>1.67 TB</b>
-              </div>
-              <div style={{ height: '78px', padding: '3px 13px' }}>
-                <span style={{ display: 'block', color: '#bbb4aa', fontSize: '8px' }}>LATENCY</span>
-                <b style={{ display: 'block', color: '#fff', fontSize: '14px', marginTop: '10px' }}>23 ms</b>
-              </div>
-            </div>
-          </article>
-
-          {/* Central AI Intelligence Core */}
-          <article className="panel core-panel" style={{
-            gridColumn: '2 / 4', gridRow: 1,
-            borderRadius: '15px', overflow: 'hidden',
-            border: '1px solid rgba(96,77,56,.10)',
-            background: 'radial-gradient(circle at 53% 47%,#e8dfd4 0,#d9d0c5 22%,#bab1a6 52%,#a59d94 68%,#dad3ca 100%)',
-            boxShadow: '0 8px 24px rgba(56,42,29,.07),inset 0 1px 0 rgba(255,255,255,.65)'
-          }}>
-            <div className="panel-head core-head" style={{ position: 'relative', zIndex: 3, height: '52px', padding: '14px 16px 7px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div><h2 style={{ fontSize: '11px', margin: 0, fontWeight: 800, letterSpacing: '.015em' }}>AI INTELLIGENCE CORE</h2><p style={{ fontSize: '7.5px', color: '#6b655e', margin: '3px 0 0' }}>QUANTUM NEURAL PROCESSOR</p></div>
-              <span className="active-pill" style={{ fontSize: '7px', fontWeight: 800, padding: '5px 8px', borderRadius: '999px', background: '#285f4d', color: '#e9fff3' }}>● ACTIVE</span>
-            </div>
-
-            <div className="core-stage" style={{ height: 'calc(100% - 125px)', minHeight: '265px', display: 'grid', gridTemplateColumns: '92px 1fr 92px', alignItems: 'center', padding: '0 10px', position: 'relative' }}>
-              <div className="core-side left-side" style={{ display: 'grid', gap: '10px', zIndex: 4 }}>
-                <div className="micro-card" style={{ height: '58px', border: '1px solid rgba(67,60,53,.11)', borderRadius: '9px', background: 'rgba(224,218,209,.42)', padding: '9px 7px', position: 'relative', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.28)' }}>
-                  <span style={{ fontSize: '6.3px', fontWeight: 700, color: '#373431', display: 'block' }}>THINKING DEPTH</span>
-                  <b style={{ fontSize: '14px', display: 'block', marginTop: '6px' }}>8.6 / 10</b>
-                </div>
-                <div className="micro-card" style={{ height: '58px', border: '1px solid rgba(67,60,53,.11)', borderRadius: '9px', background: 'rgba(224,218,209,.42)', padding: '9px 7px', position: 'relative', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.28)' }}>
-                  <span style={{ fontSize: '6.3px', fontWeight: 700, color: '#373431', display: 'block' }}>LEARNING RATE</span>
-                  <b style={{ fontSize: '14px', display: 'block', marginTop: '6px' }}>0.091</b>
+        {/* ==========================================================================
+            COMMAND CONSOLE
+        ========================================================================== */}
+        <AnimatePresence>
+          {showResponse && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="overflow-hidden"
+            >
+              <div className="px-6 py-3 border-b" style={{ background: 'rgba(20, 20, 20, 0.95)', borderColor: 'rgba(201, 165, 110, 0.2)' }}>
+                <div className="flex items-center gap-3 max-w-5xl">
+                  <Terminal className="w-4 h-4 flex-shrink-0" style={{ color: COLORS.gold }} />
+                  <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: COLORS.gold }}>
+                    SALAAR RESPONSE
+                  </span>
+                  <div className="flex-1">
+                    <span className="text-sm" style={{ color: 'var(--dark-primary-text)' }}>
+                      <TypingIndicator text={responseText} onComplete={() => {}} />
+                    </span>
+                  </div>
+                  <motion.button
+                    onClick={() => setShowResponse(false)}
+                    className="text-xs font-semibold px-3 py-1 rounded-lg"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--dark-secondary-text)' }}
+                    whileHover={{ background: 'rgba(255,255,255,0.1)' }}
+                  >
+                    DISMISS
+                  </motion.button>
                 </div>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              {/* Glowing Orb Animation */}
-              <div className="quantum-core" style={{ height: '100%', position: 'relative', display: 'grid', placeItems: 'center' }}>
-                <div className="core-sphere pulse" style={{
-                  width: '190px', height: '190px', borderRadius: '50%', position: 'relative', zIndex: 3,
-                  background: 'radial-gradient(circle at 49% 42%,rgba(211,181,132,.08),transparent 24%), radial-gradient(circle at 50% 50%,#151617 0,#24201b 52%,#d8c8af 62%,rgba(255,255,255,.8) 64%,rgba(184,151,106,.22) 69%,transparent 72%)',
-                  boxShadow: '0 0 0 1px rgba(255,255,255,.75), 0 0 22px rgba(255,241,213,.75), 0 0 60px rgba(192,154,100,.28), inset 0 0 38px rgba(213,171,110,.22)'
-                }}>
-                  <div className="sphere-grid" style={{ position: 'absolute', inset: '26px', borderRadius: '50%', opacity: 0.82, background: 'repeating-radial-gradient(ellipse at 50% 50%,transparent 0 14px,rgba(208,172,117,.22) 15px 16px)' }}></div>
-                  <span className="core-letter" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'rgba(222,187,132,.22)', fontSize: '52px', fontWeight: 800 }}>S</span>
-                </div>
-              </div>
+        <motion.footer
+          className="h-20 border-t px-6 flex items-center gap-4 relative"
+          style={{
+            background: 'rgba(250, 248, 244, 0.92)',
+            backdropFilter: 'blur(24px)',
+            borderColor: 'rgba(110, 96, 80, 0.08)',
+          }}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+        >
+          {/* SALAAR Avatar with energy ring */}
+          <motion.div
+            className="relative w-12 h-12 rounded-full flex items-center justify-center"
+            style={{ background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.champagne})` }}
+            animate={isListening ? { scale: [1, 1.08, 1] } : {}}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          >
+            <span className="text-lg font-bold" style={{ color: '#141414' }}>S</span>
+            {isListening && (
+              <>
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  style={{ border: `2px solid ${COLORS.gold}`, opacity: 0.6 }}
+                  animate={{ scale: [1, 1.5], opacity: [0.6, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  style={{ border: `2px solid ${COLORS.champagne}`, opacity: 0.4 }}
+                  animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }}
+                />
+              </>
+            )}
+          </motion.div>
 
-              <div className="core-side right-side" style={{ display: 'grid', gap: '10px', zIndex: 4 }}>
-                <div className="micro-card" style={{ height: '58px', border: '1px solid rgba(67,60,53,.11)', borderRadius: '9px', background: 'rgba(224,218,209,.42)', padding: '9px 7px', position: 'relative', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.28)' }}>
-                  <span style={{ fontSize: '6.3px', fontWeight: 700, color: '#373431', display: 'block' }}>CONTEXT WINDOW</span>
-                  <b style={{ fontSize: '14px', display: 'block', marginTop: '6px' }}>128K</b>
-                </div>
-                <div className="micro-card" style={{ height: '58px', border: '1px solid rgba(67,60,53,.11)', borderRadius: '9px', background: 'rgba(224,218,209,.42)', padding: '9px 7px', position: 'relative', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.28)' }}>
-                  <span style={{ fontSize: '6.3px', fontWeight: 700, color: '#373431', display: 'block' }}>DECISION CONFIDENCE</span>
-                  <b style={{ fontSize: '14px', display: 'block', marginTop: '6px' }}>97.2%</b>
-                </div>
-              </div>
-            </div>
-
-            <div className="core-metrics" style={{ height: '73px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px', padding: '8px 10px', background: 'rgba(26,27,27,.93)' }}>
-              <div style={{ border: '1px solid rgba(255,255,255,.09)', borderRadius: '8px', padding: '10px', color: 'white' }}>
-                <span style={{ fontSize: '6px', color: '#bdb6ac', display: 'block' }}>PROCESSING POWER</span>
-                <b style={{ fontSize: '13px', display: 'block', marginTop: '10px' }}>2.48 PFLOPS</b>
-              </div>
-              <div style={{ border: '1px solid rgba(255,255,255,.09)', borderRadius: '8px', padding: '10px', color: 'white' }}>
-                <span style={{ fontSize: '6px', color: '#bdb6ac', display: 'block' }}>RESPONSE TIME</span>
-                <b style={{ fontSize: '13px', display: 'block', marginTop: '10px' }}>18 ms</b>
-              </div>
-              <div style={{ border: '1px solid rgba(255,255,255,.09)', borderRadius: '8px', padding: '10px', color: 'white' }}>
-                <span style={{ fontSize: '6px', color: '#bdb6ac', display: 'block' }}>ACTIVE AGENTS</span>
-                <b style={{ fontSize: '13px', display: 'block', marginTop: '10px' }}>16</b>
-              </div>
-              <div style={{ border: '1px solid rgba(255,255,255,.09)', borderRadius: '8px', padding: '10px', color: 'white' }}>
-                <span style={{ fontSize: '6px', color: '#bdb6ac', display: 'block' }}>TASKS QUEUED</span>
-                <b style={{ fontSize: '13px', display: 'block', marginTop: '10px' }}>7</b>
-              </div>
-            </div>
-          </article>
-
-          {/* Performance/Accuracy Card */}
-          <article className="panel accuracy-panel" style={{
-            minWidth: 0, minHeight: 0, borderRadius: '15px', overflow: 'hidden',
-            border: '1px solid rgba(96,77,56,.10)',
-            background: 'linear-gradient(180deg,rgba(249,247,243,.94),rgba(237,230,221,.92))',
-            boxShadow: '0 8px 24px rgba(56,42,29,.07),inset 0 1px 0 rgba(255,255,255,.65)'
-          }}>
-            <div className="panel-head" style={{ height: '52px', padding: '14px 16px 7px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div><h2 style={{ fontSize: '11px', margin: 0, fontWeight: 800, letterSpacing: '.015em' }}>PREDICTION ACCURACY</h2><p style={{ fontSize: '7.5px', color: '#6b655e', margin: '3px 0 0' }}>MODEL PERFORMANCE</p></div>
-            </div>
-            <div className="accuracy-body" style={{ display: 'grid', gridTemplateColumns: '44% 56%', alignItems: 'center', height: 'calc(100% - 52px)', padding: '4px 16px 13px' }}>
-              <div className="donut" style={{
-                width: '120px', height: '120px', borderRadius: '50%',
-                background: 'conic-gradient(#d1ad77 0 93.8%, #161616 93.8% 100%)',
-                display: 'grid', placeItems: 'center', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.08),0 7px 18px rgba(65,50,30,.08)'
-              }}>
-                <div className="donut-inner" style={{ width: '90px', height: '94px', borderRadius: '50%', background: '#f6f2eb', display: 'grid', placeContent: 'center', textAlign: 'center' }}>
-                  <b style={{ fontSize: '21px' }}>93.8%</b>
-                  <span style={{ fontSize: '9px', fontWeight: 700 }}>ACCURACY</span>
-                </div>
-              </div>
-              <div className="accuracy-list" style={{ display: 'grid', gap: '15px', fontSize: '8px' }}>
-                <div><span>Reasoning</span> <b>93.6%</b></div>
-                <div><span>Forecasting</span> <b>93.2%</b></div>
-                <div><span>NLP</span> <b>94.1%</b></div>
-              </div>
-            </div>
-          </article>
-
-          {/* Predictions Panel */}
-          <article className="panel dark-panel predictions-panel" style={{
-            gridColumn: 1, gridRow: 2,
-            minWidth: 0, minHeight: 0, borderRadius: '15px', overflow: 'hidden',
-            background: 'linear-gradient(150deg,#242525,#151616)', border: '1px solid rgba(255,255,255,.08)',
-            boxShadow: '0 12px 28px rgba(0,0,0,.17),inset 0 1px 0 rgba(255,255,255,.03)', color: 'white'
-          }}>
-            <div className="panel-head dark" style={{ height: '52px', padding: '14px 16px 7px' }}>
-              <div><h2 style={{ fontSize: '11px', margin: 0, fontWeight: 800, letterSpacing: '.015em' }}>TOP PREDICTIONS</h2><p style={{ fontSize: '7.5px', color: '#9a948c', margin: '3px 0 0' }}>CONFIDENCE SCORE</p></div>
-            </div>
-            <div className="prediction-bars" style={{ padding: '0 14px 10px', display: 'grid', gap: '10px' }}>
-              {[
-                { name: 'Market Trend', val: '94%' },
-                { name: 'User Growth', val: '92%' },
-                { name: 'System Load', val: '90%' }
-              ].map(pred => (
-                <div key={pred.name} style={{ display: 'grid', gridTemplateColumns: '92px 1fr 28px', gap: '8px', alignItems: 'center', fontSize: '7px' }}>
-                  <span>{pred.name}</span>
-                  <i style={{ height: '2px', background: '#4a4a48', display: 'block', position: 'relative' }}>
-                    <u style={{ display: 'block', height: '2px', background: '#d7ac6f', width: pred.val }}></u>
-                  </i>
-                  <b>{pred.val}</b>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          {/* Knowledge Graph Connections */}
-          <article className="panel dark-panel knowledge-panel" style={{
-            gridColumn: 2, gridRow: 2,
-            minWidth: 0, minHeight: 0, borderRadius: '15px', overflow: 'hidden',
-            background: 'linear-gradient(150deg,#242525,#151616)', border: '1px solid rgba(255,255,255,.08)',
-            boxShadow: '0 12px 28px rgba(0,0,0,.17),inset 0 1px 0 rgba(255,255,255,.03)', color: 'white'
-          }}>
-            <div className="panel-head dark" style={{ height: '52px', padding: '14px 16px 7px' }}>
-              <div><h2 style={{ fontSize: '11px', margin: 0, fontWeight: 800, letterSpacing: '.015em' }}>KNOWLEDGE GRAPH</h2><p style={{ fontSize: '7.5px', color: '#9a948c', margin: '3px 0 0' }}>CONNECTIONS &amp; ENTITIES</p></div>
-            </div>
-            <div className="knowledge-graph" style={{ height: '116px', padding: '0 14px' }}>
-              <svg viewBox="0 0 520 190" style={{ width: '100%', height: '100%' }}>
-                <g stroke="#8f7757" strokeWidth="1.2" opacity=".6">
-                  <line x1="70" y1="125" x2="160" y2="70"/>
-                  <line x1="160" y1="70" x2="242" y2="110"/>
-                  <line x1="242" y1="110" x2="340" y2="65"/>
-                </g>
-                <g fill="#c8a56f" stroke="#f4dfbd" strokeWidth="2">
-                  <circle cx="70" cy="125" r="8"/>
-                  <circle cx="160" cy="70" r="7"/>
-                  <circle cx="242" cy="110" r="10"/>
-                  <circle cx="340" cy="65" r="8"/>
-                </g>
-              </svg>
-            </div>
-          </article>
-
-          {/* Resource Monitor */}
-          <article className="panel dark-panel resource-panel" style={{
-            gridColumn: 3, gridRow: 2,
-            minWidth: 0, minHeight: 0, borderRadius: '15px', overflow: 'hidden',
-            background: 'linear-gradient(150deg,#242525,#151616)', border: '1px solid rgba(255,255,255,.08)',
-            boxShadow: '0 12px 28px rgba(0,0,0,.17),inset 0 1px 0 rgba(255,255,255,.03)', color: 'white'
-          }}>
-            <div className="panel-head dark" style={{ height: '52px', padding: '14px 16px 7px' }}>
-              <div><h2 style={{ fontSize: '11px', margin: 0, fontWeight: 800, letterSpacing: '.015em' }}>RESOURCE MONITOR</h2><p style={{ fontSize: '7.5px', color: '#9a948c', margin: '3px 0 0' }}>REAL-TIME USAGE</p></div>
-            </div>
-            <div className="resource-rings" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '6px', padding: '0 13px' }}>
-              <div className="mini-ring" style={{ position: 'relative', borderRadius: '50%', background: `conic-gradient(#c9a56e ${telemetry.cpu}%,#4d4d49 0)`, display: 'grid', placeContent: 'center', aspectRatio: 1 }}>
-                <b style={{ fontSize: '11px', zIndex: 2 }}>{telemetry.cpu}%</b>
-              </div>
-              <div className="mini-ring" style={{ position: 'relative', borderRadius: '50%', background: `conic-gradient(#c9a56e ${telemetry.gpu}%,#4d4d49 0)`, display: 'grid', placeContent: 'center', aspectRatio: 1 }}>
-                <b style={{ fontSize: '11px', zIndex: 2 }}>{telemetry.gpu}%</b>
-              </div>
-              <div className="mini-ring" style={{ position: 'relative', borderRadius: '50%', background: `conic-gradient(#c9a56e ${telemetry.memory}%,#4d4d49 0)`, display: 'grid', placeContent: 'center', aspectRatio: 1 }}>
-                <b style={{ fontSize: '11px', zIndex: 2 }}>{telemetry.memory}%</b>
-              </div>
-              <div className="mini-ring" style={{ position: 'relative', borderRadius: '50%', background: `conic-gradient(#c9a56e 52%,#4d4d49 0)`, display: 'grid', placeContent: 'center', aspectRatio: 1 }}>
-                <b style={{ fontSize: '11px', zIndex: 2 }}>52%</b>
-              </div>
-            </div>
-          </article>
-
-          {/* Security Center */}
-          <article className="panel dark-panel security-panel" style={{
-            gridColumn: 4, gridRow: 2,
-            minWidth: 0, minHeight: 0, borderRadius: '15px', overflow: 'hidden',
-            background: 'linear-gradient(150deg,#242525,#151616)', border: '1px solid rgba(255,255,255,.08)',
-            boxShadow: '0 12px 28px rgba(0,0,0,.17),inset 0 1px 0 rgba(255,255,255,.03)', color: 'white'
-          }}>
-            <div className="panel-head dark" style={{ height: '52px', padding: '14px 16px 7px' }}>
-              <div><h2 style={{ fontSize: '11px', margin: 0, fontWeight: 800, letterSpacing: '.015em' }}>SECURITY CENTER</h2><p style={{ fontSize: '7.5px', color: '#9a948c', margin: '3px 0 0' }}>THREAT MONITORING</p></div>
-            </div>
-            <div className="security-body" style={{ height: '105px', display: 'grid', gridTemplateColumns: '55% 45%', alignItems: 'center', padding: '0 12px' }}>
-              <div className="security-radar" style={{ width: '130px', height: '130px', position: 'relative', margin: 'auto', display: 'grid', placeItems: 'center' }}>
-                <div className="radar-ring rr1" style={{ position: 'absolute', border: '1px solid rgba(207,172,116,.35)', borderRadius: '50%', inset: '11px' }}></div>
-                <div className="radar-ring rr2" style={{ position: 'absolute', border: '1px solid rgba(207,172,116,.35)', borderRadius: '50%', inset: '28px' }}></div>
-                <div className="shield" style={{ fontSize: '44px', color: '#fff', filter: 'drop-shadow(0 0 12px rgba(235,202,148,.48))' }}>◇</div>
-              </div>
-              <div className="security-stats" style={{ display: 'grid', gap: '3px' }}>
-                <span style={{ fontSize: '6px', color: '#aaa49a', marginTop: '4px' }}>RISK LEVEL</span>
-                <b className="green" style={{ color: '#62c194', fontSize: '13px' }}>LOW</b>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        {/* BOTTOM COMMAND CONSOLE */}
-        <footer className="command-console" style={{
-          minHeight: '104px', borderRadius: '17px',
-          background: 'rgba(248,245,240,.88)', border: '1px solid rgba(255,255,255,.7)',
-          boxShadow: '0 10px 28px rgba(65,48,29,.08), inset 0 1px 0 rgba(255,255,255,.65)', padding: '12px 16px',
-          display: 'grid', gridTemplateColumns: '290px minmax(260px,1fr) 46px 46px 240px', gap: '12px', alignItems: 'center'
-        }}>
-          <div className="assistant-mini" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div className="mini-orbit" style={{
-              width: '64px', height: '64px', borderRadius: '50%', display: 'grid', placeItems: 'center',
-              fontSize: '29px', fontWeight: 800, color: '#c09a64', background: '#24211d', border: '7px double #c7a46d',
-              boxShadow: '0 0 0 6px rgba(207,178,133,.15)'
-            }}>S</div>
-            <div>
-              <b style={{ display: 'block', fontSize: '11px' }}>System Response Node</b>
-              <span style={{ display: 'block', fontSize: '9px', color: '#443f39', marginTop: '5px' }}>{response}</span>
-            </div>
+          {/* Greeting */}
+          <div className="flex-1">
+            <motion.p
+              className="text-sm font-semibold"
+              style={{ color: 'var(--text-main)' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            >
+              Good afternoon, Admin.
+            </motion.p>
+            <p className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+              <span className="w-1 h-1 rounded-full" style={{ background: COLORS.gold }} />
+              How can I assist you today?
+            </p>
           </div>
-          <label className="command-input" style={{
-            height: '36px', border: '1px solid rgba(109,88,65,.12)', borderRadius: '999px',
-            display: 'flex', alignItems: 'center', padding: '0 17px', background: '#f3eee7'
-          }}>
-            <input 
-              type="text" 
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendCommand()}
-              placeholder="Ask anything or give a command..." 
-              style={{ border: 0, outline: 0, background: 'transparent', width: '100%', fontSize: '11px', color: '#403b35' }}
+
+          {/* Command Input */}
+          <div className="flex-1 max-w-2xl relative">
+            <motion.input
+              type="text"
+              value={commandInput}
+              onChange={(e) => setCommandInput(e.target.value)}
+              placeholder="Ask anything or give a command..."
+              className="input-quantum w-full pl-5 pr-36 py-3 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSendCommand();
+              }}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              whileFocus={{ scale: 1.01 }}
             />
-          </label>
-          <button className="command-icon" style={{ width: '44px', height: '44px', borderRadius: '50%', border: '1px solid rgba(104,83,61,.13)', background: '#f7f3ed', fontSize: '17px', cursor: 'pointer' }} onClick={() => setIsListening(!isListening)}>{isListening ? '●' : '♩'}</button>
-          <button className="command-icon" style={{ width: '44px', height: '44px', borderRadius: '50%', border: '1px solid rgba(104,83,61,.13)', background: '#f7f3ed', fontSize: '17px' }}>⌁</button>
-          <button className="send-btn" onClick={handleSendCommand} style={{
-            height: '47px', border: 0, borderRadius: '999px', padding: '0 8px 0 28px',
-            background: 'linear-gradient(135deg,#29241e,#151412)', color: '#fff', fontSize: '11px', fontWeight: 800,
-            boxShadow: '0 9px 22px rgba(56,39,24,.18)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
-          }}>
-            SEND COMMAND 
-            <span style={{ width: '37px', height: '37px', borderRadius: '50%', background: '#f4eee5', color: '#27221c', display: 'grid', placeItems: 'center', fontSize: '16px', marginLeft: '12px' }}>➤</span>
-          </button>
-        </footer>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <motion.button
+                className="p-2 rounded-lg relative"
+                style={{ background: isListening ? `${COLORS.green}20` : 'transparent' }}
+                onClick={toggleMic}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+              >
+                {isListening ? (
+                  <Waveform active={true} barCount={12} height={16} color={COLORS.green} />
+                ) : (
+                  <Mic className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                )}
+              </motion.button>
+              <motion.button
+                className="p-2 rounded-lg"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+              >
+                <Radio className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Send Button */}
+          <motion.button
+            className="btn-primary px-6 py-3 flex items-center gap-2"
+            onClick={handleSendCommand}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Send className="w-4 h-4" />
+            <span className="text-sm font-bold uppercase tracking-wider">SEND COMMAND</span>
+          </motion.button>
+        </motion.footer>
       </main>
     </div>
-  )
-}
+  );
+};
+
+export default QuantumEngine;

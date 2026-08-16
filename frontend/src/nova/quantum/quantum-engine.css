@@ -1,0 +1,567 @@
+@import "tailwindcss";
+
+/* SALAAR QUANTUM ENGINE — ANIMATION & COLOR TOKENS */
+
+:root {
+  --quantum-ivory: #F0EAE2;
+  --quantum-cream: #F5F0E9;
+  --quantum-white: #FAF8F4;
+  --warm-mist: #E7DFD4;
+  --sand-shadow: #D8CEC0;
+
+  --quantum-black: #141414;
+  --graphite: #1B1C1D;
+  --deep-graphite: #101112;
+  --graphite-border: #343332;
+  --dark-primary-text: #F5F2EC;
+  --dark-secondary-text: #B5AEA4;
+
+  --quantum-gold: #C9A56E;
+  --champagne: #D9C09A;
+  --pale-gold: #E7D6B7;
+  --gold-highlight: #F2E5CC;
+
+  --quantum-green: #2F6E59;
+  --soft-green: #78A891;
+  --green-glow: rgba(47, 110, 89, 0.18);
+
+  --quantum-amber: #C58A42;
+  --quantum-coral: #B95750;
+  --soft-coral: #D98B82;
+  --critical-red: #9C3A37;
+
+  --text-main: #151515;
+  --text-secondary: #5E5A55;
+  --text-muted: #8D867D;
+  --text-disabled: #B9B1A6;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  background: var(--quantum-ivory);
+  color: var(--text-main);
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   SCROLLBAR
+============================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(201, 165, 110, 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(201, 165, 110, 0.5); }
+
+/* ============================================
+   KEYFRAMES — CORE SYSTEM
+============================================ */
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(201, 165, 110, 0.3),
+                0 0 40px rgba(201, 165, 110, 0.15),
+                inset 0 0 20px rgba(201, 165, 110, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(201, 165, 110, 0.45),
+                0 0 70px rgba(201, 165, 110, 0.22),
+                inset 0 0 35px rgba(201, 165, 110, 0.15);
+  }
+}
+
+@keyframes orbit-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-rotate-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translate(0px, 0px); }
+  33% { transform: translate(3px, -5px); }
+  66% { transform: translate(-3px, 3px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes shimmer-vertical {
+  0% { background-position: 0 -200%; }
+  100% { background-position: 0 200%; }
+}
+
+@keyframes particle-float {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+  25% { transform: translate(10px, -15px) scale(1.1); opacity: 0.7; }
+  50% { transform: translate(-5px, 10px) scale(0.9); opacity: 0.3; }
+  75% { transform: translate(15px, 5px) scale(1.05); opacity: 0.6; }
+}
+
+@keyframes ring-expand {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes data-flow {
+  0% { stroke-dashoffset: 1000; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.05); }
+  50% { transform: scale(1); }
+  75% { transform: scale(1.03); }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes energy-pulse {
+  0%, 100% { opacity: 0.3; filter: brightness(1); }
+  50% { opacity: 0.8; filter: brightness(1.4); }
+}
+
+@keyframes traveling-packet {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(1.5px, -1.5px); }
+}
+
+@keyframes waveform {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes background-gradient-move {
+  0%, 100% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+}
+
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes number-tick {
+  0% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(-4px); opacity: 0; }
+  51% { transform: translateY(4px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ============================================
+   UTILITY CLASSES
+============================================ */
+
+.quantum-glow { animation: pulse-glow 3s ease-in-out infinite; }
+.orbit-rotate { animation: orbit-rotate 20s linear infinite; }
+.orbit-rotate-reverse { animation: orbit-rotate-reverse 30s linear infinite; }
+.float { animation: float 3s ease-in-out infinite; }
+.float-slow { animation: float-slow 5s ease-in-out infinite; }
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s infinite;
+}
+.particle { animation: particle-float 4s ease-in-out infinite; }
+.scan-line { animation: scan-line 2s linear infinite; }
+.data-flow { animation: data-flow 2s linear infinite; }
+.heartbeat { animation: heartbeat 1.5s ease-in-out infinite; }
+.energy-pulse { animation: energy-pulse 2s ease-in-out infinite; }
+.drift { animation: drift 4s ease-in-out infinite; }
+.fade-up { animation: fade-up 0.6s ease-out both; }
+.fade-in { animation: fade-in 0.5s ease-out both; }
+.scale-in { animation: scale-in 0.5s ease-out both; }
+.slide-in-right { animation: slide-in-right 0.4s ease-out both; }
+.radar-sweep { animation: radar-sweep 4s linear infinite; }
+.glow-breathe { animation: glow-breathe 3s ease-in-out infinite; }
+.number-tick { animation: number-tick 0.3s ease-out; }
+
+/* Animated gradient text */
+.gradient-text-animated {
+  background: linear-gradient(135deg, var(--quantum-gold) 0%, var(--champagne) 25%, var(--gold-highlight) 50%, var(--champagne) 75%, var(--quantum-gold) 100%);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 6s ease infinite;
+}
+
+/* Cursor */
+.blinking-cursor::after {
+  content: '▋';
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--quantum-gold);
+  animation: cursor-blink 1s step-end infinite;
+}
+
+/* ============================================
+   STAGGERED ENTRANCE DELAYS
+============================================ */
+
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+.stagger-7 { animation-delay: 0.35s; }
+.stagger-8 { animation-delay: 0.4s; }
+
+/* ============================================
+   CARD STYLES
+============================================ */
+
+.light-card {
+  background: var(--quantum-white);
+  border: 1px solid rgba(110, 96, 80, 0.10);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(50, 40, 30, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.light-card-elevated {
+  background: var(--quantum-white);
+  border: 1px solid rgba(110, 96, 80, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 16px 50px rgba(50, 40, 30, 0.10), 0 2px 8px rgba(50, 40, 30, 0.05);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.light-card-elevated:hover {
+  box-shadow: 0 20px 60px rgba(50, 40, 30, 0.13), 0 4px 12px rgba(50, 40, 30, 0.06);
+  transform: translateY(-2px);
+  border-color: rgba(201, 165, 110, 0.25);
+}
+
+.dark-card {
+  background: var(--quantum-black);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark-card-elevated {
+  background: var(--graphite);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark-card-elevated:hover {
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+  border-color: rgba(201, 165, 110, 0.2);
+}
+
+/* ============================================
+   BUTTONS
+============================================ */
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--quantum-gold) 0%, #B89568 100%);
+  background-size: 200% 100%;
+  color: var(--quantum-black);
+  border: none;
+  border-radius: 14px;
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(201, 165, 110, 0.4);
+  background-position: 100% 0;
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  background: rgba(201, 165, 110, 0.12);
+  color: var(--quantum-gold);
+  border: 1px solid rgba(201, 165, 110, 0.3);
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(201, 165, 110, 0.2);
+  border-color: rgba(201, 165, 110, 0.5);
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   GLASS
+============================================ */
+
+.glass {
+  background: rgba(245, 240, 233, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-dark {
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ============================================
+   NAV ACTIVE
+============================================ */
+
+.nav-active {
+  background: linear-gradient(135deg, var(--quantum-gold) 0%, #B89568 100%);
+  background-size: 200% 100%;
+  color: var(--quantum-black);
+  box-shadow: 0 4px 15px rgba(201, 165, 110, 0.3);
+  animation: gradient-shift 4s ease infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+  animation: shimmer 3s infinite;
+}
+
+/* ============================================
+   STATUS
+============================================ */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.green {
+  background: var(--quantum-green);
+  box-shadow: 0 0 8px var(--green-glow);
+}
+
+.status-dot.amber {
+  background: var(--quantum-amber);
+  box-shadow: 0 0 8px rgba(197, 138, 66, 0.4);
+}
+
+.status-dot.coral {
+  background: var(--quantum-coral);
+  box-shadow: 0 0 8px rgba(185, 87, 80, 0.4);
+}
+
+.status-dot.pulse-green {
+  background: var(--quantum-green);
+  box-shadow: 0 0 0 0 var(--green-glow);
+  animation: ring-expand 1.8s cubic-bezier(0.66, 0, 0, 1) infinite;
+}
+
+/* ============================================
+   PROGRESS BARS
+============================================ */
+
+.progress-bar {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  background: linear-gradient(90deg, var(--quantum-gold), var(--champagne));
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.progress-fill.green {
+  background: linear-gradient(90deg, var(--quantum-green), var(--soft-green));
+}
+
+/* ============================================
+   INPUTS
+============================================ */
+
+.input-quantum {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--warm-mist);
+  border-radius: 14px;
+  transition: all 0.3s ease;
+}
+
+.input-quantum:focus {
+  outline: none;
+  border-color: var(--quantum-gold);
+  background: var(--quantum-white);
+  box-shadow: 0 0 0 3px rgba(201, 165, 110, 0.18), 0 4px 12px rgba(201, 165, 110, 0.15);
+}
+
+.input-dark {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: var(--dark-primary-text);
+  transition: all 0.3s ease;
+}
+
+.input-dark:focus {
+  outline: none;
+  border-color: var(--quantum-gold);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(201, 165, 110, 0.15);
+}
+
+/* ============================================
+   SELECTION / FOCUS
+============================================ */
+
+::selection { background: rgba(201, 165, 110, 0.3); color: var(--text-main); }
+:focus-visible { outline: 2px solid var(--quantum-gold); outline-offset: 2px; }
+
+/* ============================================
+   WAVEFORM BARS
+============================================ */
+
+.waveform-bar {
+  display: inline-block;
+  width: 3px;
+  background: var(--quantum-gold);
+  border-radius: 2px;
+  transform-origin: center;
+  animation: waveform 1s ease-in-out infinite;
+}
+
+/* ============================================
+   TOOLTIP
+============================================ */
+
+.tooltip { position: relative; }
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  padding: 6px 10px;
+  background: var(--quantum-black);
+  color: var(--dark-primary-text);
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 8px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.tooltip:hover::after { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+@media (max-width: 1400px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1100px) { .dashboard-grid { grid-template-columns: 1fr; } }

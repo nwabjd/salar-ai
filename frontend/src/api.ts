@@ -200,7 +200,7 @@ export class SalarApi {
   }
 
   notifications(limit = 50): Promise<Notification[]> { return this.request(`/api/notifications?limit=${limit}`) }
-  notificationUnreadCount(): Promise<{ count: number }> { return this.request('/api/notifications/unread-count') }
+  notificationUnreadCount(): Promise<{ unread_count: number }> { return this.request('/api/notifications/unread-count') }
   markNotificationRead(id: string): Promise<Notification> { return this.request(`/api/notifications/${id}/read`, { method: 'POST' }) }
   markAllNotificationsRead(): Promise<{ ok: boolean }> { return this.request('/api/notifications/read-all', { method: 'POST' }) }
 
@@ -567,6 +567,16 @@ export class SalarApi {
   deleteKnowledge(id: string): Promise<any> { return this.request(`/api/knowledge/${id}`, { method: 'DELETE' }) }
   searchKnowledge(query: string, limit = 5): Promise<any> { return this.request('/api/knowledge/search', { method: 'POST', body: JSON.stringify({ query, limit }) }) }
   knowledgeChunks(id: string): Promise<any> { return this.request(`/api/knowledge/${id}/chunks`) }
+
+  systemPerf(): Promise<any> { return this.request('/api/system/perf') }
+  systemNetwork(): Promise<any> { return this.request('/api/system/network') }
+  swarmAgents(): Promise<{ agents: any[] }> { return this.request('/api/swarm/agents') }
+  guardianActivity(limit = 10): Promise<any[]> { return this.request(`/api/guardian/activity?limit=${limit}`) }
+  thoughtStream(limit = 10): Promise<{ items: any[] }> { return this.request(`/api/thought-stream?limit=${limit}`) }
+  intelUnreadCount(): Promise<{ unread_count: number }> { return this.request('/api/intel/unread-count') }
+  knowledgeTopics(): Promise<any> { return this.request('/api/knowledge/topics') }
+  predictiveNow(): Promise<any> { return this.request('/api/predictive/now') }
+  privacyScan(): Promise<any> { return this.request('/api/privacy/scan', { method: 'POST' }) }
 
   workflows(): Promise<any[]> { return this.request('/api/workflows') }
   createWorkflow(data: any): Promise<any> { return this.request('/api/workflows', { method: 'POST', body: JSON.stringify(data) }) }
