@@ -133,6 +133,10 @@ export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellP
     setTimeout(() => setCoreState('idle'), 1200)
   }
 
+  if (view === 'quantum') {
+    return <QuantumEngine key="quantum" api={api} onExitNova={onExitNova}/>
+  }
+
   return (
     <div className="nova-shell" style={{
       position: 'fixed',
@@ -158,9 +162,6 @@ export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellP
         }}
       >
         <AnimatePresence mode="wait">
-          {view === 'quantum' && (
-            <QuantumEngine key="quantum" api={api} onExitNova={onExitNova}/>
-          )}
           {view === 'home' && (
             <HomeScreen
               key="home"
