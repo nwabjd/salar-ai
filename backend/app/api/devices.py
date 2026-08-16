@@ -19,6 +19,21 @@ ALLOWED_COMMANDS = {"open_url", "open_app", "reveal_path", "create_directory", "
 CONFIRMATION_REQUIRED = {"reveal_path", "create_directory"}
 
 
+def _ingest_device(device: Device, db: Session) -> None:
+    """Mirror a device heartbeat into the world graph (best-effort)."""
+    try:
+        from ..services.world_model import WorldGraph, WorldIngestor
+        graph = WorldGraph(db)
+        WorldIngestor(graph).ingest_device(device.user_id, {
+            "name": device.name,
+            "id": device.id,
+            "platform": device.platform or "",
+        })
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
 def _digest(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -94,6 +109,7 @@ def complete_command(command_id: str, payload: CommandResult, x_device_token: st
     command.completed_at = datetime.now(timezone.utc)
     device.last_seen_at = datetime.now(timezone.utc)
     db.commit(); db.refresh(command)
+    _ingest_device(device, db)
     return _command_response(command)
 
 
@@ -108,7 +124,9 @@ def next_command(x_device_token: str = Header(...), db: Session = Depends(get_db
     )
     if command is None:
         db.commit()
+        _ingest_device(device, db)
         return None
     command.status = "dispatched"
     db.commit(); db.refresh(command)
+    _ingest_device(device, db)
     return _command_response(command)

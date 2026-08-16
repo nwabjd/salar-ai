@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Moon Link IT Equipment — Buy &amp; Sell Used RAM</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+  :root{
+    --bg:#0a0e1a;--surface:#111827;--surface2:#1a2236;
+    --accent:#00d4ff;--accent2:#7c3aed;--accent3:#22d3ee;
+    --green:#22c55e;--orange:#f59e0b;--red:#ef4444;
+    --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+    --grad:linear-gradient(135deg,#00d4ff,#7c3aed);
+    --grad2:linear-gradient(135deg,#7c3aed,#ec4899);
+  }
+
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.6}
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar{width:6px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:var(--accent2);border-radius:3px}
+
+  /* ── Utility ── */
+  .container{max-width:1200px;margin:0 auto;padding:0 24px}
+  .section{padding:100px 0}
+  .grad-text{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .grad-text2{background:var(--grad2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+  /* ── Animated background ── */
+  .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.07;
+    background-image:linear-gradient(var(--accent) 1px,transparent 1px),linear-gradient(90deg,var(--accent) 1px,transparent 1px);
+    background-size:60px 60px}
+  .bg-glow{position:fixed;width:600px;height:600px;border-radius:50%;filter:blur(150px);opacity:.08;z-index:0;pointer-events:none}
+  .bg-glow.g1{top:-200px;right:-200px;background:var(--accent);animation:drift 20s ease-in-out infinite}
+  .bg-glow.g2{bottom:-200px;left:-200px;background:var(--accent2);animation:drift 25s ease-in-out infinite reverse}
+  @keyframes drift{0%,100%{transform:translate(0,0)}50%{transform:translate(80px,60px)}}
+
+  /* ── Reveal animation ── */
+  .reveal{opacity:0;transform:translateY(40px);transition:all .8s cubic-bezier(.16,1,.3,1)}
+  .reveal.visible{opacity:1;transform:translateY(0)}
+  .reveal-delay-1{transition-delay:.1s}
+  .reveal-delay-2{transition-delay:.2s}
+  .reveal-delay-3{transition-delay:.3s}
+  .reveal-delay-4{transition-delay:.4s}
+
+  /* ── NAV ── */
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 0;transition:all .3s}
+  nav.scrolled{background:rgba(10,14,26,.92);backdrop-filter:blur(20px);border-bottom:1px solid rgba(0,212,255,.1)}
+  nav .container{display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+  .logo-icon{width:40px;height:40px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;position:relative;overflow:hidden}
+  .logo-icon::after{content:'';position:absolute;inset:0;background:linear-gradient(45deg,transparent 40%,rgba(255,255,255,.25) 50%,transparent 60%);animation:logo-shine 3s infinite}
+  @keyframes logo-shine{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .logo-text{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;color:#fff}
+  .logo-text span{color:var(--accent)}
+  .nav-links{display:flex;gap:32px;align-items:center}
+  .nav-links a{color:var(--text2);text-decoration:none;font-size:14px;font-weight:500;transition:color .3s;position:relative}
+  .nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .3s}
+  .nav-links a:hover{color:#fff}
+  .nav-links a:hover::after{width:100%}
+  .nav-cta{background:var(--grad);color:#fff;padding:10px 24px;border-radius:8px;font-weight:600;font-size:14px;border:none;cursor:pointer;transition:all .3s;text-decoration:none}
+  .nav-cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,212,255,.3)}
+
+  /* ── HERO ── */
+  .hero{min-height:100vh;display:flex;align-items:center;position:relative;padding-top:80px}
+  .hero-content{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+  .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:100px;padding:6px 16px;font-size:13px;color:var(--accent);font-weight:500;margin-bottom:24px}
+  .hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse-dot 2s infinite}
+  @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
+  .hero h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(36px,5vw,60px);font-weight:800;line-height:1.1;margin-bottom:20px}
+  .hero p{font-size:18px;color:var(--text2);max-width:520px;margin-bottom:36px}
+  .hero-btns{display:flex;gap:16px;flex-wrap:wrap}
+  .btn-primary{background:var(--grad);color:#fff;padding:14px 32px;border-radius:10px;font-weight:600;font-size:16px;border:none;cursor:pointer;transition:all .3s;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+  .btn-primary:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,212,255,.35)}
+  .btn-secondary{background:transparent;color:#fff;padding:14px 32px;border-radius:10px;font-weight:600;font-size:16px;border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:all .3s;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+  .btn-secondary:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-3px)}
+
+  /* Hero visual */
+  .hero-visual{position:relative;display:flex;justify-content:center;align-items:center}
+  .hero-ram-card{width:340px;background:linear-gradient(145deg,var(--surface),var(--surface2));border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:32px;position:relative;animation:float 6s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+  .hero-ram-card::before{content:'';position:absolute;inset:-1px;border-radius:20px;background:var(--grad);opacity:.15;z-index:-1}
+  .ram-chip{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-bottom:16px}
+  .ram-chip div{height:28px;border-radius:3px;animation:chip-glow 2s ease-in-out infinite}
+  .ram-chip div:nth-child(odd){background:linear-gradient(180deg,#1e3a5f,#0f1f33)}
+  .ram-chip div:nth-child(even){background:linear-gradient(180deg,#2a1f4e,#15102a)}
+  .ram-chip div:nth-child(1){animation-delay:0s}.ram-chip div:nth-child(2){animation-delay:.1s}
+  .ram-chip div:nth-child(3){animation-delay:.2s}.ram-chip div:nth-child(4){animation-delay:.3s}
+  .ram-chip div:nth-child(5){animation-delay:.4s}.ram-chip div:nth-child(6){animation-delay:.5s}
+  .ram-chip div:nth-child(7){animation-delay:.6s}.ram-chip div:nth-child(8){animation-delay:.7s}
+  @keyframes chip-glow{0%,100%{box-shadow:inset 0 0 0 rgba(0,212,255,0)}50%{box-shadow:inset 0 0 8px rgba(0,212,255,.15)}}
+  .ram-card-info{display:flex;justify-content:space-between;align-items:center}
+  .ram-card-info .label{font-size:13px;color:var(--text3)}
+  .ram-card-info .value{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:var(--accent)}
+  .ram-card-info .brand-badge{background:rgba(0,212,255,.1);color:var(--accent);padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600}
+
+  .hero-float-card{position:absolute;background:var(--surface);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;animation:float-alt 5s ease-in-out infinite;font-size:13px;display:flex;align-items:center;gap:8px}
+  .hero-float-card.c1{top:-20px;right:-40px;animation-delay:1s}
+  .hero-float-card.c2{bottom:20px;left:-30px;animation-delay:2s}
+  @keyframes float-alt{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+  /* ── BRAND MARQUEE ── */
+  .marquee-section{padding:60px 0;border-top:1px solid rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.05);overflow:hidden}
+  .marquee-label{text-align:center;font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:3px;font-weight:600;margin-bottom:32px}
+  .marquee-track{display:flex;gap:80px;animation:scroll 20s linear infinite;width:max-content}
+  .marquee-track:hover{animation-play-state:paused}
+  .marquee-brand{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;color:rgba(255,255,255,.12);white-space:nowrap;transition:color .3s;cursor:default;user-select:none}
+  .marquee-brand:hover{color:var(--accent)}
+  @keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+  /* ── PRODUCTS ── */
+  .products-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:48px}
+  .product-card{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:28px;transition:all .4s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden;cursor:default}
+  .product-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--grad);transform:scaleX(0);transition:transform .4s;transform-origin:left}
+  .product-card:hover{transform:translateY(-6px);border-color:rgba(0,212,255,.2);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .product-card:hover::before{transform:scaleX(1)}
+  .product-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:20px}
+  .product-icon.ddr4{background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,212,255,.05))}
+  .product-icon.ddr5{background:linear-gradient(135deg,rgba(124,58,237,.15),rgba(124,58,237,.05))}
+  .product-card h3{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;margin-bottom:8px}
+  .product-card .specs{font-size:14px;color:var(--text2);margin-bottom:16px}
+  .product-card .price-range{display:flex;align-items:baseline;gap:4px}
+  .product-card .price-range .from{font-size:14px;color:var(--text3)}
+  .product-card .price-range .amount{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:800}
+  .product-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .product-tags span{font-size:11px;padding:4px 10px;border-radius:6px;font-weight:500}
+  .tag-buy{background:rgba(34,197,94,.1);color:var(--green)}
+  .tag-sell{background:rgba(245,158,11,.1);color:var(--orange)}
+
+  /* ── HOW IT WORKS ── */
+  .steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;margin-top:56px}
+  .step-card{text-align:center;padding:40px 24px;position:relative}
+  .step-num{width:64px;height:64px;border-radius:50%;background:var(--surface2);border:2px solid rgba(0,212,255,.2);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:800;color:var(--accent);margin:0 auto 24px;transition:all .3s}
+  .step-card:hover .step-num{background:var(--grad);color:#fff;border-color:transparent;transform:scale(1.1)}
+  .step-card h3{font-size:18px;font-weight:700;margin-bottom:12px}
+  .step-card p{font-size:14px;color:var(--text2);max-width:280px;margin:0 auto}
+  .step-connector{position:absolute;top:72px;right:-16px;width:32px;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.3}
+
+  /* ── BRANDS SECTION ── */
+  .brands-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:48px}
+  .brand-card{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:36px 24px;text-align:center;transition:all .4s;position:relative;overflow:hidden}
+  .brand-card::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 120%,var(--accent),transparent 60%);opacity:0;transition:opacity .4s}
+  .brand-card:hover{transform:translateY(-4px);border-color:rgba(0,212,255,.2)}
+  .brand-card:hover::after{opacity:.08}
+  .brand-logo{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:800;margin-bottom:12px;position:relative;z-index:1}
+  .brand-card .types{font-size:13px;color:var(--text2);position:relative;z-index:1}
+  .brand-card .count{font-size:12px;color:var(--accent);font-weight:600;margin-top:8px;position:relative;z-index:1}
+
+  /* ── CTA SECTION ── */
+  .cta-section{position:relative;overflow:hidden}
+  .cta-box{background:linear-gradient(135deg,rgba(0,212,255,.08),rgba(124,58,237,.08));border:1px solid rgba(0,212,255,.15);border-radius:24px;padding:80px 60px;text-align:center;position:relative}
+  .cta-box::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:conic-gradient(from 0deg,transparent,rgba(0,212,255,.05),transparent,rgba(124,58,237,.05),transparent);animation:spin-slow 15s linear infinite}
+  @keyframes spin-slow{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+  .cta-box>*{position:relative;z-index:1}
+  .cta-box h2{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,4vw,44px);font-weight:800;margin-bottom:16px}
+  .cta-box p{font-size:18px;color:var(--text2);max-width:560px;margin:0 auto 36px}
+  .cta-box .btn-primary{font-size:18px;padding:16px 40px}
+  .cta-contact{display:flex;justify-content:center;gap:32px;margin-top:32px;flex-wrap:wrap}
+  .cta-contact a{color:var(--text2);text-decoration:none;font-size:14px;display:flex;align-items:center;gap:8px;transition:color .3s}
+  .cta-contact a:hover{color:var(--accent)}
+
+  /* ── FOOTER ── */
+  footer{border-top:1px solid rgba(255,255,255,.05);padding:40px 0}
+  footer .container{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+  footer p{font-size:13px;color:var(--text3)}
+  footer .footer-links{display:flex;gap:24px}
+  footer .footer-links a{color:var(--text3);text-decoration:none;font-size:13px;transition:color .3s}
+  footer .footer-links a:hover{color:var(--accent)}
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:900px){
+    .hero-content{grid-template-columns:1fr;text-align:center}
+    .hero p{margin:0 auto 36px}
+    .hero-btns{justify-content:center}
+    .hero-visual{margin-top:40px}
+    .hero-float-card{display:none}
+    .steps-grid{grid-template-columns:1fr}
+    .step-connector{display:none}
+    .brands-grid{grid-template-columns:repeat(2,1fr)}
+    .nav-links{display:none}
+    .cta-box{padding:48px 24px}
+  }
+  @media(max-width:500px){
+    .products-grid{grid-template-columns:1fr}
+    .brands-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- Background effects -->
+<div class="bg-grid"></div>
+<div class="bg-glow g1"></div>
+<div class="bg-glow g2"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="container">
+    <a href="#" class="logo">
+      <div class="logo-icon">M</div>
+      <div class="logo-text">Moon<span>Link</span></div>
+    </a>
+    <div class="nav-links">
+      <a href="#products">Products</a>
+      <a href="#brands">Brands</a>
+      <a href="#how">How It Works</a>
+      <a href="#contact">Contact</a>
+      <a class="nav-cta" href="#contact">Get Quote</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="reveal">
+        <div class="hero-badge"><span class="dot"></span> Trusted by 2,000+ IT Buyers</div>
+        <h1>Buy &amp; Sell <span class="grad-text">Enterprise-Grade</span> Used RAM</h1>
+        <p>Premium pre-owned memory modules from Samsung, SK Hynix, Micron &amp; more. DDR4 &amp; DDR5, 4 GB to 64 GB — tested, graded, and ready to ship.</p>
+        <div class="hero-btns">
+          <a href="#products" class="btn-primary">Browse Inventory &#8594;</a>
+          <a href="#sell" class="btn-secondary">Sell Your RAM</a>
+        </div>
+      </div>
+      <div class="hero-visual reveal reveal-delay-2">
+        <div class="hero-ram-card">
+          <div class="ram-chip">
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+          </div>
+          <div class="ram-card-info">
+            <div><div class="label">DDR5 DIMM</div><div class="value">32 GB</div></div>
+            <span class="brand-badge">Samsung</span>
+          </div>
+        </div>
+        <div class="hero-float-card c1">
+          <span style="color:var(--green)">&#9650; 12%</span> DDR5 demand up
+        </div>
+        <div class="hero-float-card c2">
+          <span style="color:var(--accent)">&#10003;</span> Tested &amp; Graded
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BRAND MARQUEE -->
+<section class="marquee-section">
+  <div class="marquee-label">Authorized Brands We Trade</div>
+  <div class="marquee-track">
+    <span class="marquee-brand">SAMSUNG</span>
+    <span class="marquee-brand">SK HYNIX</span>
+    <span class="marquee-brand">MICRON</span>
+    <span class="marquee-brand">CRUCIAL</span>
+    <span class="marquee-brand">KINGSTON</span>
+    <span class="marquee-brand">SAMSUNG</span>
+    <span class="marquee-brand">SK HYNIX</span>
+    <span class="marquee-brand">MICRON</span>
+    <span class="marquee-brand">CRUCIAL</span>
+    <span class="marquee-brand">KINGSTON</span>
+  </div>
+</section>
+
+<!-- PRODUCTS -->
+<section id="products" class="section">
+  <div class="container">
+    <div class="reveal">
+      <h2 style="font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,4vw,40px);font-weight:800">Our <span class="grad-text">Inventory</span></h2>
+      <p style="color:var(--text2);max-width:520px;margin-top:12px">Every module is tested for stability, graded by quality, and backed by our reliability guarantee.</p>
+    </div>
+    <div class="products-grid">
+      <!-- DDR4 4GB -->
+      <div class="product-card reveal reveal-delay-1">
+        <div class="product-icon ddr4">&#128187;</div>
+        <h3>DDR4 4 GB</h3>
+        <p class="specs">PC4-21300 / PC4-2400 &bull; 288-pin DIMM</p>
+        <div class="price-range"><span class="from">from</span><span class="amount grad-text">$8</span></div>
+        <div class="product-tags"><span class="tag-buy">Buy</span><span class="tag-sell">Sell</span></div>
+      </div>
+      <!-- DDR4 8GB -->
+      <div class="product-card reveal reveal-delay-2">
+        <div class="product-icon ddr4">&#128187;</div>
+        <h3>DDR4 8 GB</h3>
+        <p class="specs">PC4-2400 / PC4-2666 / PC4-3200</p>
+        <div class="price-range"><span class="from">from</span><span class="amount grad-text">$12</span></div>
+        <div class="product-tags"><span class="tag-buy">Buy</span><span class="tag-sell">Sell</span></div>
+      </div>
+      <!-- DDR4 16GB -->
+      <div class="product-card reveal reveal-delay-3">
+        <div class="product-icon ddr4">&#128187;</div>
+        <h3>DDR4 16 GB</h3>
+        <p class="specs">PC4-2666 / PC4-3200 &bull; Dual-rank available</p>
+        <div class="price-range"><span class="from">from</span><span class="amount grad-text">$20</span></div>
+        <div class="product-tags"><span class="tag-buy">Buy</span><span class="tag-sell">Sell</span></div>
+      </div>
+      <!-- DDR4 32GB -->
+      <div class="product-card reveal reveal-delay-4">
+        <div class="product-icon ddr4">&#128187;</div>
+        <h3>DDR4 32 GB</h3>
+        <p class="specs">PC4-3200 &bull; Server &amp; Desktop</p>
+        <div class="price-range"><span class="from">from</span><span class="amount grad-text">$38</span></div>
+        <div class="product-tags"><span class="tag-buy">Buy</span><span class="tag-sell">Sell</span></div>
+      </div>
+      <!-- DDR5 8GB -->
+      <div class="product-card reveal reveal-delay-1">
+        <div class="product-icon ddr5">&#9889;</div>
+        <h3>DDR5 8 GB</h3>
+        <p class="specs">PC5-4800 &bull; 288-pin DIMM</p>
+        <div class="price-range"><span class="from">from</span><span class="amount grad-text2">$14</span></div>
+        <div class="product-tags"><span class="tag-buy">Buy</span><span class="tag-sell">Sell</span></div>
+      </div>
+      <!-- DDR5 16GB -->
+      <div class="product-card reveal reveal-delay-2">
+        <div class="product-icon ddr5">&#9889;</div>
+        <h3>DDR5 16 GB</h3>
+        <p class="specs">PC5-4800 / PC5-5600 &bull; On-die ECC</p>
+        <div class="price-range"><span class="from">from</span><span class="amount grad-text2">$24</span></div>
+        <div class="product-tags"><span class="tag-buy">Buy</span><span class="tag-sell">Sell</span></div>
+      </div>
+      <!-- DDR5 32GB -->
+      <div class="product-card reveal reveal-delay-3">
+        <div class="product-icon ddr5">&#9889;</div>
+        <h3>DDR5 32 GB</h3>
+        <p class="specs">PC5-5600 / PC5-6400 &bull; High-performance</p>
+        <div class="price-range"><span class="from">from</span><span class="amount grad-text2">$48</span></div>
+        <div class="product-tags"><span class="tag-buy">Buy</span><span class="tag-sell">Sell</span></div>
+      </div>
+      <!-- DDR5 64GB -->
+      <div class="product-card reveal reveal-delay-4">
+        <div class="product-icon ddr5">&#9889;</div>
+        <h3>DDR5 64 GB</h3>
+        <p class="specs">PC5-5600 &bull; Server &amp; Workstation</p>
+        <div class="price-range"><span class="from">from</span><span class="amount grad-text2">$110</span></div>
+        <div class="product-tags"><span class="tag-buy">Buy</span><span class="tag-sell">Sell</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BRANDS -->
+<section id="brands" class="section" style="background:rgba(255,255,255,.02)">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <h2 style="font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,4vw,40px);font-weight:800">Top <span class="grad-text">Brands</span> We Trade</h2>
+      <p style="color:var(--text2);max-width:480px;margin:12px auto 0">We source and supply memory from the world's leading semiconductor manufacturers.</p>
+    </div>
+    <div class="brands-grid">
+      <div class="brand-card reveal reveal-delay-1">
+        <div class="brand-logo grad-text">Samsung</div>
+        <p class="types">DDR4 &bull; DDR5 &bull; ECC &bull; RDIMM</p>
+        <p class="count">Most Popular</p>
+      </div>
+      <div class="brand-card reveal reveal-delay-2">
+        <div class="brand-logo grad-text2">SK Hynix</div>
+        <p class="types">DDR4 &bull; DDR5 &bull; SO-DIMM &bull; DIMM</p>
+        <p class="count">Enterprise Favorite</p>
+      </div>
+      <div class="brand-card reveal reveal-delay-3">
+        <div class="brand-logo" style="color:var(--accent3)">Micron</div>
+        <p class="types">DDR4 &bull; DDR5 &bull; Crucial Line</p>
+        <p class="count">Best Value</p>
+      </div>
+      <div class="brand-card reveal reveal-delay-4">
+        <div class="brand-logo" style="color:var(--green)">Crucial</div>
+        <p class="types">DDR4 &bull; DDR5 &bull; Desktop &amp; Laptop</p>
+        <p class="count">Consumer Pick</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="section">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <h2 style="font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,4vw,40px);font-weight:800">How It <span class="grad-text">Works</span></h2>
+      <p style="color:var(--text2);max-width:480px;margin:12px auto 0">Three simple steps to buy or sell memory with Moon Link.</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card reveal reveal-delay-1">
+        <div class="step-num">1</div>
+        <div class="step-connector"></div>
+        <h3>Tell Us What You Need</h3>
+        <p>Share the brand, type, capacity, and quantity you're looking to buy or sell. We respond within hours.</p>
+      </div>
+      <div class="step-card reveal reveal-delay-2">
+        <div class="step-num">2</div>
+        <div class="step-connector"></div>
+        <h3>We Test &amp; Grade</h3>
+        <p>Every module runs through MemTest86 stability checks and is graded A / B / C for full transparency.</p>
+      </div>
+      <div class="step-card reveal reveal-delay-3">
+        <div class="step-num">3</div>
+        <h3>Ship &amp; Settle</h3>
+        <p>Fast worldwide shipping with secure payment. Sellers get paid within 48 hours of verification.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="contact" class="section cta-section">
+  <div class="container">
+    <div class="cta-box reveal">
+      <h2>Ready to <span class="grad-text">Trade</span> Memory?</h2>
+      <p>Whether you're upgrading your data center or liquidating old inventory, Moon Link gives you the best price — fast.</p>
+      <a href="mailto:info@moonlinkit.com" class="btn-primary">Get a Free Quote &#8594;</a>
+      <div class="cta-contact">
+        <a href="mailto:info@moonlinkit.com">&#9993; info@moonlinkit.com</a>
+        <a href="tel:+1234567890">&#9742; +1 (234) 567-890</a>
+        <a href="#">&#128205; Worldwide Shipping</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <p>&copy; 2026 Moon Link IT Equipment. All rights reserved.</p>
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ── Scroll reveal ──
+  const reveals = document.querySelectorAll('.reveal');
+  const revealOnScroll = () => {
+    reveals.forEach(el => {
+      const top = el.getBoundingClientRect().top;
+      if (top < window.innerHeight - 60) el.classList.add('visible');
+    });
+  };
+  window.addEventListener('scroll', revealOnScroll, { passive: true });
+  window.addEventListener('load', revealOnScroll);
+
+  // ── Nav scroll effect ──
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 40);
+  }, { passive: true });
+
+  // ── Smooth anchor offset for fixed nav ──
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const id = a.getAttribute('href');
+      if (id === '#') return;
+      e.preventDefault();
+      const target = document.querySelector(id);
+      if (target) window.scrollTo({ top: target.offsetTop - 80, behavior: 'smooth' });
+    });
+  });
+
+  // ── Counter animation for price ranges ──
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

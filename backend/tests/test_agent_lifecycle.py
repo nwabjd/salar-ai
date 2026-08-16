@@ -176,7 +176,7 @@ def test_agent_sanitizes_failed_tool_payload_before_model_response_and_audit(
     gemini = ToolErrorGemini()
     client.app.state.coordinator.gemini = gemini
 
-    async def leaky_tool(name, args, user_id, db, is_admin=False):
+    async def leaky_tool(name, args, user_id, db, is_admin=False, base_url="", jwt_secret=""):
         return {
             "error": (
                 "(sqlite3.OperationalError) INSERT INTO memories VALUES (?) "
@@ -380,7 +380,7 @@ def test_agent_tool_loop_exhaustion_persists_truthful_partial_response(client, a
     client.app.state.agent_orchestrator = AgentOrchestrator(research=SuccessfulResearch())
     client.app.state.coordinator.gemini = ToolLoopGemini()
 
-    async def fake_execute_tool(name, args, user_id, db, is_admin=False):
+    async def fake_execute_tool(name, args, user_id, db, is_admin=False, base_url="", jwt_secret=""):
         return {"devices": [], "count": 0}
 
     monkeypatch.setattr("app.api.agent.execute_tool", fake_execute_tool)

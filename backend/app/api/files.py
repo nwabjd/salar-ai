@@ -1,5 +1,10 @@
 """File manager endpoints — browse, read, write, upload, download, rename, move, delete."""
 
+import hashlib
+import hmac
+import mimetypes
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -115,3 +120,24 @@ def download_file(path: str, request: Request = None, user: User = Depends(get_c
     if not target.exists() or target.is_dir():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(str(target), filename=target.name)
+
+
+@router.get("/serve")
+def serve_file(uid: str, path: str, exp: int, sig: str, request: Request):
+    """Stream a user's file inline with a signed short-lived URL (no auth header needed)."""
+    settings = request.app.state.settings
+    expected = hmac.new(settings.jwt_secret.encode(), f"{uid}:{path}:{exp}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        raise HTTPException(status_code=403, detail="Invalid or expired link")
+    if int(time.time()) > exp:
+        raise HTTPException(status_code=403, detail="Link expired")
+    root = settings.storage_dir / "users" / uid
+    fm = FileManager(root=str(root))
+    try:
+        target = fm._resolve(path)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not target.exists() or target.is_dir():
+        raise HTTPException(status_code=404, detail="File not found")
+    mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+    return FileResponse(str(target), media_type=mime)

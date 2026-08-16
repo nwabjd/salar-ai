@@ -18,6 +18,7 @@ from ..services.agents import PreparedAgentContext
 from ..services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
 from ..services.agents.run_store import AgentRunStore
 from ..services.agent import TOOL_DEFINITIONS, execute_tool
+from ..services.world_model import SituationEngine, WorldGraph
 from .deps import check_quota
 
 log = logging.getLogger(__name__)
@@ -25,6 +26,27 @@ log = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
 
 MAX_AGENT_ROUNDS = 5
+
+
+def _situation_context(db: Session, user_id: str) -> str:
+    """Build a compact 'what is happening right now' block for prompts.
+
+    Returns an empty string when the world model has nothing notable, so
+    callers can omit the block entirely instead of steering the model.
+    """
+    try:
+        engine = SituationEngine(WorldGraph(db))
+        current = engine.context_text(user_id)
+        projected = engine.projected_outcomes(user_id)
+        if not current:
+            return ""
+        parts = [current]
+        if projected:
+            parts.append("Projected outcomes if nothing changes:\n" + projected)
+        return "\n\n".join(parts)
+    except Exception as error:  # pragma: no cover - resilience guard
+        log.warning("Situation context unavailable: %s", type(error).__name__)
+        return ""
 
 
 class DisconnectAwareStreamingResponse(StreamingResponse):
@@ -419,6 +441,7 @@ async def chat(
         memories=memories,
         documents=documents,
         agent_context=prepared.context,
+        situations_context=_situation_context(db, user.id),
     )
     terminal_event_id = token_id()
     user_message = Message(id=token_id(), conversation_id=conversation.id, role="user", content=prompt)
@@ -578,6 +601,7 @@ async def chat_stream(
                 memories=memories,
                 documents=documents,
                 agent_context=prepared.context,
+                situations_context=_situation_context(db, user.id),
             )
             messages[0]["content"] += (
                 "\n\nUse available tools when the user asks you to do something on their computer. "
@@ -601,8 +625,16 @@ async def chat_stream(
 
                         yield f"data: {json.dumps({'type': 'tool_call', 'tool': tool_name, 'args': tool_args})}\n\n"
 
-                        tool_result = await execute_tool(tool_name, tool_args, user.id, save_db, is_admin=user.is_admin)
+                        tool_result = await execute_tool(tool_name, tool_args, user.id, save_db, is_admin=user.is_admin, base_url=str(request.base_url), jwt_secret=request.app.state.settings.jwt_secret)
                         tools_used.append({"tool": tool_name, "args": tool_args, "result": tool_result})
+                        try:
+                            factory = getattr(request.app.state, "world_ingestor_factory", None)
+                            if factory is not None:
+                                ingestor = factory()
+                                ingestor.ingest_tool(user.id, {"tool": tool_name, "args": tool_args, "result": tool_result}, source="chat")
+                                ingestor.graph.db.commit()
+                        except Exception:
+                            log.warning("world ingest failed for tool %s", tool_name, exc_info=True)
 
                         yield f"data: {json.dumps({'type': 'tool_result', 'tool': tool_name, 'result': tool_result})}\n\n"
 

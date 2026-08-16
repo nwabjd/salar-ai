@@ -1,0 +1,113 @@
+/* ============================================================
+   SALAAR NOVA — Nova Spatial Intelligence System
+   Design tokens: colors, surfaces, glow, typography, motion.
+   Foundation for the Salaar Nova redesign.
+   ============================================================ */
+:root {
+  /* ---- Color system ---- */
+  --nova-bg-void: #07090f;
+  --nova-bg-navy: #090d18;
+  --nova-bg-violet: #100b1e;
+
+  --nova-cyan: #60efff;
+  --nova-violet: #a879ff;
+  --nova-white: #f7f9ff;
+  --nova-lunar: #9da7ba;
+
+  --nova-mint: #78f4c5;
+  --nova-amber: #ffcc75;
+  --nova-coral: #ff7185;
+
+  /* ---- Glow / intelligence ---- */
+  --nova-glow-cyan: 0 0 24px rgba(96, 239, 255, .32), 0 0 80px rgba(96, 239, 255, .10);
+  --nova-glow-violet: 0 0 24px rgba(168, 121, 255, .34), 0 0 90px rgba(168, 121, 255, .12);
+  --nova-glow-amber: 0 0 20px rgba(255, 204, 117, .30);
+  --nova-glow-coral: 0 0 20px rgba(255, 113, 133, .34);
+
+  /* ---- Surfaces ---- */
+  --nova-glass: rgba(16, 20, 32, .46);
+  --nova-glass-strong: rgba(10, 12, 22, .78);
+  --nova-intel-glass: linear-gradient(145deg, rgba(96, 239, 255, .08), rgba(168, 121, 255, .06)), rgba(16, 20, 32, .55);
+  --nova-solid: #0b0e18;
+
+  --nova-line: rgba(255, 255, 255, .10);
+  --nova-line-bright: rgba(255, 255, 255, .20);
+  --nova-line-cyan: rgba(96, 239, 255, .35);
+  --nova-line-violet: rgba(168, 121, 255, .35);
+
+  --nova-blur: 24px;
+  --nova-blur-heavy: 48px;
+
+  /* ---- Typography ---- */
+  --nova-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --nova-font-mono: 'SF Mono', 'Fira Code', Monaco, Consolas, monospace;
+  --nova-scale-hero: clamp(44px, 6vw, 72px);
+  --nova-scale-h1: clamp(32px, 4vw, 40px);
+  --nova-scale-h2: clamp(20px, 2.4vw, 24px);
+  --nova-scale-h3: 16px;
+  --nova-scale-body: 14.5px;
+  --nova-scale-meta: 12px;
+
+  /* ---- Motion ---- */
+  --nova-motion-micro: 140ms;
+  --nova-motion-panel: 300ms;
+  --nova-motion-major: 600ms;
+  --nova-motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --nova-motion-ease-soft: cubic-bezier(.33, 1, .68, 1);
+
+  /* ---- Spacing ---- */
+  --nova-space-rail: 56px;
+  --nova-space-dock: 300px;
+  --nova-radius-glass: 18px;
+  --nova-radius-card: 14px;
+}
+
+/* ---- Glass surfaces ---- */
+.nova-glass {
+  background: var(--nova-glass);
+  -webkit-backdrop-filter: blur(var(--nova-blur)) saturate(140%);
+  backdrop-filter: blur(var(--nova-blur)) saturate(140%);
+  border: 1px solid var(--nova-line);
+  border-radius: var(--nova-radius-glass);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 24px 60px rgba(0, 0, 0, .35);
+}
+
+.nova-intel-glass {
+  background: var(--nova-intel-glass);
+  -webkit-backdrop-filter: blur(var(--nova-blur)) saturate(160%);
+  backdrop-filter: blur(var(--nova-blur)) saturate(160%);
+  border: 1px solid var(--nova-line-cyan);
+  border-radius: var(--nova-radius-glass);
+  box-shadow: inset 0 1px 0 rgba(96, 239, 255, .10), var(--nova-glow-cyan);
+}
+
+.nova-solid {
+  background: var(--nova-solid);
+  border: 1px solid var(--nova-line);
+  border-radius: var(--nova-radius-card);
+}
+
+/* ---- Meta label ---- */
+.nova-meta {
+  font-size: var(--nova-scale-meta);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--nova-lunar);
+}
+
+/* ---- Focus / accessibility ---- */
+:focus-visible {
+  outline: 2px solid var(--nova-cyan);
+  outline-offset: 2px;
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .nova-core-particles,
+  .nova-background-haze,
+  .nova-core-orbit,
+  .nova-core-inner,
+  .nova-core-shell {
+    animation: none !important;
+  }
+}

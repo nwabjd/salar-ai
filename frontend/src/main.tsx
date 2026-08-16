@@ -7,13 +7,16 @@ import Strands from './effects/Strands.jsx'
 import { AccessState, clearSession, saveSession, storedSession } from './access'
 import { createSessionCoordinator } from './auth/session-coordinator'
 import { cleanAuthFromUrl, supabase } from './lib/supabase'
-import { Conversation, Message, SalarApi } from './api'
+import { Conversation, Message, SalarApi, WorldAction, WorldSituation } from './api'
+import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
 import './theme.css'
 import './styles.css'
 import './landing.css'
 import './cosmic-landing.css'
+import './nova/nova.css'
 import SalaarLanding from './components/SalaarLanding'
+import { NovaShell } from './nova'
 import { initialLiveState, liveReducer } from './live/realtime-state'
 import { GeminiLiveClient } from './live/gemini-live-client'
 import { FallbackVoiceClient } from './live/fallback-voice-client'
@@ -60,6 +63,9 @@ function App() {
   const [live, setLive] = useState(false)
   const [usage, setUsage] = useState<Usage | null>(null)
   const [showPricing, setShowPricing] = useState(false)
+  const [novaMode, setNovaMode] = useState(() => {
+    try { return localStorage.getItem('salar-nova-mode') !== 'off' } catch { return true }
+  })
 
   const enterApp = useCallback(async (supabaseToken?: string | null) => {
     const result = await sessionCoordinator.connect(supabaseToken)
@@ -96,6 +102,11 @@ function App() {
     refresh()
     const timer = setInterval(refresh, 30000)
     return () => { stopped = true; clearInterval(timer) }
+  }, [access])
+
+  useEffect(() => {
+    if (access !== 'connected') return
+    return startDevicePolling(api)
   }, [access])
 
   useEffect(() => {
@@ -138,6 +149,15 @@ function App() {
   if (!ready) return <Loader/>
   if (access !== 'connected') return <SalaarLanding onEnterApp={enterApp}/>
 
+  if (novaMode) {
+    return <NovaShell
+      api={api}
+      onLive={() => setLive(true)}
+      onSignOut={handleSignOut}
+      onExitNova={() => { setNovaMode(false); try { localStorage.setItem('salar-nova-mode', 'off') } catch {} }}
+    />
+  }
+
   return <><main className={`app-shell${live ? ' live-open' : ''}`}>
     <div className="liquid-stage"><LiquidEther colors={['#5227FF','#FF9FFC','#B497CF']} mouseForce={20} cursorSize={100} isViscous={false} viscous={30} iterationsViscous={32} iterationsPoisson={32} resolution={0.5} isBounce={false} autoDemo autoSpeed={0.5} autoIntensity={2.2} takeoverDuration={0.25} autoResumeDelay={3000} autoRampDuration={0.6}/></div>
     <header className="topbar">
@@ -146,6 +166,7 @@ function App() {
         {usage && <button className="usage-chip" onClick={() => setShowPricing(true)} title="Plan & billing"><Sparkles size={12}/><b>{usage.used.toLocaleString()}</b> / {usage.limit === null ? 'unlimited' : usage.limit.toLocaleString()} <small>{usage.exempt ? 'ADMIN' : usage.plan.toUpperCase()}</small></button>}
       </nav>
       <div className="topbar-actions">
+        <button className="connection" onClick={() => { setNovaMode(true); try { localStorage.setItem('salar-nova-mode', 'on') } catch {} }}><Sparkles size={13}/> NOVA</button>
         <button className="connection" onClick={() => setLive(true)}><Mic2 size={13}/> LIVE</button>
         <button className="connection signout" onClick={handleSignOut}><LogOut size={13}/> SIGN OUT</button>
       </div>
@@ -156,6 +177,70 @@ function App() {
       {showPricing && <div className="pricing-overlay"><button className="pricing-close" onClick={() => setShowPricing(false)} aria-label="Close plan & billing"><X/></button><PricingPage connected onClose={() => setShowPricing(false)}/></div>}
     </section>
   </main>{live && <Live connected onClose={() => setLive(false)}/>}</>
+}
+
+function SituationStrip({ onAsk, onAct }: { onAsk: (summary: string) => void; onAct: (action: string) => void }) {
+  const [situations, setSituations] = useState<WorldSituation[]>([])
+  const [actions, setActions] = useState<WorldAction[]>([])
+  const [executing, setExecuting] = useState<string | null>(null)
+  const [lastResults, setLastResults] = useState<string>('')
+  useEffect(() => {
+    let stopped = false
+    const load = async () => {
+      try {
+        const [list, acts] = await Promise.all([api.worldSituations(), api.worldActions()])
+        if (!stopped) { setSituations(list); setActions(acts.slice(0, 4)) }
+      } catch { /* world model unavailable — keep last known state */ }
+    }
+    load()
+    const timer = setInterval(load, 45000)
+    return () => { stopped = true; clearInterval(timer) }
+  }, [])
+  if (situations.length === 0 && actions.length === 0) return null
+  const severityClass = (severity: string) => severity === 'critical' ? 'critical' : severity === 'high' ? 'high' : 'normal'
+  const runAction = async (a: WorldAction) => {
+    if (executing) return
+    if (a.risk === 'high' && !window.confirm(`Run "${a.title}"?\n\n${a.description}`)) return
+    setExecuting(a.id)
+    try {
+      const res = await api.worldExecuteAction({
+        situation_kind: a.situation_kind,
+        action_title: a.title,
+        tool_calls: a.tool_calls,
+        risk: a.risk,
+        confirmed: a.risk !== 'high',
+      })
+      const summary = (res.results || []).map(r => `${r.tool}: ${JSON.stringify(r.result).slice(0, 140)}`).join('\n')
+      setLastResults(summary)
+      onAct(`Executed "${a.title}". Results:\n${summary}`)
+    } catch (err: any) {
+      if (err && err.message && String(err.message).includes('428')) {
+        onAct(`Please take this action and confirm the risk: ${a.title}. ${a.description}`)
+      } else {
+        setLastResults('')
+        onAct(`Please take this action: ${a.title}. ${a.description}`)
+      }
+    } finally {
+      setExecuting(null)
+    }
+  }
+  return <div className="situation-strip">
+    {situations.length > 0 && <span className="situation-strip-label">NOW</span>}
+    {situations.map((s, index) => (
+      <button key={`${s.kind}-${index}`} className={`situation-chip ${severityClass(s.severity)}`}
+        title={s.summary || s.title} onClick={() => onAsk(`${s.title}${s.summary ? ` — ${s.summary}` : ''}`)}>
+        <span className="situation-dot"/>{s.title}
+      </button>
+    ))}
+    {actions.map((a, index) => (
+      <button key={`act-${a.situation_kind}-${index}`} className={`situation-chip action-chip ${executing === a.id ? 'running' : ''} ${a.risk === 'high' ? 'risky' : ''}`}
+        title={`${a.description}${a.score > 0 ? ` — proven ${Math.round(a.score * 100)}%` : ''}`}
+        onClick={() => runAction(a)} disabled={!!executing}>
+        <span className="action-glyph">{executing === a.id ? '…' : '▶'}</span>{a.title}
+        {a.score > 0 && <span className="action-score">{Math.round(a.score * 100)}%</span>}
+      </button>
+    ))}
+  </div>
 }
 
 function Chat({ connected, onLive }: { connected: boolean; onLive: () => void }) {
@@ -173,7 +258,11 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streaming, toolActivity])
   function send() {
     if (!input.trim() || !conversation || busy) return
-    const content = input; setInput(''); setBusy(true); setStreaming(''); setToolActivity(''); streamBuf.current = ''
+    sendContent(input)
+  }
+  function sendContent(content: string) {
+    if (!content.trim() || !conversation || busy) return
+    setInput(''); setBusy(true); setStreaming(''); setToolActivity(''); streamBuf.current = ''
     const userMsg: Message = { id: 'tmp-' + Date.now(), role: 'user', content, created_at: new Date().toISOString() }
     setMessages(current => [...current, userMsg])
     let done = false
@@ -202,6 +291,7 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
   }
   return <div className={`chat-view${messages.length ? ' has-messages' : ''}`}>
       <div className="hero"><span className="eyebrow">COORDINATED INTELLIGENCE</span><h1>{messages.length ? 'Command stream' : 'What shall we accomplish?'}</h1><p>Private intelligence, memory, knowledge, and your connected devices—coordinated from one place.</p></div>
+      <SituationStrip onAsk={(summary) => { setInput(summary) }} onAct={(action) => { sendContent(action) }}/>
       <div className="messages" ref={messagesRef}><div className="messages-spacer"/>{messages.map(message => <article key={message.id} className={message.role}><span>{message.role === 'assistant' ? 'SALAR' : 'YOU'}</span><p>{message.content}</p></article>)}{streaming && <article className="assistant thinking"><span>SALAR</span><p>{streaming}</p></article>}{toolActivity && !streaming && <article className="assistant thinking tool-activity"><span>SALAR</span><p className="tool-hint">{toolActivity}</p></article>}{busy && !streaming && !toolActivity && <article className="assistant thinking"><span>SALAR</span><p>Reasoning across your private context…</p></article>}<div ref={end}/></div>
       {error && <div className="toast">{error}</div>}
       <div className="composer"><button className="icon-control live-control" onClick={onLive} title="Enter Live mode"><Mic2/></button><textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder="Ask, create, search, or control…" disabled={!connected} rows={1}/><button className="icon-control send-control" onClick={send} disabled={!connected || busy || !input.trim()} title="Send command"><Send/></button></div>

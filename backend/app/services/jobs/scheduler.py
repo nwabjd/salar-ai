@@ -29,15 +29,18 @@ class IntelScheduler:
         morning_brief_hour: int = 7,
         morning_brief_minute: int = 0,
         timezone_name: str = "UTC",
+        world_sync_interval_seconds: int = 1800,
     ) -> None:
         self.session_factory = session_factory
         self.email_watch_interval_seconds = email_watch_interval_seconds
         self.morning_brief_hour = morning_brief_hour
         self.morning_brief_minute = morning_brief_minute
+        self.world_sync_interval_seconds = world_sync_interval_seconds
         self._tz = timezone.utc if timezone_name == "UTC" else timezone.utc
         self._task: Optional[asyncio.Task] = None
         self._running = False
         self._last_email_watch: Optional[datetime] = None
+        self._last_world_sync: Optional[datetime] = None
         self._briefed_dates: Set[str] = set()
 
     # ---- lifecycle ----
@@ -76,6 +79,9 @@ class IntelScheduler:
         if self._last_email_watch is None or (now - self._last_email_watch).total_seconds() >= self.email_watch_interval_seconds:
             self._last_email_watch = now
             await self._schedule_email_watch()
+        if self._last_world_sync is None or (now - self._last_world_sync).total_seconds() >= self.world_sync_interval_seconds:
+            self._last_world_sync = now
+            await self._schedule_world_sync()
         await self._schedule_morning_brief(now)
 
     # ---- scheduling ----
@@ -94,6 +100,34 @@ class IntelScheduler:
             if enqueued:
                 db.commit()
                 log.info("Enqueued %d email-watch job(s)", enqueued)
+
+    async def _schedule_world_sync(self) -> None:
+        """Enqueue world-graph sync (memory unification + calendar) for every user."""
+        try:
+            from ..calendar_sync import calendar_snapshot
+        except Exception:
+            calendar_snapshot = None
+        with self.session_factory() as db:
+            user_ids = list(db.scalars(select(User.id)).all())
+            if not user_ids:
+                return
+            store = JobStore(db)
+            enqueued = 0
+            for user_id in user_ids:
+                if not store.has_pending(user_id, "world.sync"):
+                    input_data = None
+                    if calendar_snapshot is not None:
+                        try:
+                            events = calendar_snapshot(user_id)
+                            if events:
+                                input_data = {"calendar_events": events}
+                        except Exception:
+                            input_data = None
+                    store.enqueue(user_id=user_id, kind="world.sync", priority=3, input_data=input_data)
+                    enqueued += 1
+            db.commit()
+            if enqueued:
+                log.info("Enqueued world sync for %d user(s)", enqueued)
 
     async def _schedule_morning_brief(self, now: datetime) -> None:
         today = now.date().isoformat()

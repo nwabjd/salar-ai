@@ -29,6 +29,12 @@ def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), user: Us
     db.add(AuditEvent(user_id=user.id, action="memory.created", detail_json=json.dumps({"memory_id": memory.id})))
     db.commit()
     db.refresh(memory)
+    try:
+        from ..services.world_model import MemorySyncService
+        MemorySyncService(db).sync_memories(user.id)
+        db.commit()
+    except Exception:
+        db.rollback()
     return memory
 
 

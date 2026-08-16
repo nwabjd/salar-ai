@@ -1,12 +1,18 @@
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
 import os
 import platform
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import quote
+
+from .world_model import SituationEngine, WorldGraph, WorldSimulator
 
 log = logging.getLogger(__name__)
 
@@ -72,11 +78,11 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "open_url",
-                "description": "Open a URL in the user's default browser.",
+                "description": "Open a URL in the user's default browser, OR open a local file path (e.g. a file you just created) in the user's browser. Pass either an http(s) URL or a file path/name from the user's workspace.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "url": {"type": "string", "description": "URL to open"}
+                        "url": {"type": "string", "description": "http(s) URL or local file path to open in the user's browser"}
                     },
                     "required": ["url"]
                 }
@@ -852,12 +858,34 @@ TOOL_DEFINITIONS = [
                     "required": ["workflow_id"]
                 }
             },
+            {
+                "name": "world_simulate",
+                "description": "Run a what-if simulation against the user's world model. Proposes changes (e.g. set a project deadline, mark a build fixed, remove a relation) and predicts which situations would appear, disappear, worsen, or improve. Use BEFORE taking a risky or irreversible action, or when the user asks 'what would happen if...'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "action": {"type": "string", "enum": ["set_entity_prop", "add_relation", "remove_relation"], "description": "Type of change"},
+                                    "params": {"type": "object", "description": "Change parameters: set_entity_prop={entity_type, key, prop, value}. add_relation/remove_relation={from_type, from_key, relation, to_type, to_key}"}
+                                },
+                                "required": ["action"]
+                            },
+                            "description": "Proposed changes to simulate"
+                        }
+                    },
+                    "required": ["changes"]
+                }
+            },
         ]
     }
 ]
 
 
-async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session=None, is_admin: bool = False) -> Dict[str, Any]:
+async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session=None, is_admin: bool = False, base_url: str = "", jwt_secret: str = "") -> Dict[str, Any]:
     try:
         if name == "open_app":
             return await _open_app(args.get("app_name", ""))
@@ -868,9 +896,9 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         elif name == "read_file":
             return await _read_file(args.get("path", ""))
         elif name == "write_file":
-            return await _write_file(args.get("path", ""), args.get("content", ""))
+            return await _write_file(args.get("path", ""), args.get("content", ""), user_id)
         elif name == "open_url":
-            return await _open_url(args.get("url", ""))
+            return await _open_url(args.get("url", ""), user_id, db_session, base_url, jwt_secret)
         elif name == "send_notification":
             return await _send_notification(args.get("title", ""), args.get("body", ""), args.get("device_id"), user_id, db_session)
         elif name == "device_command":
@@ -1038,11 +1066,28 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
             return await _toggle_workflow(args.get("workflow_id", ""), user_id)
         elif name == "run_workflow":
             return await _run_workflow(args.get("workflow_id", ""), user_id)
+        elif name == "world_simulate":
+            return await _world_simulate(args.get("changes", []), user_id, db_session)
         else:
             return {"error": f"Unknown tool: {name}"}
     except Exception as e:
         log.error("Tool %s failed: %s", name, e)
         return {"error": str(e)}
+
+
+async def _world_simulate(changes: List[Dict[str, Any]], user_id: str, db_session=None) -> Dict[str, Any]:
+    if db_session is None:
+        return {"error": "No database session available for simulation"}
+    if not changes:
+        return {"error": "No changes provided — pass at least one change to simulate"}
+    try:
+        graph = WorldGraph(db_session)
+        engine = SituationEngine(graph)
+        simulator = WorldSimulator(graph, engine)
+        result = simulator.simulate(user_id, changes)
+        return result.to_dict()
+    except Exception as exc:
+        return {"error": f"Simulation failed: {exc}"}
 
 
 async def _open_app(app_name: str) -> Dict[str, Any]:
@@ -1147,11 +1192,14 @@ async def _read_file(path: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _write_file(path: str, content: str) -> Dict[str, Any]:
+async def _write_file(path: str, content: str, user_id: str = "") -> Dict[str, Any]:
     if not path:
         return {"error": "No path provided"}
     try:
         p = Path(path)
+        if not p.is_absolute() and user_id:
+            fm = _get_file_manager(user_id)
+            p = fm.root / p
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
         return {"status": "written", "path": str(p), "size": len(content)}
@@ -1159,11 +1207,27 @@ async def _write_file(path: str, content: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _open_url(url: str) -> Dict[str, Any]:
+async def _open_url(url: str, user_id: str = "", db_session=None, base_url: str = "", jwt_secret: str = "") -> Dict[str, Any]:
     if not url:
         return {"error": "No URL provided"}
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
+    raw = url.strip()
+    if raw.startswith("file://"):
+        raw = raw[len("file://"):]
+    # 1. If it's a local file path that exists in the user's sandbox → serve it over HTTP
+    served = None
+    if not raw.startswith(("http://", "https://")):
+        served = _serve_local_file(raw, user_id, base_url, jwt_secret)
+    if served:
+        url = served
+    elif not raw.startswith(("http://", "https://")):
+        url = "https://" + raw
+    # 2. Prefer routing through the user's connected device so it opens in THEIR browser
+    if user_id and db_session:
+        result = await _device_command(None, "open_url", {"url": url}, False, user_id, db_session)
+        if result.get("status") in ("queued", "awaiting_approval"):
+            return {**result, "url": url, "note": "Opening in your browser on your connected device."}
+        # no_device → fall through to local open attempt
+    # 3. Try opening on this host (works when the backend runs on the user's own machine)
     try:
         system = platform.system().lower()
         if system == "windows":
@@ -1177,8 +1241,39 @@ async def _open_url(url: str) -> Dict[str, Any]:
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await asyncio.wait_for(proc.communicate(), timeout=10)
         return {"status": "opened", "url": url}
+    except FileNotFoundError:
+        return {"status": "no_browser", "url": url, "detail": f"No desktop browser is available on this server. Open this link in your browser: {url}"}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e), "url": url}
+
+
+def _serve_local_file(path: str, user_id: str, base_url: str, jwt_secret: str = "") -> Optional[str]:
+    """Resolve a local file path within the user's sandbox and return a signed served URL, or None."""
+    if not path or not user_id or not base_url:
+        return None
+    if not jwt_secret:
+        from ..config import Settings
+        jwt_secret = Settings().jwt_secret
+    fm = _get_file_manager(user_id)
+    target = None
+    try:
+        target = fm._resolve(path)
+    except Exception:
+        pass
+    if target is None or not target.is_file():
+        try:
+            target = fm.root / Path(path).name
+        except Exception:
+            target = None
+    if target is None or not target.is_file():
+        return None
+    try:
+        rel = target.relative_to(fm.root).as_posix()
+    except ValueError:
+        return None
+    exp = int(time.time()) + 3600
+    sig = hmac.new(jwt_secret.encode(), f"{user_id}:{rel}:{exp}".encode(), hashlib.sha256).hexdigest()
+    return f"{base_url.rstrip('/')}/api/files/serve?uid={quote(user_id)}&path={quote(rel)}&exp={exp}&sig={sig}"
 
 
 async def _send_notification(title: str, body: str, device_id: str, user_id: str, db_session=None) -> Dict[str, Any]:

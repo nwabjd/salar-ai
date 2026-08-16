@@ -37,13 +37,14 @@ class FakeCoordinator(AICoordinator):
         super().__init__(FakeGemini())
         self.reply_calls = []
 
-    async def reply(self, *, prompt, messages, memories, documents, agent_context=""):
+    async def reply(self, *, prompt, messages, memories, documents, agent_context="", situations_context=""):
         self.reply_calls.append({
             "prompt": prompt,
             "messages": list(messages),
             "memories": list(memories),
             "documents": list(documents),
             "agent_context": agent_context,
+            "situations_context": situations_context,
         })
         return f"Test response to: {prompt}"
 

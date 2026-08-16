@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
 from . import __version__
+from .api.core import router as core_router
+from .api.world import router as world_router
 from .api.auth import router as auth_router
 from .api.chat import router as chat_router
 from .api.memory import router as memory_router
@@ -148,9 +150,88 @@ def create_app(settings: Settings = None) -> FastAPI:
                 log.error("Gemini client init failed: %s", e)
                 raise
 
+        from .services.core.events import CoreBus
+        from .services.core.verification import VerificationEngine
+        from .services.core.confidence import ConfidenceSystem
+        from .services.core.toolspec import ToolRegistry
+        from .services.core.correction import SelfCorrectionLoop
+        from .services.core.brain import CoreBrain
+        from .services.core.runtime import AgentRuntime
+        from .services.core.supervisor import Supervisor
+        from .services.core.pipeline import CorePipeline
+
+        app.state.core_bus = CoreBus(db_factory=session_factory)
+
+        from .services.world_model import WorldGraph, WorldIngestor
+
+        def _world_graph():
+            return WorldGraph(session_factory())
+
+        app.state.world_graph_factory = _world_graph
+        app.state.world_graph = None  # lazily created per request via api/world.py
+        app.state.world_ingestor_factory = lambda: WorldIngestor(_world_graph())
+
+        from .services.core.events import TOOL_RESULT, TASK_COMPLETED, TASK_FAILED, TASK_STARTED, VERIFICATION_FAILED
+
+        def _world_core_observer(event):
+            """Ingest core pipeline events into the world graph."""
+            payload = event.payload or {}
+            user_id = payload.get("user_id")
+            if not user_id:
+                return
+            try:
+                with session_factory() as db:
+                    graph = WorldGraph(db)
+                    ingestor = WorldIngestor(graph)
+                    if event.type == TOOL_RESULT:
+                        ingestor.ingest_tool(user_id, {
+                            "tool": payload.get("tool") or payload.get("name"),
+                            "args": payload.get("args") or {},
+                            "result": payload.get("result") or {},
+                        }, source="core")
+                    else:
+                        ingestor.ingest_core_event(user_id, {**payload, "type": event.type})
+                    graph.journal(user_id, source="core", event_type=event.type, payload=payload)
+                    db.commit()
+            except Exception:
+                log.exception("world ingest failed for %s", event.type)
+
+        app.state.core_bus.subscribe(TOOL_RESULT, _world_core_observer)
+        app.state.core_bus.subscribe(TASK_COMPLETED, _world_core_observer)
+        app.state.core_bus.subscribe(TASK_FAILED, _world_core_observer)
+        app.state.core_bus.subscribe(TASK_STARTED, _world_core_observer)
+        app.state.core_bus.subscribe(VERIFICATION_FAILED, _world_core_observer)
+        app.state.core_verifier = VerificationEngine()
+        app.state.core_confidence = ConfidenceSystem()
+        app.state.core_registry = ToolRegistry()
+        app.state.core_correction = SelfCorrectionLoop(
+            registry=app.state.core_registry,
+            verifier=app.state.core_verifier,
+            confidence=app.state.core_confidence,
+            bus=app.state.core_bus
+        )
+        app.state.core_brain = CoreBrain(registry=app.state.core_registry)
+        app.state.core_runtime = AgentRuntime(
+            bus=app.state.core_bus,
+            correction=app.state.core_correction,
+            confidence=app.state.core_confidence
+        )
+        app.state.core_supervisor = Supervisor(bus=app.state.core_bus, registry=app.state.core_registry)
+        app.state.core_pipeline = CorePipeline(
+            brain=app.state.core_brain,
+            runtime=app.state.core_runtime,
+            bus=app.state.core_bus,
+            supervisor=app.state.core_supervisor,
+            db_factory=session_factory,
+            confidence=app.state.core_confidence
+        )
+        app.state.core_bus.subscribe("SUPERVISOR_ALERT", app.state.core_supervisor.watch)
+        log.info("Core intelligence runtime wired")
+
         if not hasattr(app.state, "agent_orchestrator"):
             app.state.agent_orchestrator = AgentOrchestrator()
             log.info("Hidden agent orchestrator initialized")
+
 
         app.state.whatsapp = WhatsAppClient(
             bridge_url=active_settings.bridge_url
@@ -255,6 +336,7 @@ def create_app(settings: Settings = None) -> FastAPI:
         return {"status": "ok", "service": "salar-backend", "version": __version__}
 
     app.include_router(auth_router)
+    app.include_router(world_router)
     app.include_router(chat_router)
     app.include_router(memory_router)
     app.include_router(projects_router)
@@ -328,6 +410,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(widgets_router)
     app.include_router(ar_status_router)
     app.include_router(wallpapers_router)
+    app.include_router(core_router)
     return app
 
 

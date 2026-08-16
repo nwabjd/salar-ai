@@ -579,3 +579,155 @@ class WidgetPrefs(Base):
     widgets_json: Mapped[str] = mapped_column(Text, default="[]")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class CoreTask(Base):
+    __tablename__ = "core_tasks"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    request: Mapped[str] = mapped_column(Text)
+    goal: Mapped[str] = mapped_column(Text, default="")
+    intent_kind: Mapped[str] = mapped_column(String(32), default="chat", index=True)
+    status: Mapped[str] = mapped_column(String(24), default="queued", index=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    trace_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class CoreTrace(Base):
+    __tablename__ = "core_traces"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    task_id: Mapped[str] = mapped_column(ForeignKey("core_tasks.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="running", index=True)
+    steps_count: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CoreTraceStep(Base):
+    __tablename__ = "core_trace_steps"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    trace_id: Mapped[str] = mapped_column(ForeignKey("core_traces.id", ondelete="CASCADE"), index=True)
+    stage: Mapped[str] = mapped_column(String(40))
+    detail_json: Mapped[str] = mapped_column(Text, default="{}")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+
+class CoreEventLog(Base):
+    __tablename__ = "core_event_log"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    trace_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(40), index=True)
+    payload: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WorldEntity(Base):
+    """A node in the user's continuously-updated world model.
+
+    Each entity is deduplicated by (user, entity_type, canonical key). The
+    canonical key is a stable, lower-cased identifier within its type (e.g.
+    ``project:aurora`` or ``person:alice@example.com``) so repeated observations
+    of the same thing merge into one node with provenance (source, first/last
+    seen, confidence). Entities can expire when no observation refreshes them.
+    """
+
+    __tablename__ = "world_entities"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    entity_type: Mapped[str] = mapped_column(String(40), index=True)
+    key: Mapped[str] = mapped_column(String(320), index=True)
+    name: Mapped[str] = mapped_column(String(240), default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    props_json: Mapped[str] = mapped_column(Text, default="{}")
+    source: Mapped[str] = mapped_column(String(64), default="")
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    ttl_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    __table_args__ = (UniqueConstraint("user_id", "entity_type", "key", name="uq_world_entity_user_type_key"),)
+
+    @property
+    def props(self) -> dict:
+        import json as _json
+        try:
+            return _json.loads(self.props_json or "{}")
+        except Exception:
+            return {}
+
+
+class WorldRelation(Base):
+    """A typed edge between two WorldEntity nodes."""
+
+    __tablename__ = "world_relations"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    from_id: Mapped[str] = mapped_column(ForeignKey("world_entities.id", ondelete="CASCADE"), index=True)
+    to_id: Mapped[str] = mapped_column(ForeignKey("world_entities.id", ondelete="CASCADE"), index=True)
+    relation: Mapped[str] = mapped_column(String(48), index=True)
+    source: Mapped[str] = mapped_column(String(64), default="")
+    weight: Mapped[float] = mapped_column(Float, default=1.0)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    ttl_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    __table_args__ = (UniqueConstraint("user_id", "from_id", "to_id", "relation", name="uq_world_relation_user_from_to_rel"),)
+
+
+class WorldObservation(Base):
+    """A journaled raw observation that fed (or will feed) the world graph.
+
+    Kept so provenance can be traced back to the exact event, tool call, or
+    sensor reading that produced or refreshed an entity/relation.
+    """
+
+    __tablename__ = "world_observations"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(64), index=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    entity_id: Mapped[Optional[str]] = mapped_column(ForeignKey("world_entities.id", ondelete="SET NULL"), nullable=True)
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WorldActionExecution(Base):
+    """A recorded execution of a proposed world-model action.
+
+    Each entry logs which situation_kind + action was executed, which tool
+    calls it issued, how it turned out, and whether the underlying situation
+    was later resolved. Self-evolution aggregates these rows into learned
+    action policies.
+    """
+
+    __tablename__ = "world_action_executions"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    situation_kind: Mapped[str] = mapped_column(String(64), index=True)
+    action_title: Mapped[str] = mapped_column(String(240), default="")
+    tool_calls_json: Mapped[str] = mapped_column(Text, default="[]")
+    outcome: Mapped[str] = mapped_column(String(24), default="unknown")  # success | failure | neutral | unknown
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WorldActionPolicy(Base):
+    """Learned per-user policy: how well a given action resolves a situation.
+
+    score is a bounded success measure (0..1) derived from executions.
+    """
+
+    __tablename__ = "world_action_policies"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    situation_kind: Mapped[str] = mapped_column(String(64), index=True)
+    action_title: Mapped[str] = mapped_column(String(240), default="")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    successes: Mapped[int] = mapped_column(Integer, default=0)
+    resolved_count: Mapped[int] = mapped_column(Integer, default=0)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("user_id", "situation_kind", "action_title", name="uq_world_policy_user_kind_action"),)

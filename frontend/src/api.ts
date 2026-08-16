@@ -8,6 +8,82 @@ export type WhatsAppMessage = { id: string; fromMe: boolean; text: string; sende
 export type EmailAccount = { address: string; password: string; imap_host?: string; smtp_host?: string }
 export type EmailMessage = { id: string; from: string; to: string; subject: string; date: string }
 export type EmailFolder = { folder: string; total: number; unread: number }
+export type WorldSituation = {
+  kind: string
+  severity: 'critical' | 'high' | 'medium' | 'low'
+  title: string
+  summary?: string
+  entity_ids?: string[]
+  props?: Record<string, unknown>
+}
+
+export type WorldAction = {
+  id: string
+  situation_kind: string
+  title: string
+  description: string
+  tool_calls: Array<{ name: string; args: Record<string, unknown> }>
+  risk: string
+  severity: string
+  score: number
+}
+
+export type WorldSimulation = {
+  situations_before: WorldSituation[]
+  situations_after: WorldSituation[]
+  consequences: Array<{ kind: string; delta: string; detail: string; severity: string }>
+  narrative: string
+}
+
+export type WorldPolicy = {
+  situation_kind: string
+  action_title: string
+  attempts: number
+  successes: number
+  resolved_count: number
+  score: number
+}
+
+export type MissionStep = {
+  id: string
+  sequence: number
+  tool: string
+  args_json: string
+  danger_level: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'waiting_approval' | 'approved' | 'denied'
+  error?: string | null
+  approval_note?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  created_at?: string | null
+}
+
+export type MissionEvent = {
+  id: string
+  sequence: number
+  kind: string
+  detail_json: string
+  created_at: string
+}
+
+export type Mission = {
+  id: string
+  goal: string
+  mode: string
+  status: 'queued' | 'planning' | 'running' | 'waiting_approval' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
+  step_count: number
+  completed_count: number
+  total_attempts: number
+  replan_count: number
+  result_summary?: string | null
+  error?: string | null
+  created_at: string
+  started_at?: string | null
+  finished_at?: string | null
+  updated_at?: string | null
+  steps?: MissionStep[]
+  events?: MissionEvent[]
+}
 
 localStorage.removeItem('salar.apiUrl')
 export const DEFAULT_API = (import.meta.env.VITE_API_URL || 'https://salar-backend.onrender.com').replace(/\/$/, '')
@@ -19,6 +95,17 @@ function timeoutSignal(ms: number): { signal: AbortSignal; cleanup: () => void }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), ms)
   return { signal: controller.signal, cleanup: () => clearTimeout(timer) }
+}
+
+export interface Notification {
+  id: string
+  kind: string
+  title: string
+  body?: string
+  link?: string
+  severity?: string
+  is_read: boolean
+  created_at?: string
 }
 
 export class SalarApi {
@@ -111,6 +198,17 @@ export class SalarApi {
         onError?.(err instanceof Error ? err : new Error(String(err)))
       })
   }
+
+  notifications(limit = 50): Promise<Notification[]> { return this.request(`/api/notifications?limit=${limit}`) }
+  notificationUnreadCount(): Promise<{ count: number }> { return this.request('/api/notifications/unread-count') }
+  markNotificationRead(id: string): Promise<Notification> { return this.request(`/api/notifications/${id}/read`, { method: 'POST' }) }
+  markAllNotificationsRead(): Promise<{ ok: boolean }> { return this.request('/api/notifications/read-all', { method: 'POST' }) }
+
+  coreRun(request: string, goal = ''): Promise<any> { return this.request('/api/core/run', { method: 'POST', body: JSON.stringify({ request, goal }) }) }
+  coreApprove(taskId: string, approve: boolean): Promise<any> { return this.request(`/api/core/run/${taskId}/approve`, { method: 'POST', body: JSON.stringify({ approve }) }) }
+  coreStatus(): Promise<{ live_agents: any[]; alerts: any[]; bus_events_count: number }> { return this.request('/api/core/status') }
+  coreTraces(): Promise<any[]> { return this.request('/api/core/traces') }
+  coreTrace(traceId: string): Promise<any> { return this.request(`/api/core/traces/${traceId}`) }
 
   memories() { return this.request<Memory[]>('/api/memories') }
   saveMemory(title:string, content:string) { return this.request<Memory>('/api/memories',{method:'POST',body:JSON.stringify({title,content,layer:'long_term'})}) }
@@ -235,6 +333,62 @@ export class SalarApi {
 
   monitorSnapshot(): Promise<any> {
     return this.request('/api/monitor/snapshot')
+  }
+
+  worldSituations(limit = 12): Promise<WorldSituation[]> {
+    return this.request(`/api/world/situations?limit=${limit}`)
+  }
+
+  worldActions(): Promise<WorldAction[]> {
+    return this.request('/api/world/actions')
+  }
+
+  worldExecuteAction(action: { situation_kind: string; action_title: string; tool_calls: Array<{ name: string; args: Record<string, unknown> }>; risk: string; confirmed?: boolean }): Promise<{ ok: boolean; results: Array<{ tool: string; result: Record<string, unknown> }>; outcome: string }> {
+    return this.request('/api/world/actions/execute', { method: 'POST', body: JSON.stringify({ ...action, confirmed: action.confirmed ?? false }) })
+  }
+
+  worldEvolve(): Promise<{ ok: boolean; policies: WorldPolicy[] }> {
+    return this.request('/api/world/evolve', { method: 'POST' })
+  }
+
+  worldPolicies(): Promise<WorldPolicy[]> {
+    return this.request('/api/world/policies')
+  }
+
+  worldSimulate(changes: Array<{ action: string; params: Record<string, unknown> }>): Promise<WorldSimulation> {
+    return this.request('/api/world/simulate', { method: 'POST', body: JSON.stringify({ changes }) })
+  }
+
+  worldObserve(source: string, event_type: string, payload: Record<string, unknown>): Promise<any> {
+    return this.request('/api/world/observe', { method: 'POST', body: JSON.stringify({ source, event_type, payload }) })
+  }
+
+  missions(): Promise<Mission[]> {
+    return this.request('/api/missions')
+  }
+
+  mission(id: string): Promise<Mission> {
+    return this.request(`/api/missions/${id}`)
+  }
+
+  missionEvents(id: string): Promise<MissionEvent[]> {
+    return this.request(`/api/missions/${id}/events`)
+  }
+
+  launchMission(goal: string, mode = 'autonomous'): Promise<Mission> {
+    return this.request('/api/missions', { method: 'POST', body: JSON.stringify({ goal, mode }) })
+  }
+
+  cancelMission(id: string): Promise<any> {
+    return this.request(`/api/missions/${id}/cancel`, { method: 'POST' })
+  }
+
+  approveMissionStep(missionId: string, stepId: string): Promise<any> {
+    return this.request(`/api/missions/${missionId}/steps/${stepId}/approve`, { method: 'POST' })
+  }
+
+  denyMissionStep(missionId: string, stepId: string): Promise<any> {
+    return this.request(`/api/missions/${missionId}/steps/${stepId}/deny`, { method: 'POST' })
   }
 
   monitorStream(onData: (data: any) => void, onError?: (err: Error) => void): () => void {

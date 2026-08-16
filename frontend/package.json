@@ -11,6 +11,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.111.0",
     "@vitejs/plugin-react": "latest",
+    "framer-motion": "^13.1.0",
     "lucide-react": "latest",
     "ogl": "^1.0.11",
     "react": "latest",

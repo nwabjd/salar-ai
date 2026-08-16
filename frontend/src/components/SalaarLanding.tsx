@@ -1,5 +1,6 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties } from "react";
 import { cleanAuthFromUrl, isSupabaseConfigured, supabase } from "../lib/supabase";
+import { isDesktop } from "../access";
 import { api } from "../api";
 import LiquidEther from '../effects/LiquidEther.jsx'
 import OnboardingWizard from "./OnboardingWizard";
@@ -381,6 +382,22 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
     }
 
     setBusy(true);
+    // Tauri desktop webviews cannot relay OAuth popup sessions back to the
+    // opener window. Redirect the main window instead and let Supabase pick
+    // the session out of the callback URL.
+    if (isDesktop()) {
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin, skipBrowserRedirect: true },
+      });
+      if (authError) setError(authError.message);
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setBusy(false);
+      return;
+    }
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: window.location.origin },

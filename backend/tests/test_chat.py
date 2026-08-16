@@ -206,3 +206,28 @@ def test_stream_cancellation_records_cancelled_audit_without_completed(client, a
     assert detail["status"] == "cancelled"
     assert detail["reason"]
 
+
+def test_stream_injects_situation_context_into_model_prompt(client, auth_headers):
+    me = client.get("/api/auth/me", headers=auth_headers)
+    uid = me.json()["id"]
+    graph = client.app.state.world_graph_factory()
+    graph.upsert_entity(uid, "project", "aurora", name="Aurora", source="test")
+    graph.upsert_entity(uid, "build", "aurora-ci", name="Aurora CI",
+                        props={"status": "failed"}, source="test")
+    graph.relate(uid, "build", "aurora-ci", "of", "project", "aurora", source="test")
+    graph.db.commit()
+
+    created = client.post("/api/conversations", json={"title": "Situation"}, headers=auth_headers)
+    conversation_id = created.json()["id"]
+
+    response = client.post(
+        "/api/chat/stream",
+        json={"conversation_id": conversation_id, "content": "How is everything going?", "fast": False},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    system_prompt = client.app.state.coordinator.gemini.calls[0]["messages"][0]["content"]
+    assert "What is happening right now" in system_prompt
+    assert "latest build is failing" in system_prompt
+

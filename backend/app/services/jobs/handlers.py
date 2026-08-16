@@ -36,3 +36,39 @@ def register_all(registry: JobRegistry) -> None:
 
         brief = build_morning_brief(ctx.db, ctx.user_id)
         return {"status": "ok", "brief": brief}
+
+    @registry.register("world.sync")
+    async def world_sync(ctx: JobContext) -> Dict[str, Any]:
+        """Mirror the fragmented memory stores into the world graph and ingest
+        connected sources (calendar, devices). Runs periodically."""
+        from ..world_model import MemorySyncService, WorldGraph, WorldIngestor
+
+        graph = WorldGraph(ctx.db)
+        syncer = MemorySyncService(ctx.db)
+        counts = syncer.sync_all(ctx.user_id)
+        syncer.sync_relations(ctx.user_id)
+
+        ingestor = WorldIngestor(graph)
+        extra = {"calendar": 0, "devices": 0}
+
+        calendar_payload = ctx.input_data or {}
+        if calendar_payload.get("calendar_events"):
+            for event in calendar_payload["calendar_events"]:
+                if ingestor.ingest_calendar_event(ctx.user_id, event):
+                    extra["calendar"] += 1
+
+        from ...models import Device
+        from sqlalchemy import select
+        devices = ctx.db.scalars(
+            select(Device).where(Device.user_id == ctx.user_id)
+        ).all()
+        for device in devices:
+            if ingestor.ingest_device(ctx.user_id, {
+                "name": device.name,
+                "id": device.id,
+                "platform": device.platform or "",
+            }):
+                extra["devices"] += 1
+
+        ctx.db.commit()
+        return {"status": "ok", "memories": counts, "extra": extra}

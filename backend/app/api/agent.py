@@ -19,6 +19,7 @@ from .chat import (
     _agent_run_exists,
     _load_terminal_action,
     _reconcile_chat_terminal,
+    _situation_context,
     _stage_chat_terminal_claim,
 )
 from .deps import check_quota
@@ -31,7 +32,7 @@ _FAILED_TOOL_STATUSES = {"error", "failed", "failure", "exception"}
 _FAILED_TOOL_KEYS = {"error", "exception", "traceback", "stack", "stack_trace"}
 
 
-def _build_agent_system_prompt(memories: Iterable, documents: Iterable, agent_context: str = "") -> str:
+def _build_agent_system_prompt(memories: Iterable, documents: Iterable, agent_context: str = "", situations_context: str = "") -> str:
     context_parts = []
     memory_text = "\n".join(f"- {item.title}: {item.content}" for item in memories)
     if memory_text:
@@ -39,6 +40,13 @@ def _build_agent_system_prompt(memories: Iterable, documents: Iterable, agent_co
     document_text = "\n".join(f"- {item.filename}: {(getattr(item, 'extracted_text', None) or '')[:800]}" for item in documents)
     if document_text:
         context_parts.append(f"Relevant documents:\n{document_text}")
+    if situations_context:
+        context_parts.append(
+            "What is happening right now (from your world model):\n"
+            f"{situations_context}\n"
+            "If any of these matters to the user's task, mention it proactively — "
+            "don't stay silent about a deadline, failing build, or collaborator signal."
+        )
     if agent_context:
         context_parts.append(f"Prepared specialist context:\n{agent_context}")
 
@@ -256,7 +264,7 @@ async def agent_chat(
                 preparation_db = None
 
         gemini = request.app.state.coordinator.gemini
-        system_prompt = _build_agent_system_prompt(memories, documents, prepared.context)
+        system_prompt = _build_agent_system_prompt(memories, documents, prepared.context, _situation_context(db, user.id))
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend({"role": m.role, "content": m.content} for m in history[-12:])
         messages.append({"role": "user", "content": prompt})
@@ -281,7 +289,17 @@ async def agent_chat(
                         user.id,
                         tool_db,
                         is_admin=user.is_admin,
+                        base_url=str(request.base_url),
+                        jwt_secret=request.app.state.settings.jwt_secret,
                     )
+                    try:
+                        factory = getattr(request.app.state, "world_ingestor_factory", None)
+                        if factory is not None:
+                            ingestor = factory()
+                            ingestor.ingest_tool(user.id, {"tool": tool_name, "args": tool_args, "result": raw_tool_result}, source="agent")
+                            ingestor.graph.db.commit()
+                    except Exception:
+                        log.warning("world ingest failed for tool %s", tool_name, exc_info=True)
                     public_tool_name, public_tool_args, tool_result = _sanitize_tool_exchange(
                         tool_name,
                         tool_args,

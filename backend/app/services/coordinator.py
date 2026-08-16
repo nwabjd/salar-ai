@@ -30,6 +30,7 @@ SYSTEM_PROMPT = (
     "- Be concise. Give direct answers, not essays.\n"
     "- When the user asks you to DO something, use the appropriate tool immediately.\n"
     "- For file operations, always confirm the path before writing/deleting.\n"
+    "- When you generate or create a file (HTML, PDF, image, doc, etc.), the file is saved to the user's workspace. To let the user SEE it, call open_url with the file's path or name — it will be served and opened in their browser.\n"
     "- For destructive actions (delete, shutdown, kill process), confirm with the user first.\n"
     "- If web search results are provided, prioritize them for factual accuracy.\n"
     "- You can ask the user to execute device commands by responding with: [COMMAND:kind:payload_json]."
@@ -53,6 +54,7 @@ class AICoordinator:
         memories: Iterable,
         documents: Iterable,
         agent_context: str = "",
+        situations_context: str = "",
     ) -> list:
         context_parts = []
         memory_text = "\n".join(f"- {item.title}: {item.content}" for item in memories)
@@ -61,6 +63,13 @@ class AICoordinator:
         document_text = "\n".join(f"- {item.filename}: {_safe_extract_text(item)}" for item in documents)
         if document_text:
             context_parts.append(f"Relevant documents:\n{document_text}")
+        if situations_context:
+            context_parts.append(
+                "What is happening right now (from your world model):\n"
+                f"{situations_context}\n"
+                "If any of these matters to the user's question, mention it proactively — "
+                "don't stay silent about a deadline, failing build, or collaborator signal."
+            )
         if agent_context:
             context_parts.append(f"Prepared specialist context:\n{agent_context}")
 
@@ -80,6 +89,7 @@ class AICoordinator:
         memories: Iterable,
         documents: Iterable,
         agent_context: str = "",
+        situations_context: str = "",
     ) -> str:
         payload = self.build_payload(
             prompt=prompt,
@@ -87,6 +97,7 @@ class AICoordinator:
             memories=memories,
             documents=documents,
             agent_context=agent_context,
+            situations_context=situations_context,
         )
 
         try:

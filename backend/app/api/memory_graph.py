@@ -55,6 +55,12 @@ def connect(
         db.commit()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        from ..services.world_model import MemorySyncService
+        MemorySyncService(db).sync_relations(user.id)
+        db.commit()
+    except Exception:
+        db.rollback()
     return {"id": rel.id, "from": memory_id, "to": body.to_memory_id, "relation": rel.relation}
 
 
