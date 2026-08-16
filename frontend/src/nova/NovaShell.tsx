@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import NovaBackground from './NovaBackground'
 import NovaRail from './NovaRail'
 import HomeScreen from './HomeScreen'
+import QuantumEngine from './quantum/QuantumEngine'
 import { MissionCenter } from './missions'
 import { SpacesOverview, SpaceContainer, DEFAULT_SPACES } from './spaces'
 import { NotificationCenter, PermissionOverlay, ContextDock } from './context'
@@ -29,7 +30,7 @@ interface ShellProps {
 }
 
 export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellProps) {
-  const [view, setView] = useState<RailView>('home')
+  const [view, setView] = useState<RailView>('quantum')
   const [openSpace, setOpenSpace] = useState<SpaceKind | null>(null)
   const [coreState, setCoreState] = useState<CoreState>('idle')
   const [conversation, setConversation] = useState<Conversation | null>(null)
@@ -157,6 +158,9 @@ export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellP
         }}
       >
         <AnimatePresence mode="wait">
+          {view === 'quantum' && (
+            <QuantumEngine key="quantum" api={api} onExitNova={onExitNova}/>
+          )}
           {view === 'home' && (
             <HomeScreen
               key="home"
@@ -234,6 +238,7 @@ export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellP
 /* ---- Placeholder views for non-Home screens ---- */
 function NovaViewPlaceholder({ view }: { view: RailView }) {
   const labels: Record<RailView, string> = {
+    quantum: '',
     home: '',
     spaces: 'Spaces — Coming soon',
     missions: 'Missions — Coming soon',

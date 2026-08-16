@@ -11,6 +11,12 @@ import type { RailView } from '../NovaRail'
    ============================================================ */
 
 const VIEW_CONTEXT: Record<RailView, { label: string; summary: string; signals: string[]; suggestions: string[] }> = {
+  quantum: {
+    label: 'QUANTUM ENGINE',
+    summary: 'Salaar Quantum Engine command & control center.',
+    signals: ['All systems nominal', 'Quantum link stable'],
+    suggestions: ['Open the command console', 'Run an analysis'],
+  },
   home: {
     label: 'HOME',
     summary: 'You are at the center. Salaar is idle and listening.',

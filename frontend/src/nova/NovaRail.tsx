@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Home, Layers, Target, BrainCircuit, Monitor, Settings,
-  User, ChevronRight, Users,
+  User, ChevronRight, Users, Sparkles,
 } from 'lucide-react'
 
 /* ============================================================
@@ -12,7 +12,7 @@ import {
    Expanded on hover. Never more than 220px.
    ============================================================ */
 
-export type RailView = 'home' | 'spaces' | 'missions' | 'memory' | 'devices' | 'system' | 'agents'
+export type RailView = 'quantum' | 'home' | 'spaces' | 'missions' | 'memory' | 'devices' | 'system' | 'agents'
 
 interface RailProps {
   active?: RailView
@@ -20,6 +20,7 @@ interface RailProps {
 }
 
 const NAV_ITEMS: { id: RailView; icon: React.ReactNode; label: string }[] = [
+  { id: 'quantum', icon: <Sparkles size={20} strokeWidth={1.6}/>,         label: 'Quantum' },
   { id: 'home',    icon: <Home size={20} strokeWidth={1.6}/>,           label: 'Home' },
   { id: 'spaces',  icon: <Layers size={20} strokeWidth={1.6}/>,         label: 'Spaces' },
   { id: 'missions',icon: <Target size={20} strokeWidth={1.6}/>,         label: 'Missions' },
