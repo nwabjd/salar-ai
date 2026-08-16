@@ -493,7 +493,12 @@ body {
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid var(--warm-mist);
   border-radius: 14px;
+  color: var(--text-main);
   transition: all 0.3s ease;
+}
+
+.input-quantum::placeholder {
+  color: var(--text-muted);
 }
 
 .input-quantum:focus {

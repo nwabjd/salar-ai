@@ -116,23 +116,45 @@ export const LiveMetric: React.FC<{
 // Typing indicator for command console
 export const TypingIndicator: React.FC<{ text: string; onComplete?: () => void }> = ({ text, onComplete }) => {
   const [displayed, setDisplayed] = useState('');
-  const [done, setDone] = useState(false);
+  const [session, setSession] = useState(0);
+  const targetRef = useRef(text);
+  const onCompleteRef = useRef(onComplete);
+  const completedRef = useRef(false);
 
   useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    const prev = targetRef.current;
+    targetRef.current = text;
+    // Streaming continuation (text grows per token) — let the running typewriter catch up.
+    if (prev.length > 0 && text.startsWith(prev)) return;
+    // Brand-new message — restart the typewriter.
+    completedRef.current = false;
     setDisplayed('');
-    setDone(false);
-    let i = 0;
+    setSession((s) => s + 1);
+  }, [text]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
-      i++;
-      setDisplayed(text.slice(0, i));
-      if (i >= text.length) {
-        clearInterval(interval);
-        setDone(true);
-        onComplete?.();
-      }
-    }, 30 + Math.random() * 20);
+      setDisplayed((cur) => {
+        const target = targetRef.current;
+        if (cur.length >= target.length) {
+          clearInterval(interval);
+          if (!completedRef.current) {
+            completedRef.current = true;
+            onCompleteRef.current?.();
+          }
+          return cur;
+        }
+        return target.slice(0, cur.length + 1);
+      });
+    }, 24);
     return () => clearInterval(interval);
-  }, [text, onComplete]);
+  }, [session]);
+
+  const done = displayed.length >= targetRef.current.length;
 
   return (
     <span>
