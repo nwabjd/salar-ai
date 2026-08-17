@@ -10,6 +10,7 @@ import { cleanAuthFromUrl, supabase } from './lib/supabase'
 import { Conversation, Message, SalarApi, WorldAction, WorldSituation } from './api'
 import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
+import { ClassicChat } from './components/ClassicChat'
 import './theme.css'
 import './styles.css'
 import './landing.css'
@@ -167,12 +168,13 @@ function App() {
       </nav>
       <div className="topbar-actions">
         <button className="connection" onClick={() => { setQuantumMode(true); try { localStorage.setItem('salar-quantum-mode', 'on') } catch {} }}><Sparkles size={13}/> QUANTUM</button>
-        <button className="connection" onClick={() => setLive(true)}><Mic2 size={13}/> LIVE</button>
         <button className="connection signout" onClick={handleSignOut}><LogOut size={13}/> SIGN OUT</button>
       </div>
     </header>
     <section className="workspace chat-workspace">
-      <div className="chat-column"><Chat connected onLive={() => setLive(true)}/></div>
+      <div className="chat-column">
+        <ClassicChat api={api} onLive={() => setLive(true)}/>
+      </div>
       <StatusRail/>
       {showPricing && <div className="pricing-overlay"><button className="pricing-close" onClick={() => setShowPricing(false)} aria-label="Close plan & billing"><X/></button><PricingPage connected onClose={() => setShowPricing(false)}/></div>}
     </section>

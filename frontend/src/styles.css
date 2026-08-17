@@ -93,3 +93,77 @@
 .situation-chip.action-chip{border-style:dashed}.situation-chip.action-chip:hover{border-style:solid}.action-glyph{font-size:7px;color:#8fb9ff;flex-shrink:0}.situation-chip.action-chip{border-color:rgba(143,185,255,.45)}.situation-chip.action-chip:hover{border-color:rgba(143,185,255,.9)}
 
 .situation-chip.action-chip.running{opacity:.55;pointer-events:none;border-color:rgba(255,255,255,.3)}.situation-chip.action-chip.risky{border-color:rgba(245,193,92,.55)}.action-score{margin-left:4px;padding:1px 5px;border-radius:4px;background:rgba(112,81,222,.2);color:#b89cff;font-size:7px;letter-spacing:.05em}
+
+/* ===== AI Chat (AnimatedAIChat style) ===== */
+.ai-chat-wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ai-chat-orbs{position:absolute;inset:0;pointer-events:none}
+.ai-orb{position:absolute;border-radius:50%;mix-blend-mode:normal;filter:blur(128px);opacity:.1;animation:aiPulse 4s ease-in-out infinite}
+.ai-orb-violet{width:384px;height:384px;background:#8b5cf6;top:0;left:25%}
+.ai-orb-indigo{width:384px;height:384px;background:#6366f1;bottom:0;right:25%;animation-delay:1.4s!important}
+.ai-orb-fuchsia{width:256px;height:256px;background:#d946ef;top:25%;right:33%;filter:blur(96px);animation-delay:2.1s!important}
+@keyframes aiPulse{0%,100%{opacity:.08}50%{opacity:.14}}
+.ai-cursor-glow{position:fixed;width:50rem;height:50rem;border-radius:50%;pointer-events:none;z-index:0;opacity:.02;background:linear-gradient(135deg,#8b5cf6,#d946ef,#6366f1);filter:blur(96px);transition:left .3s ease,top .3s ease}
+.ai-chat-inner{position:relative;z-index:1;width:100%;max-width:640px;padding:24px}
+
+/* Title */
+.ai-chat-title{text-align:center;margin-bottom:32px}
+.ai-chat-title h1{font-size:30px;font-weight:500;letter-spacing:-.02em;background:linear-gradient(90deg,rgba(255,255,255,.9),rgba(255,255,255,.4));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;padding-bottom:4px}
+.ai-chat-title-line{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);margin-top:8px}
+.ai-chat-title p{font-size:14px;color:rgba(255,255,255,.4);margin-top:10px}
+
+/* Messages */
+.ai-chat-messages{margin-bottom:24px;max-height:40vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent}
+.ai-msg{padding:0 4px}
+.ai-msg-role{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);display:block;margin-bottom:6px}
+.ai-msg p{font-size:14px;line-height:1.7;color:rgba(255,255,255,.78);white-space:pre-wrap}
+.ai-msg-assistant p{color:rgba(255,255,255,.88)}
+.ai-msg-user{align-self:flex-end;max-width:85%}
+.ai-msg-user p{background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.2);border-radius:14px;padding:10px 14px;color:rgba(255,255,255,.9)}
+.ai-msg-role:has(+ .ai-msg-user){text-align:right}
+.ai-thinking p{display:flex;align-items:center;gap:8px}
+.ai-tool-hint{color:rgba(201,165,110,.8)!important;font-size:12px!important;font-style:italic}
+
+/* Typing dots */
+.typing-dots{display:inline-flex;align-items:center;gap:3px;margin-left:4px}
+.typing-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.8);animation:aiDotPulse 1.2s ease-in-out infinite}
+@keyframes aiDotPulse{0%,100%{opacity:.3;transform:scale(.85)}50%{opacity:.9;transform:scale(1.1)}}
+
+/* Chat box */
+.ai-chat-box{position:relative;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:16px;backdrop-filter:blur(40px);box-shadow:0 8px 32px rgba(0,0,0,.4);overflow:visible}
+.ai-chat-box textarea{width:100%;min-height:60px;max-height:200px;resize:none;background:transparent;border:none;outline:none;color:rgba(255,255,255,.9);font-size:14px;padding:16px 16px 8px;overflow:hidden}
+.ai-chat-box textarea::placeholder{color:rgba(255,255,255,.2)}
+
+/* Toolbar */
+.ai-chat-toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 12px;border-top:1px solid rgba(255,255,255,.05)}
+.ai-toolbar-left{display:flex;align-items:center;gap:8px}
+.ai-icon-btn{width:36px;height:36px;border:none;border-radius:8px;background:transparent;color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .2s,background .2s}
+.ai-icon-btn:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.05)}
+.ai-icon-btn.active{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9)}
+.ai-send-btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;transition:all .2s;background:rgba(255,255,255,.05);color:rgba(255,255,255,.4)}
+.ai-send-btn.ready{background:#fff;color:#0a0a0b;box-shadow:0 4px 16px rgba(255,255,255,.1)}
+.ai-send-btn:disabled{opacity:.5;cursor:not-allowed}
+.ai-spin{animation:aiSpin 2s linear infinite}
+@keyframes aiSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+/* Command palette */
+.ai-cmd-palette{position:absolute;left:16px;right:16px;bottom:calc(100% + 8px);background:rgba(0,0,0,.92);border:1px solid rgba(255,255,255,.1);border-radius:10px;backdrop-filter:blur(40px);overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:50}
+.ai-cmd-item{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:12px;color:rgba(255,255,255,.7);cursor:pointer;transition:background .15s}
+.ai-cmd-item:hover,.ai-cmd-item.active{background:rgba(255,255,255,.1);color:#fff}
+.ai-cmd-icon{width:20px;height:20px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.6)}
+.ai-cmd-label{font-weight:600}
+.ai-cmd-prefix{color:rgba(255,255,255,.4);margin-left:4px}
+
+/* Suggestion chips */
+.ai-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:24px}
+.ai-chip{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;font-size:14px;color:rgba(255,255,255,.6);background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);cursor:pointer;transition:all .2s}
+.ai-chip:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.9)}
+.ai-chip svg{width:16px;height:16px}
+
+/* Responsive */
+@media(max-width:640px){
+  .ai-chat-inner{padding:16px}
+  .ai-chat-title h1{font-size:24px}
+  .ai-orb-violet,.ai-orb-indigo{width:256px;height:256px}
+  .ai-orb-fuchsia{width:192px;height:192px}
+  .ai-cursor-glow{display:none}
+}

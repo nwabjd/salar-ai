@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Animated AI Chat — Preview</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:#0a0a0b;color:#fff;min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;overflow:hidden;position:relative;
+  }
+  /* ambient blurs */
+  .bg-orb{position:fixed;border-radius:50%;mix-blend-mode:normal;filter:blur(128px);opacity:.1;pointer-events:none}
+  .bg-orb.violet{width:384px;height:384px;background:#8b5cf6;top:0;left:25%;animation:pulse 4s ease-in-out infinite}
+  .bg-orb.indigo{width:384px;height:384px;background:#6366f1;bottom:0;right:25%;animation:pulse 4s ease-in-out infinite 1.4s}
+  .bg-orb.fuchsia{width:256px;height:256px;background:#d946ef;top:25%;right:33%;filter:blur(96px);animation:pulse 4s ease-in-out infinite 2.1s}
+  @keyframes pulse{0%,100%{opacity:.08}50%{opacity:.14}}
+
+  .wrap{position:relative;z-index:1;width:100%;max-width:640px}
+  .title{text-align:center;margin-bottom:32px}
+  .title h1{font-size:30px;font-weight:500;letter-spacing:-.02em;
+    background:linear-gradient(90deg,rgba(255,255,255,.9),rgba(255,255,255,.4));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;padding-bottom:4px}
+  .title .line{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);margin-top:8px}
+  .title p{font-size:14px;color:rgba(255,255,255,.4);margin-top:10px}
+
+  /* chat box */
+  .chat-box{
+    background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);
+    border-radius:16px;backdrop-filter:blur(40px);
+    box-shadow:0 8px 32px rgba(0,0,0,.4);overflow:hidden;position:relative;
+  }
+  .chat-input-wrap{padding:16px}
+  textarea{
+    width:100%;min-height:60px;max-height:200px;resize:none;
+    background:transparent;border:none;outline:none;
+    color:rgba(255,255,255,.9);font-size:14px;
+    font-family:inherit;padding:12px 16px;
+  }
+  textarea::placeholder{color:rgba(255,255,255,.2)}
+
+  /* toolbar */
+  .toolbar{display:flex;align-items:center;justify-content:space-between;
+    padding:16px;border-top:1px solid rgba(255,255,255,.05)}
+  .toolbar-left{display:flex;align-items:center;gap:12px}
+  .icon-btn{
+    width:36px;height:36px;border:none;border-radius:8px;
+    background:transparent;color:rgba(255,255,255,.4);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:color .2s,background .2s;position:relative;overflow:hidden;
+  }
+  .icon-btn:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.05)}
+  .icon-btn.active{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9)}
+  .send-btn{
+    padding:8px 16px;border-radius:8px;border:none;cursor:pointer;
+    font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;
+    transition:all .2s;
+  }
+  .send-btn.ready{background:#fff;color:#0a0a0b;box-shadow:0 4px 16px rgba(255,255,255,.1)}
+  .send-btn.empty{background:rgba(255,255,255,.05);color:rgba(255,255,255,.4)}
+
+  /* suggestions */
+  .suggestions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:24px}
+  .chip{
+    display:flex;align-items:center;gap:8px;padding:8px 14px;
+    border-radius:10px;font-size:14px;color:rgba(255,255,255,.6);
+    background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);
+    cursor:pointer;transition:all .2s;position:relative;
+  }
+  .chip:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.9)}
+  .chip svg{width:16px;height:16px}
+
+  /* command palette */
+  .cmd-palette{
+    position:absolute;left:16px;right:16px;bottom:100%;margin-bottom:8px;
+    background:rgba(0,0,0,.9);border:1px solid rgba(255,255,255,.1);
+    border-radius:10px;backdrop-filter:blur(40px);overflow:hidden;
+    box-shadow:0 8px 32px rgba(0,0,0,.6);display:none;
+  }
+  .cmd-palette.show{display:block}
+  .cmd-item{
+    display:flex;align-items:center;gap:10px;padding:10px 14px;
+    font-size:12px;color:rgba(255,255,255,.7);cursor:pointer;
+    transition:background .15s;
+  }
+  .cmd-item:hover,.cmd-item.active{background:rgba(255,255,255,.1);color:#fff}
+  .cmd-icon{width:20px;height:20px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.6)}
+  .cmd-label{font-weight:600}
+  .cmd-prefix{color:rgba(255,255,255,.4);margin-left:4px}
+
+  /* typing indicator */
+  .typing-bar{
+    position:fixed;bottom:32px;left:50%;transform:translateX(-50%);
+    background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);
+    border-radius:999px;backdrop-filter:blur(40px);
+    padding:8px 16px;display:none;align-items:center;gap:12px;
+    box-shadow:0 4px 16px rgba(0,0,0,.3);
+  }
+  .typing-bar.show{display:flex}
+  .typing-avatar{
+    width:32px;height:28px;border-radius:50%;background:rgba(255,255,255,.05);
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:600;color:rgba(255,255,255,.9);
+  }
+  .typing-text{font-size:14px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:8px}
+  .dots{display:flex;align-items:center}
+  .dot{
+    width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.9);
+    margin:0 2px;animation:dotPulse 1.2s ease-in-out infinite;
+    box-shadow:0 0 4px rgba(255,255,255,.3);
+  }
+  .dot:nth-child(2){animation-delay:.15s}
+  .dot:nth-child(3){animation-delay:.3s}
+  @keyframes dotPulse{0%,100%{opacity:.3;transform:scale(.85)}50%{opacity:.9;transform:scale(1.1)}}
+
+  /* cursor glow */
+  .cursor-glow{
+    position:fixed;width:50rem;height:50rem;border-radius:50%;
+    pointer-events:none;z-index:0;opacity:0;
+    background:linear-gradient(135deg,#8b5cf6,#d946ef,#6366f1);
+    filter:blur(96px);transition:opacity .3s;
+  }
+  .cursor-glow.active{opacity:.02}
+</style>
+</head>
+<body>
+
+<div class="bg-orb violet"></div>
+<div class="bg-orb indigo"></div>
+<div class="bg-orb fuchsia"></div>
+
+<div class="cursor-glow" id="cursorGlow"></div>
+
+<div class="wrap">
+  <div class="title">
+    <h1>How can I help today?</h1>
+    <div class="line"></div>
+    <p>Type a command or ask a question</p>
+  </div>
+
+  <div class="chat-box" id="chatBox">
+    <!-- command palette -->
+    <div class="cmd-palette" id="cmdPalette">
+      <div class="cmd-item active" data-cmd="/clone">
+        <div class="cmd-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        </div>
+        <span class="cmd-label">Clone UI</span>
+        <span class="cmd-prefix">/clone</span>
+      </div>
+      <div class="cmd-item" data-cmd="/figma">
+        <div class="cmd-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5.5A3.5 3.5 0 018.5 2H12v7H8.5A3.5 3.5 0 015 5.5z"/><path d="M12 2h3.5a3.5 3.5 0 110 7H12V2z"/><path d="M12 12.5a3.5 3.5 0 117 0 3.5 3.5 0 11-7 0z"/><path d="M5 19.5A3.5 3.5 0 018.5 16H12v3.5a3.5 3.5 0 11-7 0z"/><path d="M5 12.5A3.5 3.5 0 018.5 9H12v7H8.5A3.5 3.5 0 015 12.5z"/></svg>
+        </div>
+        <span class="cmd-label">Import Figma</span>
+        <span class="cmd-prefix">/figma</span>
+      </div>
+      <div class="cmd-item" data-cmd="/page">
+        <div class="cmd-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+        </div>
+        <span class="cmd-label">Create Page</span>
+        <span class="cmd-prefix">/page</span>
+      </div>
+      <div class="cmd-item" data-cmd="/improve">
+        <div class="cmd-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.937 15.5A2 2 0 008.5 14.063l-6.135-1.582a.5.5 0 010-.962L8.5 9.936A2 2 0 009.937 8.5l1.582-6.135a.5.5 0 01.963 0L14.063 8.5A2 2 0 0015.5 9.937l6.135 1.581a.5.5 0 010 .964L15.5 14.063a2 2 0 00-1.437 1.437l-1.582 6.135a.5.5 0 01-.963 0z"/></svg>
+        </div>
+        <span class="cmd-label">Improve</span>
+        <span class="cmd-prefix">/improve</span>
+      </div>
+    </div>
+
+    <div class="chat-input-wrap">
+      <textarea id="chatInput" placeholder="Ask zap a question..."></textarea>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="icon-btn" title="Attach file">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+        <button class="icon-btn" id="cmdBtn" title="Commands">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 3a3 3 0 00-3 3v12a3 3 0 003 3 3 3 0 003-3 3 3 0 00-3-3H6a3 3 0 00-3 3 3 3 0 003 3 3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3h12a3 3 0 003-3 3 3 0 00-3-3z"/></svg>
+        </button>
+      </div>
+      <button class="send-btn empty" id="sendBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+        <span>Send</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="suggestions">
+    <div class="chip" data-cmd="/clone">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      Clone UI
+    </div>
+    <div class="chip" data-cmd="/figma">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5.5A3.5 3.5 0 018.5 2H12v7H8.5A3.5 3.5 0 015 5.5z"/><path d="M12 2h3.5a3.5 3.5 0 110 7H12V2z"/><path d="M12 12.5a3.5 3.5 0 117 0 3.5 3.5 0 11-7 0z"/><path d="M5 19.5A3.5 3.5 0 018.5 16H12v3.5a3.5 3.5 0 11-7 0z"/><path d="M5 12.5A3.5 3.5 0 018.5 9H12v7H8.5A3.5 3.5 0 015 12.5z"/></svg>
+      Import Figma
+    </div>
+    <div class="chip" data-cmd="/page">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+      Create Page
+    </div>
+    <div class="chip" data-cmd="/improve">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.937 15.5A2 2 0 008.5 14.063l-6.135-1.582a.5.5 0 010-.962L8.5 9.936A2 2 0 009.937 8.5l1.582-6.135a.5.5 0 01.963 0L14.063 8.5A2 2 0 0015.5 9.937l6.135 1.581a.5.5 0 010 .964L15.5 14.063a2 2 0 00-1.437 1.437l-1.582 6.135a.5.5 0 01-.963 0z"/></svg>
+      Improve
+    </div>
+  </div>
+</div>
+
+<div class="typing-bar" id="typingBar">
+  <div class="typing-avatar">zap</div>
+  <div class="typing-text">Thinking<span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>
+</div>
+
+<script>
+const input = document.getElementById('chatInput');
+const palette = document.getElementById('cmdPalette');
+const sendBtn = document.getElementById('sendBtn');
+const cmdBtn = document.getElementById('cmdBtn');
+const typingBar = document.getElementById('typingBar');
+const glow = document.getElementById('cursorGlow');
+
+// cursor glow
+document.addEventListener('mousemove', e => {
+  glow.classList.add('active');
+  glow.style.left = (e.clientX - 400) + 'px';
+  glow.style.top = (e.clientY - 400) + 'px';
+});
+document.addEventListener('mouseleave', () => glow.classList.remove('active'));
+
+// command palette
+input.addEventListener('input', () => {
+  const v = input.value;
+  if (v.startsWith('/') && !v.includes(' ')) {
+    palette.classList.add('show');
+    cmdBtn.classList.add('active');
+  } else {
+    palette.classList.remove('show');
+    cmdBtn.classList.remove('active');
+  }
+  sendBtn.className = v.trim() ? 'send-btn ready' : 'send-btn empty';
+});
+
+cmdBtn.addEventListener('click', () => {
+  palette.classList.toggle('show');
+  cmdBtn.classList.toggle('active');
+  if (palette.classList.contains('show')) input.focus();
+});
+
+document.querySelectorAll('.cmd-item, .chip').forEach(el => {
+  el.addEventListener('click', () => {
+    input.value = el.dataset.cmd + ' ';
+    palette.classList.remove('show');
+    cmdBtn.classList.remove('active');
+    sendBtn.className = 'send-btn ready';
+    input.focus();
+  });
+});
+
+// send
+sendBtn.addEventListener('click', () => {
+  if (!input.value.trim()) return;
+  typingBar.classList.add('show');
+  input.value = '';
+  sendBtn.className = 'send-btn empty';
+  palette.classList.remove('show');
+  setTimeout(() => { typingBar.classList.remove('show'); }, 3000);
+});
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (input.value.trim()) sendBtn.click();
+  }
+});
+
+// close palette on outside click
+document.addEventListener('click', e => {
+  if (!palette.contains(e.target) && e.target !== cmdBtn && !cmdBtn.contains(e.target)) {
+    palette.classList.remove('show');
+    cmdBtn.classList.remove('active');
+  }
+});
+</script>
+</body>
+</html>
