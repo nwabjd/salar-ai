@@ -55,7 +55,7 @@ export const ThinkingSkull: React.FC<ThinkingSkullProps> = ({ state, size = 48, 
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      {/* Skull SVG */}
+      {/* Human head SVG */}
       <motion.svg
         viewBox="0 0 100 100"
         width={size}
@@ -64,11 +64,11 @@ export const ThinkingSkull: React.FC<ThinkingSkullProps> = ({ state, size = 48, 
         style={{ filter: `drop-shadow(0 0 ${glowIntensity}px ${glowColor}90)` }}
       >
         <defs>
-          <linearGradient id="skullGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="headGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#C9A56E" />
             <stop offset="100%" stopColor="#D9C09A" />
           </linearGradient>
-          <filter id="skullGlow">
+          <filter id="headGlow">
             <feGaussianBlur stdDeviation="1.5" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -77,33 +77,46 @@ export const ThinkingSkull: React.FC<ThinkingSkullProps> = ({ state, size = 48, 
           </filter>
         </defs>
 
-        {/* Cranium */}
+        {/* Head outline — front-facing human head */}
         <motion.path
-          d="M50 8 C24 8 12 28 12 48 C12 62 20 72 30 76 L30 82 C30 88 36 94 50 94 C64 94 70 88 70 82 L70 76 C80 72 88 62 88 48 C88 28 76 8 50 8 Z"
+          d="
+            M50 8
+            C38 8, 26 14, 20 26
+            C14 38, 14 50, 16 56
+            C17 60, 18 63, 18 65
+            C18 68, 22 72, 26 74
+            C28 75, 30 76, 30 78
+            L30 82
+            C30 88, 38 94, 50 94
+            C62 94, 70 88, 70 82
+            L70 78
+            C70 76, 72 75, 74 74
+            C78 72, 82 68, 82 65
+            C82 63, 83 60, 84 56
+            C86 50, 86 38, 80 26
+            C74 14, 62 8, 50 8 Z
+          "
           fill="none"
-          stroke="url(#skullGrad)"
+          stroke="url(#headGrad)"
           strokeWidth="2.2"
-          filter="url(#skullGlow)"
+          filter="url(#headGlow)"
           animate={active ? { strokeWidth: [2.2, 2.8, 2.2] } : {}}
           transition={{ duration: 2, repeat: Infinity }}
         />
 
-        {/* Brow ridge */}
-        <path d="M28 36 Q38 30 50 33 Q62 30 72 36" fill="none" stroke="#C9A56E" strokeWidth="1.2" opacity="0.5" />
-
-        {/* Left eye socket */}
+        {/* Left eye */}
         <motion.ellipse
-          cx="37" cy="44" rx="10" ry="9"
+          cx="38" cy="42" rx="5" ry="3.5"
           fill="none"
-          stroke="url(#skullGrad)"
-          strokeWidth="1.8"
-          filter="url(#skullGlow)"
-          animate={active ? { ry: [9, 10, 9] } : {}}
+          stroke="url(#headGrad)"
+          strokeWidth="1.4"
+          filter="url(#headGlow)"
+          animate={active ? { ry: [3.5, 4, 3.5] } : {}}
           transition={{ duration: 1.5, repeat: Infinity }}
         />
         {/* Left pupil */}
         <motion.circle
-          cx="37" cy="44" r="3"
+          cx="38" cy="42" r="1.5"
           fill="#C9A56E"
           animate={active
             ? { opacity: [0.6, 1, 0.6], scale: [1, 1.3, 1] }
@@ -111,19 +124,19 @@ export const ThinkingSkull: React.FC<ThinkingSkullProps> = ({ state, size = 48, 
           transition={{ duration: 1.2, repeat: Infinity }}
         />
 
-        {/* Right eye socket */}
+        {/* Right eye */}
         <motion.ellipse
-          cx="63" cy="44" rx="10" ry="9"
+          cx="62" cy="42" rx="5" ry="3.5"
           fill="none"
-          stroke="url(#skullGrad)"
-          strokeWidth="1.8"
-          filter="url(#skullGlow)"
-          animate={active ? { ry: [9, 10, 9] } : {}}
+          stroke="url(#headGrad)"
+          strokeWidth="1.4"
+          filter="url(#headGlow)"
+          animate={active ? { ry: [3.5, 4, 3.5] } : {}}
           transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
         />
         {/* Right pupil */}
         <motion.circle
-          cx="63" cy="44" r="3"
+          cx="62" cy="42" r="1.5"
           fill="#C9A56E"
           animate={active
             ? { opacity: [0.6, 1, 0.6], scale: [1, 1.3, 1] }
@@ -131,32 +144,16 @@ export const ThinkingSkull: React.FC<ThinkingSkullProps> = ({ state, size = 48, 
           transition={{ duration: 1.2, repeat: Infinity, delay: 0.3 }}
         />
 
-        {/* Nasal cavity */}
-        <path d="M46 56 L50 64 L54 56" fill="none" stroke="#C9A56E" strokeWidth="1.4" strokeLinecap="round" />
+        {/* Nose — subtle */}
+        <path d="M47 52 Q50 58 53 52" fill="none" stroke="#C9A56E" strokeWidth="1" opacity="0.5" strokeLinecap="round" />
 
-        {/* Cheekbones */}
-        <path d="M22 50 Q26 58 32 56" fill="none" stroke="#D9C09A" strokeWidth="0.8" opacity="0.4" />
-        <path d="M78 50 Q74 58 68 56" fill="none" stroke="#D9C09A" strokeWidth="0.8" opacity="0.4" />
+        {/* Lips — subtle */}
+        <path d="M42 66 Q46 62 50 64 Q54 62 58 66" fill="none" stroke="#D9C09A" strokeWidth="1" opacity="0.4" strokeLinecap="round" />
+        <path d="M42 66 Q50 72 58 66" fill="none" stroke="#D9C09A" strokeWidth="1" opacity="0.3" strokeLinecap="round" />
 
-        {/* Jaw line */}
-        <path d="M30 76 Q30 86 50 88 Q70 86 70 76" fill="none" stroke="#C9A56E" strokeWidth="1" opacity="0.5" />
-
-        {/* Teeth */}
-        {[38, 44, 50, 56, 62].map((x, i) => (
-          <motion.line
-            key={i}
-            x1={x} y1="76" x2={x} y2={i === 2 ? 84 : 82}
-            stroke="#D9C09A"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            animate={active && state === 'generating' ? { y2: [i === 2 ? 84 : 82, i === 2 ? 86 : 84, i === 2 ? 84 : 82] } : {}}
-            transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
-          />
-        ))}
-
-        {/* Temporal lines */}
-        <path d="M18 38 Q16 48 18 58" fill="none" stroke="#D9C09A" strokeWidth="0.6" opacity="0.3" />
-        <path d="M82 38 Q84 48 82 58" fill="none" stroke="#D9C09A" strokeWidth="0.6" opacity="0.3" />
+        {/* Neck hint */}
+        <path d="M42 88 L42 96" stroke="#C9A56E" strokeWidth="1.2" opacity="0.3" strokeLinecap="round" />
+        <path d="M58 88 L58 96" stroke="#C9A56E" strokeWidth="1.2" opacity="0.3" strokeLinecap="round" />
       </motion.svg>
 
       {/* Floating equations */}
