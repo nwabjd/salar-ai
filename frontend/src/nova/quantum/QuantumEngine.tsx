@@ -42,6 +42,7 @@ import { AmbientBackground } from './components/AmbientBackground';
 import { EnhancedQuantumCore } from './components/EnhancedQuantumCore';
 import { Waveform } from './components/Waveform';
 import { LiveMetric, TypingIndicator } from './components/LiveMetric';
+import { ThinkingSkull, type SkullState } from './components/ThinkingSkull';
 import { SalarApi } from '../../api';
 import { isDesktop, getLiveMetrics } from '../../access';
 import './quantum-engine.css';
@@ -2026,31 +2027,19 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitQuantum }) => 
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.5 }}
         >
-          {/* SALAAR Avatar with energy ring */}
-          <motion.div
-            className="relative w-12 h-12 rounded-full flex items-center justify-center"
-            style={{ background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.champagne})` }}
-            animate={isListening ? { scale: [1, 1.08, 1] } : {}}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          >
-            <span className="text-lg font-bold" style={{ color: '#141414' }}>S</span>
-            {isListening && (
-              <>
-                <motion.div
-                  className="absolute inset-0 rounded-full"
-                  style={{ border: `2px solid ${COLORS.gold}`, opacity: 0.6 }}
-                  animate={{ scale: [1, 1.5], opacity: [0.6, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                />
-                <motion.div
-                  className="absolute inset-0 rounded-full"
-                  style={{ border: `2px solid ${COLORS.champagne}`, opacity: 0.4 }}
-                  animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }}
-                />
-              </>
-            )}
-          </motion.div>
+          {/* Thinking Skull — animates equations when typing/generating */}
+          <ThinkingSkull
+            state={
+              showResponse || ['thinking', 'planning', 'acting', 'verifying'].includes(coreState)
+                ? 'generating'
+                : commandInput.trim()
+                ? 'typing'
+                : isListening
+                ? 'typing'
+                : 'idle'
+            }
+            size={48}
+          />
 
           {/* Greeting */}
           <div className="flex-1">
