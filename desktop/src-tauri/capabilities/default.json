@@ -22,6 +22,7 @@
     "allow-execute-device-command",
     "allow-save-token",
     "allow-load-token",
-    "allow-clear-token"
+    "allow-clear-token",
+    "allow-live-metrics"
   ]
 }

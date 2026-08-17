@@ -44,6 +44,7 @@ import { EnhancedQuantumCore } from './components/EnhancedQuantumCore';
 import { Waveform } from './components/Waveform';
 import { LiveMetric, TypingIndicator } from './components/LiveMetric';
 import { SalarApi } from '../../api';
+import { isDesktop, getLiveMetrics } from '../../access';
 import './quantum-engine.css';
 
 // ============================================================================
@@ -700,6 +701,22 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
           api.predictiveNow(),
           api.knowledgeTopics(),
         ]);
+
+        // Desktop: also pull live metrics from the local machine via Tauri
+        if (isDesktop()) {
+          const local = await getLiveMetrics();
+          if (local) {
+            setSystemStatus(prev => ({
+              ...prev,
+              cpuUsage: local.cpu_percent,
+              memoryUsage: local.memory_percent,
+              quantumCores: { active: local.cpu_count, total: local.cpu_count },
+              uptime: formatUptime(local.uptime_seconds),
+            }));
+            if (local.disk_percent) setDiskPct(Math.round(local.disk_percent));
+          }
+        }
+
         if (perf.status === 'fulfilled') {
           const p = perf.value;
           if (p?.cpu && p?.memory) {
@@ -1081,7 +1098,8 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
           })}
         </nav>
 
-        {/* System Status */}
+        {/* System Status — desktop only, wired to local PC via Tauri */}
+        {isDesktop() && (
         <div className="p-4 border-t" style={{ borderColor: 'rgba(60, 50, 40, 0.07)' }}>
           <div className="mb-3">
             <h3 className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
@@ -1096,23 +1114,8 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                <Thermometer className="w-3 h-3" />
-                Core Temp
-              </span>
-              <motion.span
-                key={systemStatus.coreTemp.toFixed(1)}
-                className="font-semibold tabular-nums"
-                style={{ color: 'var(--text-main)' }}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                {systemStatus.coreTemp.toFixed(1)}°C
-              </motion.span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
                 <Cpu className="w-3 h-3" />
-                Quantum Cores
+                Cores
               </span>
               <span className="font-semibold" style={{ color: 'var(--text-main)' }}>
                 {systemStatus.quantumCores.active}/{systemStatus.quantumCores.total}
@@ -1130,10 +1133,10 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
                 <Activity className="w-3 h-3" />
-                CPU / GPU
+                CPU
               </span>
               <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main)' }}>
-                {systemStatus.cpuUsage.toFixed(0)}% / {systemStatus.gpuUsage.toFixed(0)}%
+                {systemStatus.cpuUsage.toFixed(0)}%
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -1145,6 +1148,7 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
             </div>
           </div>
         </div>
+        )}
 
         {/* Quantum Link */}
         <div className="p-4 border-t" style={{ borderColor: 'rgba(60, 50, 40, 0.07)' }}>

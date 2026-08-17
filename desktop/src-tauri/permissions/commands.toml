@@ -17,3 +17,8 @@ commands.allow = ["load_token"]
 identifier = "allow-clear-token"
 description = "Allows clearing auth tokens"
 commands.allow = ["clear_token"]
+
+[[permission]]
+identifier = "allow-live-metrics"
+description = "Allows reading local system metrics"
+commands.allow = ["live_metrics"]

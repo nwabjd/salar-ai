@@ -39,3 +39,22 @@ export async function clearSession(): Promise<void> {
     try { await invoke('clear_token') } catch { /* file fallback ok */ }
   }
 }
+
+export type LiveMetrics = {
+  cpu_percent: number;
+  cpu_count: number;
+  cpu_brand: string;
+  memory_total: number;
+  memory_used: number;
+  memory_percent: number;
+  disk_percent: number;
+  uptime_seconds: number;
+  os: string;
+}
+
+export async function getLiveMetrics(): Promise<LiveMetrics | null> {
+  if (!isDesktop()) return null
+  try {
+    return await invoke('live_metrics') as LiveMetrics
+  } catch { return null }
+}
