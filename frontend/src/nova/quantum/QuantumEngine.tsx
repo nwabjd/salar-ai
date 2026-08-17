@@ -25,8 +25,7 @@ import {
   RefreshCw,
   ArrowUpRight,
   Sparkles,
-  Terminal,
-  Radio
+  Terminal
 } from 'lucide-react';
 import {
   LineChart,
@@ -83,12 +82,8 @@ type SystemStatus = {
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'intelligence', label: 'Intelligence', icon: Brain },
-  { id: 'missions', label: 'Missions', icon: Target },
-  { id: 'spaces', label: 'Spaces', icon: Layers },
-  { id: 'memory', label: 'Memory', icon: Database },
   { id: 'agents', label: 'Agents', icon: Users },
-  { id: 'devices', label: 'Devices', icon: Monitor },
-  { id: 'automations', label: 'Automations', icon: Zap },
+  { id: 'missions', label: 'Missions', icon: Target },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'system', label: 'System', icon: Settings },
 ];
@@ -641,10 +636,10 @@ const AnimatedPanel: React.FC<{
 
 interface QuantumEngineProps {
   api: SalarApi;
-  onExitNova?: () => void;
+  onExitQuantum?: () => void;
 }
 
-const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
+const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitQuantum }) => {
   const [activeNav, setActiveNav] = useState('dashboard');
   const [coreState, setCoreState] = useState<CoreState>('idle');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -667,6 +662,7 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
   const [alertCount, setAlertCount] = useState(0);
   const [diskPct, setDiskPct] = useState(52);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activityPeriod, setActivityPeriod] = useState<'Day' | 'Week' | 'Month'>('Day');
   const [predictions, setPredictions] = useState<any[]>([]);
   const [knowledgeStats, setKnowledgeStats] = useState({ topics: 0, docs: 0, chunks: 0 });
   const conversationRef = useRef<{ id: string } | null>(null);
@@ -1150,36 +1146,6 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
         </div>
         )}
 
-        {/* Quantum Link */}
-        <div className="p-4 border-t" style={{ borderColor: 'rgba(60, 50, 40, 0.07)' }}>
-          <div className="flex items-center gap-3 p-3 rounded-xl relative overflow-hidden"
-            style={{ background: 'rgba(201, 165, 110, 0.08)' }}>
-            <motion.div
-              className="absolute inset-0 opacity-30"
-              style={{
-                background: `linear-gradient(90deg, transparent, ${COLORS.gold}, transparent)`,
-                backgroundSize: '200% 100%',
-              }}
-              animate={{ backgroundPosition: ['200% 0', '-200% 0'] }}
-              transition={{ duration: 3, repeat: Infinity }}
-            />
-            <div className="relative">
-              <Wifi className="w-5 h-5" style={{ color: COLORS.green }} />
-              <motion.span
-                className="absolute -top-1 -right-1 w-2 h-2 rounded-full block"
-                style={{ background: COLORS.green }}
-                animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity }}
-              />
-            </div>
-            <div className="relative z-10">
-              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
-                Quantum Link
-              </h3>
-              <p className="text-[10px] font-medium" style={{ color: COLORS.green }}>Stable Connection</p>
-            </div>
-          </div>
-        </div>
       </motion.aside>
 
       {/* ==========================================================================
@@ -1328,20 +1294,15 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 )}
               </motion.button>
               <motion.button
-                className="w-9 h-9 rounded-full flex items-center justify-center relative overflow-hidden"
-                style={{ background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.champagne})` }}
-                whileHover={{ scale: 1.08 }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider"
+                style={{ background: 'rgba(185, 87, 80, 0.1)', color: COLORS.coral, border: `1px solid ${COLORS.coral}30` }}
+                whileHover={{ scale: 1.05, background: 'rgba(185, 87, 80, 0.2)' }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onExitNova?.()}
-                title="Exit Nova"
+                onClick={() => onExitQuantum?.()}
+                title="Exit Quantum"
               >
-                <motion.div
-                  className="absolute inset-0"
-                  style={{ background: 'linear-gradient(135deg, transparent, rgba(255,255,255,0.4), transparent)' }}
-                  animate={{ x: ['-100%', '100%'] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                />
-                <span className="text-sm font-bold relative z-10" style={{ color: '#141414' }}>A</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                EXIT
               </motion.button>
             </div>
           </div>
@@ -1351,8 +1312,9 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-12 gap-5">
             {/* ========================================================================
-                GLOBAL ACTIVITY PANEL
+                GLOBAL ACTIVITY PANEL — Dashboard only
             ======================================================================== */}
+            {(activeNav === 'dashboard') && (
             <AnimatedPanel delay={0.05} dark className="col-span-4 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1407,10 +1369,12 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 />
               </div>
             </AnimatedPanel>
+            )}
 
             {/* ========================================================================
                 QUANTUM CORE PANEL
             ======================================================================== */}
+            {(activeNav === 'dashboard' || activeNav === 'intelligence') && (
             <AnimatedPanel delay={0.1} dark className="col-span-4 p-5 relative overflow-hidden">
               {/* Background glow */}
               <motion.div
@@ -1501,10 +1465,12 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 ))}
               </div>
             </AnimatedPanel>
+            )}
 
             {/* ========================================================================
                 PREDICTION ACCURACY PANEL
             ======================================================================== */}
+            {(activeNav === 'dashboard' || activeNav === 'intelligence') && (
             <AnimatedPanel delay={0.15} className="col-span-4 p-5">
               <div className="mb-4">
                 <h3 className="text-sm font-bold" style={{ color: 'var(--text-main)' }}>PREDICTION ACCURACY</h3>
@@ -1617,10 +1583,12 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 </div>
               </motion.div>
             </AnimatedPanel>
+            )}
 
             {/* ========================================================================
                 KNOWLEDGE GRAPH PANEL
             ======================================================================== */}
+            {(activeNav === 'dashboard' || activeNav === 'intelligence') && (
             <AnimatedPanel delay={0.2} dark className="col-span-3 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1669,10 +1637,12 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 ))}
               </div>
             </AnimatedPanel>
+            )}
 
             {/* ========================================================================
                 AGENT NETWORK PANEL
             ======================================================================== */}
+            {(activeNav === 'dashboard' || activeNav === 'agents') && (
             <AnimatedPanel delay={0.25} dark className="col-span-3 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1700,10 +1670,12 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 </motion.span>
               </div>
             </AnimatedPanel>
+            )}
 
             {/* ========================================================================
                 RESOURCE MONITOR PANEL
             ======================================================================== */}
+            {(activeNav === 'dashboard' || activeNav === 'system') && (
             <AnimatedPanel delay={0.3} dark className="col-span-3 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1780,10 +1752,12 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 </ResponsiveContainer>
               </div>
             </AnimatedPanel>
+            )}
 
             {/* ========================================================================
                 SECURITY CENTER PANEL
             ======================================================================== */}
+            {(activeNav === 'dashboard' || activeNav === 'security') && (
             <AnimatedPanel delay={0.35} dark className="col-span-3 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1861,10 +1835,12 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 ))}
               </div>
             </AnimatedPanel>
+            )}
 
             {/* ========================================================================
                 QUICK ACTIONS PANEL
             ======================================================================== */}
+            {(activeNav === 'dashboard' || activeNav === 'missions') && (
             <AnimatedPanel delay={0.4} dark className="col-span-4 p-5">
               <div className="mb-4">
                 <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>QUICK ACTIONS</h3>
@@ -1916,10 +1892,12 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 ))}
               </div>
             </AnimatedPanel>
+            )}
 
             {/* ========================================================================
                 ACTIVITY CHART PANEL
             ======================================================================== */}
+            {(activeNav === 'dashboard' || activeNav === 'system') && (
             <AnimatedPanel delay={0.45} className="col-span-5 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1929,16 +1907,17 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--quantum-cream)' }}>
-                  {['Day', 'Week', 'Month'].map((period, i) => (
+                  {(['Day', 'Week', 'Month'] as const).map((period) => (
                     <motion.button
                       key={period}
                       className="px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider"
                       style={{
-                        background: i === 0 ? COLORS.gold : 'transparent',
-                        color: i === 0 ? '#141414' : 'var(--text-secondary)',
+                        background: activityPeriod === period ? COLORS.gold : 'transparent',
+                        color: activityPeriod === period ? '#141414' : 'var(--text-secondary)',
                       }}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.95 }}
+                      onClick={() => setActivityPeriod(period)}
                     >
                       {period}
                     </motion.button>
@@ -1995,6 +1974,7 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 </ResponsiveContainer>
               </div>
             </AnimatedPanel>
+            )}
           </div>
         </div>
 
@@ -2081,7 +2061,7 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
             >
-              Good afternoon, Admin.
+              Good {currentTime.getHours() < 12 ? 'morning' : currentTime.getHours() < 17 ? 'afternoon' : 'evening'}, Admin.
             </motion.p>
             <p className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
               <span className="w-1 h-1 rounded-full" style={{ background: COLORS.gold }} />
@@ -2118,13 +2098,6 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitNova }) => {
                 ) : (
                   <Mic className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 )}
-              </motion.button>
-              <motion.button
-                className="p-2 rounded-lg"
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-              >
-                <Radio className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
               </motion.button>
             </div>
           </div>

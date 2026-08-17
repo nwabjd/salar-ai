@@ -26,10 +26,10 @@ interface ShellProps {
   api: SalarApi
   onLive?: () => void
   onSignOut?: () => void
-  onExitNova?: () => void
+  onExitQuantum?: () => void
 }
 
-export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellProps) {
+export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: ShellProps) {
   const [view, setView] = useState<RailView>('quantum')
   const [openSpace, setOpenSpace] = useState<SpaceKind | null>(null)
   const [coreState, setCoreState] = useState<CoreState>('idle')
@@ -71,7 +71,7 @@ export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellP
           setMessages(detail.messages || [])
         }
       } catch {
-        setConversation({ id: 'temp', title: 'Nova chat' })
+        setConversation({ id: 'temp', title: 'Quantum chat' })
       }
     }
 
@@ -134,7 +134,7 @@ export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellP
   }
 
   if (view === 'quantum') {
-    return <QuantumEngine key="quantum" api={api} onExitNova={onExitNova}/>
+    return <QuantumEngine key="quantum" api={api} onExitQuantum={onExitQuantum}/>
   }
 
   return (
@@ -213,10 +213,10 @@ export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellP
         onDeny={handleDeny}
       />
 
-      {/* Exit Nova toggle */}
+      {/* Exit Quantum toggle */}
       <button
-        onClick={onExitNova}
-        aria-label="Exit Nova mode"
+        onClick={onExitQuantum}
+        aria-label="Exit Quantum mode"
         style={{
           position: 'fixed', right: 62, top: 18, zIndex: 50,
           padding: '7px 14px', borderRadius: 12,
@@ -230,7 +230,7 @@ export default function NovaShell({ api, onLive, onSignOut, onExitNova }: ShellP
           textTransform: 'uppercase' as const,
         }}
       >
-        CLASSIC VIEW
+        EXIT QUANTUM
       </button>
     </div>
   )
@@ -270,7 +270,7 @@ function NovaViewPlaceholder({ view }: { view: RailView }) {
         color: 'var(--nova-white)',
       }}>{labels[view]}</h2>
       <p style={{ fontSize: 13, color: 'var(--nova-lunar)' }}>
-        This section of Salaar Nova is under construction.
+        This section of Salaar Quantum is under construction.
       </p>
     </motion.div>
   )

@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Home, Layers, Target, BrainCircuit, Monitor, Settings,
-  User, ChevronRight, Users, Sparkles,
+  ChevronRight, Users, Sparkles,
 } from 'lucide-react'
 
 /* ============================================================
@@ -78,7 +78,7 @@ export default function NovaRail({ active = 'home', onNavigate }: RailProps) {
         {expanded && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.18em', color: 'var(--nova-white)' }}>SALAR</div>
-            <div style={{ fontSize: 8, letterSpacing: '.12em', color: 'var(--nova-lunar)', marginTop: 2 }}>NOVA</div>
+            <div style={{ fontSize: 8, letterSpacing: '.12em', color: 'var(--nova-lunar)', marginTop: 2 }}>QUANTUM</div>
           </motion.div>
         )}
       </div>
@@ -124,7 +124,7 @@ export default function NovaRail({ active = 'home', onNavigate }: RailProps) {
         })}
       </div>
 
-      {/* Bottom */}
+      {/* Bottom — Exit Quantum */}
       <div style={{ borderTop: '1px solid var(--nova-line)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <motion.button
           whileHover={{ backgroundColor: 'rgba(255,255,255,.07)' }}
@@ -135,24 +135,14 @@ export default function NovaRail({ active = 'home', onNavigate }: RailProps) {
             background: 'transparent', color: 'var(--nova-lunar)',
             cursor: 'pointer', fontSize: 12, textAlign: 'left',
           }}
-          title="Settings"
+          title="Exit Quantum mode"
+          onClick={() => {
+            try { localStorage.setItem('salar-quantum-mode', 'off') } catch {}
+            window.location.reload()
+          }}
         >
           <span style={{ flexShrink: 0, width: 24, display: 'flex', justifyContent: 'center' }}><Settings size={20} strokeWidth={1.6}/></span>
-          {expanded && <span>Settings</span>}
-        </motion.button>
-        <motion.button
-          whileHover={{ backgroundColor: 'rgba(255,255,255,.07)' }}
-          whileTap={{ scale: 0.97 }}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '10px 10px', border: 'none', borderRadius: 12,
-            background: 'transparent', color: 'var(--nova-lunar)',
-            cursor: 'pointer', fontSize: 12, textAlign: 'left',
-          }}
-          title="Profile"
-        >
-          <span style={{ flexShrink: 0, width: 24, display: 'flex', justifyContent: 'center' }}><User size={20} strokeWidth={1.6}/></span>
-          {expanded && <span>JD</span>}
+          {expanded && <span>Exit Quantum</span>}
         </motion.button>
       </div>
     </motion.nav>

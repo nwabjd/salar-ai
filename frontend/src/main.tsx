@@ -63,8 +63,8 @@ function App() {
   const [live, setLive] = useState(false)
   const [usage, setUsage] = useState<Usage | null>(null)
   const [showPricing, setShowPricing] = useState(false)
-  const [novaMode, setNovaMode] = useState(() => {
-    try { return localStorage.getItem('salar-nova-mode') !== 'off' } catch { return true }
+  const [quantumMode, setQuantumMode] = useState(() => {
+    try { return localStorage.getItem('salar-quantum-mode') !== 'off' } catch { return true }
   })
 
   const enterApp = useCallback(async (supabaseToken?: string | null) => {
@@ -149,12 +149,12 @@ function App() {
   if (!ready) return <Loader/>
   if (access !== 'connected') return <SalaarLanding onEnterApp={enterApp}/>
 
-  if (novaMode) {
+  if (quantumMode) {
     return <NovaShell
       api={api}
       onLive={() => setLive(true)}
       onSignOut={handleSignOut}
-      onExitNova={() => { setNovaMode(false); try { localStorage.setItem('salar-nova-mode', 'off') } catch {} }}
+      onExitQuantum={() => { setQuantumMode(false); try { localStorage.setItem('salar-quantum-mode', 'off') } catch {} }}
     />
   }
 
@@ -166,7 +166,7 @@ function App() {
         {usage && <button className="usage-chip" onClick={() => setShowPricing(true)} title="Plan & billing"><Sparkles size={12}/><b>{usage.used.toLocaleString()}</b> / {usage.limit === null ? 'unlimited' : usage.limit.toLocaleString()} <small>{usage.exempt ? 'ADMIN' : usage.plan.toUpperCase()}</small></button>}
       </nav>
       <div className="topbar-actions">
-        <button className="connection" onClick={() => { setNovaMode(true); try { localStorage.setItem('salar-nova-mode', 'on') } catch {} }}><Sparkles size={13}/> NOVA</button>
+        <button className="connection" onClick={() => { setQuantumMode(true); try { localStorage.setItem('salar-quantum-mode', 'on') } catch {} }}><Sparkles size={13}/> QUANTUM</button>
         <button className="connection" onClick={() => setLive(true)}><Mic2 size={13}/> LIVE</button>
         <button className="connection signout" onClick={handleSignOut}><LogOut size={13}/> SIGN OUT</button>
       </div>
