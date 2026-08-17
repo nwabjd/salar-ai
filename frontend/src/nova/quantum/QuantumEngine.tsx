@@ -1309,548 +1309,171 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitQuantum }) => 
           </div>
         </motion.header>
 
-        {/* Dashboard Content */}
+        {/* Dashboard Content — ThinkingSkull only */}
+        <div className="flex-1 flex items-center justify-center relative overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
+          >
+            <ThinkingSkull
+              state={
+                showResponse || ['thinking', 'planning', 'acting', 'verifying'].includes(coreState)
+                  ? 'generating'
+                  : commandInput.trim()
+                  ? 'typing'
+                  : isListening
+                  ? 'typing'
+                  : 'idle'
+              }
+              size={220}
+            />
+          </motion.div>
+
+          {/* Subtle status text below skull */}
+          <motion.div
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
+              {showResponse || ['thinking', 'planning', 'acting', 'verifying'].includes(coreState)
+                ? 'Processing'
+                : commandInput.trim()
+                ? 'Ready'
+                : isListening
+                ? 'Listening'
+                : 'SALAAR Quantum Engine'}
+            </p>
+          </motion.div>
+        </div>
+
+        {/* Non-dashboard nav panels */}
+        {activeNav !== 'dashboard' && (
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-12 gap-5">
-            {/* ========================================================================
-                GLOBAL ACTIVITY PANEL — Dashboard only
-            ======================================================================== */}
-            {(activeNav === 'dashboard') && (
-            <AnimatedPanel delay={0.05} dark className="col-span-4 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>GLOBAL ACTIVITY</h3>
-                  <p className="text-xs" style={{ color: 'var(--dark-secondary-text)' }}>Real-time Feed</p>
-                </div>
-              </div>
-
-              <div className="h-44 mb-4">
-                <WorldMap />
-              </div>
-
-              <div className="grid grid-cols-4 gap-3">
-                <LiveMetric
-                  dark
-                  label="Requests"
-                  value={liveRequests}
-                  prefix=""
-                  suffix=" M"
-                  decimals={2}
-                  format={(v) => v.toFixed(2)}
-                  trend={12.5}
-                  icon={Activity}
-                />
-                <LiveMetric
-                  dark
-                  label="Data In"
-                  value={2.14}
-                  suffix=" TB"
-                  decimals={2}
-                  trend={8.2}
-                  icon={ArrowUpRight}
-                />
-                <LiveMetric
-                  dark
-                  label="Data Out"
-                  value={1.67}
-                  suffix=" TB"
-                  decimals={2}
-                  trend={5.4}
-                  icon={ArrowUpRight}
-                />
-                <LiveMetric
-                  dark
-                  label="Latency"
-                  value={latency}
-                  suffix=" ms"
-                  decimals={0}
-                  format={(v) => Math.round(v).toString()}
-                  trend={-15.3}
-                  icon={Clock}
-                />
-              </div>
-            </AnimatedPanel>
-            )}
-
-            {/* ========================================================================
-                QUANTUM CORE PANEL
-            ======================================================================== */}
-            {(activeNav === 'dashboard' || activeNav === 'intelligence') && (
+            {activeNav === 'intelligence' && (<>
             <AnimatedPanel delay={0.1} dark className="col-span-4 p-5 relative overflow-hidden">
-              {/* Background glow */}
-              <motion.div
-                className="absolute inset-0"
-                style={{
-                  background: `radial-gradient(circle at 50% 50%, ${COLORS.gold}20 0%, transparent 70%)`,
-                }}
-                animate={{
-                  opacity: [0.4, 0.7, 0.4],
-                }}
-                transition={{ duration: 3, repeat: Infinity }}
-              />
-
+              <motion.div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 50%, ${COLORS.gold}20 0%, transparent 70%)` }} animate={{ opacity: [0.4, 0.7, 0.4] }} transition={{ duration: 3, repeat: Infinity }} />
               <div className="flex items-center justify-between mb-3 relative z-10">
                 <div>
                   <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>SALAAR QUANTUM CORE</h3>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                    Quantum Compute Engine
-                  </p>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>Quantum Compute Engine</p>
                 </div>
-                <motion.div
-                  className="flex items-center gap-2 px-3 py-1 rounded-full"
-                  style={{ background: `${COLORS.green}20` }}
-                  animate={{ boxShadow: ['0 0 0 rgba(47,110,89,0)', '0 0 16px rgba(47,110,89,0.4)', '0 0 0 rgba(47,110,89,0)'] }}
-                  transition={{ duration: 2.5, repeat: Infinity }}
-                >
+                <motion.div className="flex items-center gap-2 px-3 py-1 rounded-full" style={{ background: `${COLORS.green}20` }} animate={{ boxShadow: ['0 0 0 rgba(47,110,89,0)', '0 0 16px rgba(47,110,89,0.4)', '0 0 0 rgba(47,110,89,0)'] }} transition={{ duration: 2.5, repeat: Infinity }}>
                   <StatusDot status="pulse-green" size={6} />
                   <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: COLORS.green }}>ACTIVE</span>
                 </motion.div>
               </div>
-
               <div className="grid grid-cols-2 gap-3 mb-3 relative z-10">
-                {[
-                  { label: 'Thinking Depth', value: '8.6', suffix: '/10', accent: COLORS.gold },
-                  { label: 'Context Window', value: '128', suffix: 'K', accent: COLORS.champagne },
-                  { label: 'Learning Rate', value: '0.091', suffix: '', accent: COLORS.paleGold },
-                  { label: 'Model Efficiency', value: '94.7', suffix: '%', accent: COLORS.softGreen },
-                ].map((item, i) => (
-                  <motion.div
-                    key={i}
-                    className="p-3 rounded-xl relative overflow-hidden"
-                    style={{ background: 'rgba(255, 255, 255, 0.05)' }}
-                    whileHover={{ background: 'rgba(255, 255, 255, 0.08)' }}
-                  >
-                    <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--dark-secondary-text)' }}>
-                      {item.label}
-                    </p>
-                    <p className="text-lg font-bold flex items-baseline gap-1" style={{ color: 'var(--dark-primary-text)' }}>
-                      {item.value}
-                      <span className="text-xs font-medium" style={{ color: item.accent }}>{item.suffix}</span>
-                    </p>
-                    <motion.div
-                      className="absolute bottom-0 left-0 h-[1.5px]"
-                      style={{ background: item.accent }}
-                      initial={{ width: 0 }}
-                      animate={{ width: '100%' }}
-                      transition={{ duration: 1.5, delay: 0.5 + i * 0.1 }}
-                    />
+                {[{ label: 'Thinking Depth', value: '8.6', suffix: '/10', accent: COLORS.gold }, { label: 'Context Window', value: '128', suffix: 'K', accent: COLORS.champagne }, { label: 'Learning Rate', value: '0.091', suffix: '', accent: COLORS.paleGold }, { label: 'Model Efficiency', value: '94.7', suffix: '%', accent: COLORS.softGreen }].map((item, i) => (
+                  <motion.div key={i} className="p-3 rounded-xl relative overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.05)' }} whileHover={{ background: 'rgba(255, 255, 255, 0.08)' }}>
+                    <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--dark-secondary-text)' }}>{item.label}</p>
+                    <p className="text-lg font-bold flex items-baseline gap-1" style={{ color: 'var(--dark-primary-text)' }}>{item.value}<span className="text-xs font-medium" style={{ color: item.accent }}>{item.suffix}</span></p>
+                    <motion.div className="absolute bottom-0 left-0 h-[1.5px]" style={{ background: item.accent }} initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 1.5, delay: 0.5 + i * 0.1 }} />
                   </motion.div>
                 ))}
               </div>
-
-              <div className="h-56 relative z-10">
-                <EnhancedQuantumCore state={coreState} />
-              </div>
-
+              <div className="h-56 relative z-10"><EnhancedQuantumCore state={coreState} /></div>
               <div className="grid grid-cols-4 gap-2 mt-3 relative z-10">
-                {[
-                  { label: 'Processing', value: '2.48 PFLOPS' },
-                  { label: 'Response', value: '18 ms' },
-                  { label: 'Active Agents', value: '16' },
-                  { label: 'Tasks Queued', value: '7' },
-                ].map((item, i) => (
-                  <motion.div
-                    key={i}
-                    className="text-center p-2.5 rounded-xl relative overflow-hidden"
-                    style={{ background: 'rgba(255, 255, 255, 0.04)' }}
-                    whileHover={{ background: 'rgba(255, 255, 255, 0.07)' }}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + i * 0.08 }}
-                  >
-                    <p className="text-[8px] uppercase tracking-wider mb-1" style={{ color: 'var(--dark-secondary-text)' }}>
-                      {item.label}
-                    </p>
+                {[{ label: 'Processing', value: '2.48 PFLOPS' }, { label: 'Response', value: '18 ms' }, { label: 'Active Agents', value: '16' }, { label: 'Tasks Queued', value: '7' }].map((item, i) => (
+                  <motion.div key={i} className="text-center p-2.5 rounded-xl relative overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.04)' }} whileHover={{ background: 'rgba(255, 255, 255, 0.07)' }} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 + i * 0.08 }}>
+                    <p className="text-[8px] uppercase tracking-wider mb-1" style={{ color: 'var(--dark-secondary-text)' }}>{item.label}</p>
                     <p className="text-xs font-bold" style={{ color: 'var(--dark-primary-text)' }}>{item.value}</p>
                   </motion.div>
                 ))}
               </div>
             </AnimatedPanel>
-            )}
-
-            {/* ========================================================================
-                PREDICTION ACCURACY PANEL
-            ======================================================================== */}
-            {(activeNav === 'dashboard' || activeNav === 'intelligence') && (
             <AnimatedPanel delay={0.15} className="col-span-4 p-5">
               <div className="mb-4">
                 <h3 className="text-sm font-bold" style={{ color: 'var(--text-main)' }}>PREDICTION ACCURACY</h3>
-                <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
-                  Model Performance
-                </p>
+                <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>Model Performance</p>
               </div>
-
               <div className="flex items-center gap-6 mb-5">
                 <div className="relative w-32 h-32">
                   <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
                     <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(201, 165, 110, 0.15)" strokeWidth="8" />
-                    <motion.circle
-                      cx="50" cy="50" r="42"
-                      fill="none"
-                      stroke={COLORS.gold}
-                      strokeWidth="8"
-                      strokeDasharray="264"
-                      initial={{ strokeDashoffset: 264 }}
-                      animate={{ strokeDashoffset: 264 - (264 * 93.8) / 100 }}
-                      transition={{ duration: 2, ease: 'easeOut', delay: 0.3 }}
-                      strokeLinecap="round"
-                    />
+                    <motion.circle cx="50" cy="50" r="42" fill="none" stroke={COLORS.gold} strokeWidth="8" strokeDasharray="264" initial={{ strokeDashoffset: 264 }} animate={{ strokeDashoffset: 264 - (264 * 93.8) / 100 }} transition={{ duration: 2, ease: 'easeOut', delay: 0.3 }} strokeLinecap="round" />
                   </svg>
-                  <motion.div
-                    className="absolute inset-0 flex items-center justify-center"
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.8 }}
-                  >
+                  <motion.div className="absolute inset-0 flex items-center justify-center" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5, delay: 0.8 }}>
                     <div className="text-center">
-                      <motion.p
-                        className="text-3xl font-bold tabular-nums"
-                        style={{ color: 'var(--text-main)' }}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 1, delay: 0.5 }}
-                      >
-                        93.8%
-                      </motion.p>
-                      <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
-                        Accuracy
-                      </p>
+                      <motion.p className="text-3xl font-bold tabular-nums" style={{ color: 'var(--text-main)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.5 }}>93.8%</motion.p>
+                      <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>Accuracy</p>
                     </div>
                   </motion.div>
                 </div>
-
                 <div className="flex-1 space-y-2.5">
                   {predictionData.map((item, i) => (
-                    <motion.div
-                      key={i}
-                      className="flex items-center justify-between"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
-                    >
+                    <motion.div key={i} className="flex items-center justify-between" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}>
                       <div className="flex items-center gap-2">
-                        <motion.span
-                          className="w-2 h-2 rounded-full"
-                          style={{ background: COLORS.gold }}
-                          animate={{ scale: [1, 1.3, 1] }}
-                          transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
-                        />
-                        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                          {item.name}
-                        </span>
+                        <motion.span className="w-2 h-2 rounded-full" style={{ background: COLORS.gold }} animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }} />
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{item.name}</span>
                       </div>
-                      <motion.span
-                        className="text-sm font-bold tabular-nums"
-                        style={{ color: 'var(--text-main)' }}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.5 + i * 0.08 }}
-                      >
-                        {item.value}%
-                      </motion.span>
+                      <motion.span className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-main)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 + i * 0.08 }}>{item.value}%</motion.span>
                     </motion.div>
                   ))}
                 </div>
               </div>
-
-              {/* Top Predictions */}
-              <motion.div
-                className="p-4 rounded-xl relative overflow-hidden"
-                style={{ background: 'var(--quantum-black)' }}
-              >
+              <motion.div className="p-4 rounded-xl relative overflow-hidden" style={{ background: 'var(--quantum-black)' }}>
                 <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--dark-primary-text)' }}>TOP PREDICTIONS</h4>
                 <div className="space-y-3">
                   {topPredictions.map((pred, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.5 + i * 0.1 }}
-                    >
+                    <motion.div key={i} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 + i * 0.1 }}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[11px]" style={{ color: 'var(--dark-secondary-text)' }}>{pred.label}</span>
                         <span className="text-xs font-bold tabular-nums" style={{ color: COLORS.gold }}>{pred.value}%</span>
                       </div>
-                      <div className="progress-bar h-1.5">
-                        <motion.div
-                          className="progress-fill h-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pred.value}%` }}
-                          transition={{ duration: 1.2, delay: 0.6 + i * 0.12, ease: 'easeOut' }}
-                        />
-                      </div>
+                      <div className="progress-bar h-1.5"><motion.div className="progress-fill h-full" initial={{ width: 0 }} animate={{ width: `${pred.value}%` }} transition={{ duration: 1.2, delay: 0.6 + i * 0.12, ease: 'easeOut' }} /></div>
                     </motion.div>
                   ))}
                 </div>
               </motion.div>
             </AnimatedPanel>
-            )}
-
-            {/* ========================================================================
-                KNOWLEDGE GRAPH PANEL
-            ======================================================================== */}
-            {(activeNav === 'dashboard' || activeNav === 'intelligence') && (
-            <AnimatedPanel delay={0.2} dark className="col-span-3 p-5">
+            <AnimatedPanel delay={0.2} dark className="col-span-4 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>KNOWLEDGE GRAPH</h3>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                    Connections & Entities
-                  </p>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>Connections & Entities</p>
                 </div>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                >
-                  <Network className="w-4 h-4" style={{ color: COLORS.gold }} />
-                </motion.div>
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}><Network className="w-4 h-4" style={{ color: COLORS.gold }} /></motion.div>
               </div>
-
-              <div className="h-32 mb-4">
-                <KnowledgeGraph />
-              </div>
-
+              <div className="h-40 mb-4"><KnowledgeGraph /></div>
               <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Entities', value: '24,531' },
-                  { label: 'Relationships', value: '98,213' },
-                  { label: 'Data Points', value: '3.42 PB' },
-                ].map((item, i) => (
-                  <motion.div
-                    key={i}
-                    className="text-center"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.7 + i * 0.1 }}
-                  >
-                    <motion.p
-                      className="text-lg font-bold tabular-nums"
-                      style={{ color: 'var(--dark-primary-text)' }}
-                      animate={{ textShadow: ['0 0 0 rgba(201,165,110,0)', '0 0 8px rgba(201,165,110,0.4)', '0 0 0 rgba(201,165,110,0)'] }}
-                      transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }}
-                    >
-                      {item.value}
-                    </motion.p>
-                    <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                      {item.label}
-                    </p>
+                {[{ label: 'Entities', value: '24,531' }, { label: 'Relationships', value: '98,213' }, { label: 'Data Points', value: '3.42 PB' }].map((item, i) => (
+                  <motion.div key={i} className="text-center" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.7 + i * 0.1 }}>
+                    <motion.p className="text-lg font-bold tabular-nums" style={{ color: 'var(--dark-primary-text)' }} animate={{ textShadow: ['0 0 0 rgba(201,165,110,0)', '0 0 8px rgba(201,165,110,0.4)', '0 0 0 rgba(201,165,110,0)'] }} transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }}>{item.value}</motion.p>
+                    <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>{item.label}</p>
                   </motion.div>
                 ))}
               </div>
             </AnimatedPanel>
-            )}
+            </>)}
 
-            {/* ========================================================================
-                AGENT NETWORK PANEL
-            ======================================================================== */}
-            {(activeNav === 'dashboard' || activeNav === 'agents') && (
-            <AnimatedPanel delay={0.25} dark className="col-span-3 p-5">
+            {activeNav === 'agents' && (
+            <AnimatedPanel delay={0.25} dark className="col-span-12 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>AGENT NETWORK</h3>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                    AI Agents Ecosystem
-                  </p>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>AI Agents Ecosystem</p>
                 </div>
                 <Users className="w-4 h-4" style={{ color: 'var(--dark-secondary-text)' }} />
               </div>
-
-              <div className="h-36">
-                <AgentNetwork agents={liveAgents} />
-              </div>
-
-              <div className="flex items-center justify-center gap-2 mt-2">
+              <div className="h-64"><AgentNetwork agents={liveAgents} /></div>
+              <div className="flex items-center justify-center gap-2 mt-3">
                 <StatusDot status="pulse-green" size={6} />
-                <motion.span
-                  className="text-xs font-bold uppercase tracking-wider"
-                  style={{ color: COLORS.green }}
-                  animate={{ opacity: [0.7, 1, 0.7] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  {liveAgents.length} AGENTS ONLINE
-                </motion.span>
+                <motion.span className="text-xs font-bold uppercase tracking-wider" style={{ color: COLORS.green }} animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 2, repeat: Infinity }}>{liveAgents.length} AGENTS ONLINE</motion.span>
               </div>
             </AnimatedPanel>
             )}
 
-            {/* ========================================================================
-                RESOURCE MONITOR PANEL
-            ======================================================================== */}
-            {(activeNav === 'dashboard' || activeNav === 'system') && (
-            <AnimatedPanel delay={0.3} dark className="col-span-3 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>RESOURCE MONITOR</h3>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                    Real-time Usage
-                  </p>
-                </div>
-                <Server className="w-4 h-4" style={{ color: 'var(--dark-secondary-text)' }} />
-              </div>
-
-              <div className="grid grid-cols-4 gap-3 mb-4">
-                {resourceData.map((resource, i) => (
-                  <motion.div
-                    key={i}
-                    className="text-center"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + i * 0.1 }}
-                  >
-                    <div className="relative w-14 h-14 mx-auto mb-2">
-                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255, 255, 255, 0.1)" strokeWidth="8" />
-                        <motion.circle
-                          cx="50" cy="50" r="42"
-                          fill="none"
-                          stroke={resource.fill}
-                          strokeWidth="8"
-                          strokeDasharray="264"
-                          initial={{ strokeDashoffset: 264 }}
-                          animate={{ strokeDashoffset: 264 - (264 * resource.value) / 100 }}
-                          transition={{ duration: 1.5, delay: 0.6 + i * 0.1, ease: 'easeOut' }}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <motion.span
-                          className="text-sm font-bold tabular-nums"
-                          style={{ color: 'var(--dark-primary-text)' }}
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ delay: 1.2 + i * 0.1, type: 'spring' }}
-                        >
-                          {resource.value}%
-                        </motion.span>
-                      </div>
-                    </div>
-                    <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                      {resource.name}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-
-              <div className="h-16">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={activityData.slice(-12)}>
-                    <defs>
-                      <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.5" />
-                        <stop offset="100%" stopColor={COLORS.gold} stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    <Area
-                      type="monotone"
-                      dataKey="requests"
-                      stroke={COLORS.gold}
-                      strokeWidth="2"
-                      fill="url(#activityGradient)"
-                      isAnimationActive={true}
-                      animationDuration={1500}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </AnimatedPanel>
-            )}
-
-            {/* ========================================================================
-                SECURITY CENTER PANEL
-            ======================================================================== */}
-            {(activeNav === 'dashboard' || activeNav === 'security') && (
-            <AnimatedPanel delay={0.35} dark className="col-span-3 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>SECURITY CENTER</h3>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                    Threat Monitoring
-                  </p>
-                </div>
-                <motion.div
-                  animate={{ rotate: [0, 10, 0, -10, 0] }}
-                  transition={{ duration: 4, repeat: Infinity }}
-                >
-                  <Shield className="w-4 h-4" style={{ color: COLORS.green }} />
-                </motion.div>
-              </div>
-
-              <div className="flex items-center gap-4 mb-4">
-                <motion.div
-                  className="w-24 h-24 flex-shrink-0"
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.5, type: 'spring' }}
-                >
-                  <SecurityShield />
-                </motion.div>
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                      Threats Blocked
-                    </p>
-                    <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--dark-primary-text)' }}>7,842</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                      Intrusion Attempts
-                    </p>
-                    <p className="text-xl font-bold" style={{ color: 'var(--dark-primary-text)' }}>{Math.max(alertCount, 1)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                      Risk Level
-                    </p>
-                    <motion.p
-                      className="text-lg font-bold"
-                      style={{ color: riskColor }}
-                      animate={{ textShadow: [`0 0 0 ${riskColor}00`, `0 0 10px ${riskColor}80`, `0 0 0 ${riskColor}00`] }}
-                      transition={{ duration: 2.5, repeat: Infinity }}
-                    >
-                      {riskLevel}
-                    </motion.p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: 'Firewall', value: 'ACTIVE', color: COLORS.green, bg: 'rgba(47, 110, 89, 0.15)' },
-                  { label: 'Encryption', value: 'AES-256', color: COLORS.gold, bg: 'rgba(201, 165, 110, 0.15)' },
-                  { label: 'Protection', value: '100%', color: COLORS.green, bg: 'rgba(47, 110, 89, 0.15)' },
-                ].map((item, i) => (
-                  <motion.div
-                    key={i}
-                    className="p-2.5 rounded-xl text-center relative overflow-hidden"
-                    style={{ background: item.bg }}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 + i * 0.1 }}
-                    whileHover={{ scale: 1.03 }}
-                  >
-                    <p className="text-[8px] uppercase tracking-wider mb-1 font-semibold" style={{ color: item.color }}>
-                      {item.label}
-                    </p>
-                    <p className="text-[11px] font-bold" style={{ color: item.color }}>{item.value}</p>
-                  </motion.div>
-                ))}
-              </div>
-            </AnimatedPanel>
-            )}
-
-            {/* ========================================================================
-                QUICK ACTIONS PANEL
-            ======================================================================== */}
-            {(activeNav === 'dashboard' || activeNav === 'missions') && (
-            <AnimatedPanel delay={0.4} dark className="col-span-4 p-5">
+            {activeNav === 'missions' && (
+            <AnimatedPanel delay={0.4} dark className="col-span-12 p-5">
               <div className="mb-4">
                 <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>QUICK ACTIONS</h3>
-                <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                  Execute Commands
-                </p>
+                <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>Execute Commands</p>
               </div>
-
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-6 gap-3">
                 {[
                   { icon: Brain, label: 'New Analysis', color: COLORS.gold },
                   { icon: Search, label: 'Deep Research', color: COLORS.champagne },
@@ -1859,125 +1482,114 @@ const QuantumEngine: React.FC<QuantumEngineProps> = ({ api, onExitQuantum }) => 
                   { icon: Shield, label: 'Security Scan', color: COLORS.softGreen },
                   { icon: RefreshCw, label: 'Clear Memory', color: COLORS.amber },
                 ].map((action, i) => (
-                  <motion.button
-                    key={i}
-                    className="p-4 rounded-xl flex flex-col items-center gap-2 relative overflow-hidden"
-                    style={{ background: 'rgba(255, 255, 255, 0.04)' }}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.6 + i * 0.06, type: 'spring' }}
-                    whileHover={{
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      scale: 1.03,
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleQuickAction(action.label)}
-                  >
-                    <motion.div
-                      animate={{ y: [0, -2, 0] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
-                    >
-                      <action.icon className="w-5 h-5" style={{ color: action.color }} />
-                    </motion.div>
-                    <span className="text-[10px] font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>
-                      {action.label}
-                    </span>
-                    {/* Hover shimmer */}
-                    <motion.div
-                      className="absolute inset-0 opacity-0 hover:opacity-100"
-                      style={{
-                        background: `linear-gradient(135deg, ${action.color}10, transparent)`,
-                      }}
-                    />
+                  <motion.button key={i} className="p-4 rounded-xl flex flex-col items-center gap-2 relative overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.04)' }} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.6 + i * 0.06, type: 'spring' }} whileHover={{ background: 'rgba(255, 255, 255, 0.08)', scale: 1.03 }} whileTap={{ scale: 0.95 }} onClick={() => handleQuickAction(action.label)}>
+                    <motion.div animate={{ y: [0, -2, 0] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}><action.icon className="w-5 h-5" style={{ color: action.color }} /></motion.div>
+                    <span className="text-[10px] font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>{action.label}</span>
                   </motion.button>
                 ))}
               </div>
             </AnimatedPanel>
             )}
 
-            {/* ========================================================================
-                ACTIVITY CHART PANEL
-            ======================================================================== */}
-            {(activeNav === 'dashboard' || activeNav === 'system') && (
-            <AnimatedPanel delay={0.45} className="col-span-5 p-5">
+            {activeNav === 'security' && (
+            <AnimatedPanel delay={0.35} dark className="col-span-12 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>SECURITY CENTER</h3>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>Threat Monitoring</p>
+                </div>
+                <motion.div animate={{ rotate: [0, 10, 0, -10, 0] }} transition={{ duration: 4, repeat: Infinity }}><Shield className="w-4 h-4" style={{ color: COLORS.green }} /></motion.div>
+              </div>
+              <div className="flex items-center gap-8 mb-6">
+                <motion.div className="w-32 h-32 flex-shrink-0" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.5, type: 'spring' }}><SecurityShield /></motion.div>
+                <div className="flex-1 grid grid-cols-3 gap-6">
+                  <div><p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>Threats Blocked</p><p className="text-3xl font-bold tabular-nums" style={{ color: 'var(--dark-primary-text)' }}>7,842</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>Intrusion Attempts</p><p className="text-3xl font-bold" style={{ color: 'var(--dark-primary-text)' }}>{Math.max(alertCount, 1)}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>Risk Level</p><motion.p className="text-3xl font-bold" style={{ color: riskColor }} animate={{ textShadow: [`0 0 0 ${riskColor}00`, `0 0 10px ${riskColor}80`, `0 0 0 ${riskColor}00`] }} transition={{ duration: 2.5, repeat: Infinity }}>{riskLevel}</motion.p></div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Firewall', value: 'ACTIVE', color: COLORS.green, bg: 'rgba(47, 110, 89, 0.15)' },
+                  { label: 'Encryption', value: 'AES-256', color: COLORS.gold, bg: 'rgba(201, 165, 110, 0.15)' },
+                  { label: 'Protection', value: '100%', color: COLORS.green, bg: 'rgba(47, 110, 89, 0.15)' },
+                ].map((item, i) => (
+                  <motion.div key={i} className="p-4 rounded-xl text-center relative overflow-hidden" style={{ background: item.bg }} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.1 }} whileHover={{ scale: 1.03 }}>
+                    <p className="text-[9px] uppercase tracking-wider mb-1 font-semibold" style={{ color: item.color }}>{item.label}</p>
+                    <p className="text-sm font-bold" style={{ color: item.color }}>{item.value}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </AnimatedPanel>
+            )}
+
+            {activeNav === 'system' && (<>
+            <AnimatedPanel delay={0.3} dark className="col-span-6 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--dark-primary-text)' }}>RESOURCE MONITOR</h3>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>Real-time Usage</p>
+                </div>
+                <Server className="w-4 h-4" style={{ color: 'var(--dark-secondary-text)' }} />
+              </div>
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                {resourceData.map((resource, i) => (
+                  <motion.div key={i} className="text-center" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 + i * 0.1 }}>
+                    <div className="relative w-14 h-14 mx-auto mb-2">
+                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255, 255, 255, 0.1)" strokeWidth="8" />
+                        <motion.circle cx="50" cy="50" r="42" fill="none" stroke={resource.fill} strokeWidth="8" strokeDasharray="264" initial={{ strokeDashoffset: 264 }} animate={{ strokeDashoffset: 264 - (264 * resource.value) / 100 }} transition={{ duration: 1.5, delay: 0.6 + i * 0.1, ease: 'easeOut' }} strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <motion.span className="text-sm font-bold tabular-nums" style={{ color: 'var(--dark-primary-text)' }} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.2 + i * 0.1, type: 'spring' }}>{resource.value}%</motion.span>
+                      </div>
+                    </div>
+                    <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--dark-secondary-text)' }}>{resource.name}</p>
+                  </motion.div>
+                ))}
+              </div>
+              <div className="h-20">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={activityData.slice(-12)}>
+                    <defs><linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.5" /><stop offset="100%" stopColor={COLORS.gold} stopOpacity="0" /></linearGradient></defs>
+                    <Area type="monotone" dataKey="requests" stroke={COLORS.gold} strokeWidth="2" fill="url(#activityGradient)" isAnimationActive={true} animationDuration={1500} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </AnimatedPanel>
+            <AnimatedPanel delay={0.45} className="col-span-6 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold" style={{ color: 'var(--text-main)' }}>ACTIVITY TRENDS</h3>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
-                    24-Hour Overview
-                  </p>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>24-Hour Overview</p>
                 </div>
                 <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--quantum-cream)' }}>
                   {(['Day', 'Week', 'Month'] as const).map((period) => (
-                    <motion.button
-                      key={period}
-                      className="px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider"
-                      style={{
-                        background: activityPeriod === period ? COLORS.gold : 'transparent',
-                        color: activityPeriod === period ? '#141414' : 'var(--text-secondary)',
-                      }}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setActivityPeriod(period)}
-                    >
-                      {period}
-                    </motion.button>
+                    <motion.button key={period} className="px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider" style={{ background: activityPeriod === period ? COLORS.gold : 'transparent', color: activityPeriod === period ? '#141414' : 'var(--text-secondary)' }} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }} onClick={() => setActivityPeriod(period)}>{period}</motion.button>
                   ))}
                 </div>
               </div>
-
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={activityData}>
                     <defs>
-                      <linearGradient id="lineGradient1" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.3" />
-                        <stop offset="50%" stopColor={COLORS.gold} stopOpacity="1" />
-                        <stop offset="100%" stopColor={COLORS.champagne} stopOpacity="0.3" />
-                      </linearGradient>
-                      <linearGradient id="lineGradient2" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor={COLORS.green} stopOpacity="0.3" />
-                        <stop offset="50%" stopColor={COLORS.green} stopOpacity="1" />
-                        <stop offset="100%" stopColor={COLORS.softGreen} stopOpacity="0.3" />
-                      </linearGradient>
+                      <linearGradient id="lineGradient1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.3" /><stop offset="50%" stopColor={COLORS.gold} stopOpacity="1" /><stop offset="100%" stopColor={COLORS.champagne} stopOpacity="0.3" /></linearGradient>
+                      <linearGradient id="lineGradient2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={COLORS.green} stopOpacity="0.3" /><stop offset="50%" stopColor={COLORS.green} stopOpacity="1" /><stop offset="100%" stopColor={COLORS.softGreen} stopOpacity="0.3" /></linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(110, 96, 80, 0.08)" />
                     <XAxis dataKey="time" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} stroke="transparent" />
                     <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} stroke="transparent" />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'var(--quantum-black)',
-                        border: `1px solid ${COLORS.gold}40`,
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        color: 'var(--dark-primary-text)',
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="requests"
-                      stroke="url(#lineGradient1)"
-                      strokeWidth="2.5"
-                      dot={false}
-                      isAnimationActive={true}
-                      animationDuration={1500}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="latency"
-                      stroke="url(#lineGradient2)"
-                      strokeWidth="2"
-                      dot={false}
-                      isAnimationActive={true}
-                      animationDuration={1500}
-                    />
+                    <Tooltip contentStyle={{ background: 'var(--quantum-black)', border: `1px solid ${COLORS.gold}40`, borderRadius: '12px', fontSize: '12px', color: 'var(--dark-primary-text)' }} />
+                    <Line type="monotone" dataKey="requests" stroke="url(#lineGradient1)" strokeWidth="2.5" dot={false} isAnimationActive={true} animationDuration={1500} />
+                    <Line type="monotone" dataKey="latency" stroke="url(#lineGradient2)" strokeWidth="2" dot={false} isAnimationActive={true} animationDuration={1500} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </AnimatedPanel>
-            )}
+            </>)}
           </div>
         </div>
+        )}
 
         {/* ==========================================================================
             COMMAND CONSOLE

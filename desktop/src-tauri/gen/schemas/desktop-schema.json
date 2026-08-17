@@ -189,6 +189,12 @@
           "markdownDescription": "Allows executing device commands"
         },
         {
+          "description": "Allows reading local system metrics",
+          "type": "string",
+          "const": "allow-live-metrics",
+          "markdownDescription": "Allows reading local system metrics"
+        },
+        {
           "description": "Allows loading auth tokens",
           "type": "string",
           "const": "allow-load-token",
