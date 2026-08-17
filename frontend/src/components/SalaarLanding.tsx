@@ -110,6 +110,8 @@ const capabilities = [
   { icon: <Icon.Shield />, title: "Private by design", text: "Clear permission controls keep you in charge of what Salaar can see, remember and do." },
 ];
 
+import { GlareHover } from './GlareHover';
+
 function PriceCard({
   name,
   price,
@@ -830,44 +832,50 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
           </p>
 
           <div className="pricing-grid">
-            <PriceCard
-              name="Free"
-              price="$0"
-              sub="Forever free while we build in the open."
-              features={["Full web + mobile companion", "Local & encrypted memory", "5 devices", "Standard models", "Community support"]}
-              priceId="price_free"
-              busyId={pricingBusyId}
-              choosing={choosingPriceId === "price_free"}
-              onCheckout={handleCheckout}
-              onPickMethod={handleCheckout}
-              featured={false}
-            />
-            <PriceCard
-              name="Pro"
-              price="$12"
-              period="/mo"
-              sub="Billed monthly at $12. Cancel anytime."
-              features={["Everything in Free", "Advanced agents & automations", "Priority models", "Unlimited devices", "Priority support"]}
-              priceId="price_pro"
-              busyId={pricingBusyId}
-              choosing={choosingPriceId === "price_pro"}
-              onCheckout={handleCheckout}
-              onPickMethod={handleCheckout}
-              featured={true}
-            />
-            <PriceCard
-              name="Team"
-              price="$24"
-              period="/mo"
-              sub="For small teams and families (up to 5 seats)."
-              features={["Everything in Pro", "Shared workspace", "Team tasks", "Group calendar sync", "Dedicated onboarding"]}
-              priceId="price_team"
-              busyId={pricingBusyId}
-              choosing={choosingPriceId === "price_team"}
-              onCheckout={handleCheckout}
-              onPickMethod={handleCheckout}
-              featured={false}
-            />
+            <GlareHover className="glare-price-wrap">
+              <PriceCard
+                name="Free"
+                price="$0"
+                sub="Forever free while we build in the open."
+                features={["Full web + mobile companion", "Local & encrypted memory", "5 devices", "Standard models", "Community support"]}
+                priceId="price_free"
+                busyId={pricingBusyId}
+                choosing={choosingPriceId === "price_free"}
+                onCheckout={handleCheckout}
+                onPickMethod={handleCheckout}
+                featured={false}
+              />
+            </GlareHover>
+            <GlareHover className="glare-price-wrap">
+              <PriceCard
+                name="Pro"
+                price="$12"
+                period="/mo"
+                sub="Billed monthly at $12. Cancel anytime."
+                features={["Everything in Free", "Advanced agents & automations", "Priority models", "Unlimited devices", "Priority support"]}
+                priceId="price_pro"
+                busyId={pricingBusyId}
+                choosing={choosingPriceId === "price_pro"}
+                onCheckout={handleCheckout}
+                onPickMethod={handleCheckout}
+                featured={true}
+              />
+            </GlareHover>
+            <GlareHover className="glare-price-wrap">
+              <PriceCard
+                name="Team"
+                price="$24"
+                period="/mo"
+                sub="For small teams and families (up to 5 seats)."
+                features={["Everything in Pro", "Shared workspace", "Team tasks", "Group calendar sync", "Dedicated onboarding"]}
+                priceId="price_team"
+                busyId={pricingBusyId}
+                choosing={choosingPriceId === "price_team"}
+                onCheckout={handleCheckout}
+                onPickMethod={handleCheckout}
+                featured={false}
+              />
+            </GlareHover>
           </div>
 
           {pricingError && <p className="pricing-error">{pricingError}</p>}

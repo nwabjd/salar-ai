@@ -237,6 +237,21 @@
 #salar-landing .cosmic-pricing .price-features svg { color: var(--cosmic-cyan); }
 #salar-landing .cosmic-pricing .secondary-button { color: #fff; border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.035); }
 
+/* GlareHover for pricing cards */
+.glare-hover-wrap { position: relative; overflow: hidden; border-radius: 0; }
+.glare-hover-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle 180px at var(--glare-x, 50%) var(--glare-y, 50%), rgba(255,255,255,var(--glare-opacity, 0)), transparent 100%);
+  opacity: var(--glare-opacity, 0);
+  transition: opacity var(--glare-duration, 600ms) ease;
+  z-index: 1;
+}
+.glare-hover-wrap:hover::after { opacity: 1; }
+.glare-price-wrap { border-radius: 0; }
+
 #salar-landing .final-cta {
   width: min(1180px, calc(100% - 64px));
   min-height: 72vh;
