@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Mic2, Send, Command, Image, Layers, Monitor, Sparkles, Loader } from 'lucide-react'
+import { Mic2, Send, Command, Image, Layers, Monitor, Sparkles, Loader, Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
 import { Conversation, Message, SalarApi } from '../api'
 
 interface CommandSuggestion {
@@ -25,6 +25,26 @@ function TypingDots() {
   )
 }
 
+function MessageActions({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false)
+  function handleCopy() {
+    navigator.clipboard.writeText(content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="ai-msg-actions">
+      <button className="ai-msg-action" onClick={handleCopy} title="Copy">
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+      <button className="ai-msg-action" title="Retry"><RefreshCcw size={14} /></button>
+      <button className="ai-msg-action" title="Like"><ThumbsUp size={14} /></button>
+      <button className="ai-msg-action" title="Dislike"><ThumbsDown size={14} /></button>
+      <button className="ai-msg-action" title="Share"><Share size={14} /></button>
+    </div>
+  )
+}
+
 export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void }) {
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -40,8 +60,8 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const endRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cmdRef = useRef<HTMLDivElement>(null)
+  const convRef = useRef<HTMLDivElement>(null)
 
-  // Load conversation
   useEffect(() => {
     api.conversations().then(async (list) => {
       const item = list[0] || (await api.createConversation())
@@ -57,7 +77,6 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streaming, toolActivity])
 
-  // Command palette logic
   useEffect(() => {
     if (input.startsWith('/') && !input.includes(' ')) {
       setShowCmd(true)
@@ -68,14 +87,12 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     }
   }, [input])
 
-  // Cursor glow
   useEffect(() => {
     const handler = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY })
     window.addEventListener('mousemove', handler)
     return () => window.removeEventListener('mousemove', handler)
   }, [])
 
-  // Close cmd palette on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (cmdRef.current && !cmdRef.current.contains(e.target as Node)) setShowCmd(false)
@@ -84,7 +101,6 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Auto-resize textarea
   const adjustHeight = useCallback((reset?: boolean) => {
     const ta = textareaRef.current
     if (!ta) return
@@ -147,73 +163,90 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     )
   }
 
+  const hasMessages = messages.length > 0 || busy
+
   return (
     <div className="ai-chat-wrap">
-      {/* Ambient blurs */}
       <div className="ai-chat-orbs">
         <div className="ai-orb ai-orb-violet" />
         <div className="ai-orb ai-orb-indigo" />
         <div className="ai-orb ai-orb-fuchsia" />
       </div>
 
-      {/* Cursor glow */}
       {inputFocused && (
-        <div
-          className="ai-cursor-glow"
-          style={{ left: mousePos.x - 400, top: mousePos.y - 400 }}
-        />
+        <div className="ai-cursor-glow" style={{ left: mousePos.x - 400, top: mousePos.y - 400 }} />
       )}
 
       <div className="ai-chat-inner">
-        {/* Title */}
-        <div className="ai-chat-title">
-          <h1>{messages.length ? 'Command stream' : 'How can I help today?'}</h1>
-          <div className="ai-chat-title-line" />
-          {!messages.length && <p>Type a command or ask a question</p>}
-        </div>
-
-        {/* Messages (shown after first message) */}
-        {messages.length > 0 && (
-          <div className="ai-chat-messages">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`ai-msg ai-msg-${msg.role}`}>
-                <span className="ai-msg-role">{msg.role === 'assistant' ? 'SALAR' : 'YOU'}</span>
-                <p>{msg.content}</p>
-              </div>
-            ))}
-            {streaming && (
-              <div className="ai-msg ai-msg-assistant ai-thinking">
-                <span className="ai-msg-role">SALAR</span>
-                <p>{streaming}</p>
-              </div>
-            )}
-            {toolActivity && !streaming && (
-              <div className="ai-msg ai-msg-assistant ai-thinking">
-                <span className="ai-msg-role">SALAR</span>
-                <p className="ai-tool-hint">{toolActivity}</p>
-              </div>
-            )}
-            {busy && !streaming && !toolActivity && (
-              <div className="ai-msg ai-msg-assistant ai-thinking">
-                <span className="ai-msg-role">SALAR</span>
-                <p>Reasoning across your private context…<TypingDots /></p>
-              </div>
-            )}
-            <div ref={endRef} />
+        {!hasMessages && (
+          <div className="ai-chat-title">
+            <h1>How can I help today?</h1>
+            <div className="ai-chat-title-line" />
+            <p>Type a command or ask a question</p>
           </div>
         )}
 
-        {/* Chat box */}
+        {hasMessages && (
+          <div className="ai-conversation" ref={convRef}>
+            <div className="ai-conv-scroll">
+              {messages.map((msg) => (
+                <div key={msg.id} className={`ai-msg-row ai-msg-${msg.role}`}>
+                  <div className="ai-msg-avatar">
+                    {msg.role === 'assistant'
+                      ? <div className="ai-avatar-salar">S</div>
+                      : <div className="ai-avatar-user">J</div>}
+                  </div>
+                  <div className="ai-msg-body">
+                    <span className="ai-msg-name">{msg.role === 'assistant' ? 'SALAR' : 'JD'}</span>
+                    <div className="ai-msg-content">
+                      <p>{msg.content}</p>
+                    </div>
+                    {msg.role === 'assistant' && <MessageActions content={msg.content} />}
+                  </div>
+                </div>
+              ))}
+
+              {streaming && (
+                <div className="ai-msg-row ai-msg-assistant">
+                  <div className="ai-msg-avatar"><div className="ai-avatar-salar">S</div></div>
+                  <div className="ai-msg-body">
+                    <span className="ai-msg-name">SALAR</span>
+                    <div className="ai-msg-content"><p>{streaming}<span className="ai-cursor-blink">|</span></p></div>
+                    <MessageActions content={streaming} />
+                  </div>
+                </div>
+              )}
+
+              {toolActivity && !streaming && (
+                <div className="ai-msg-row ai-msg-assistant">
+                  <div className="ai-msg-avatar"><div className="ai-avatar-salar">S</div></div>
+                  <div className="ai-msg-body">
+                    <span className="ai-msg-name">SALAR</span>
+                    <div className="ai-msg-content"><p className="ai-tool-hint">{toolActivity}</p></div>
+                  </div>
+                </div>
+              )}
+
+              {busy && !streaming && !toolActivity && (
+                <div className="ai-msg-row ai-msg-assistant">
+                  <div className="ai-msg-avatar"><div className="ai-avatar-salar">S</div></div>
+                  <div className="ai-msg-body">
+                    <span className="ai-msg-name">SALAR</span>
+                    <div className="ai-msg-content"><p>Reasoning across your private context…<TypingDots /></p></div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={endRef} />
+            </div>
+          </div>
+        )}
+
         <div className="ai-chat-box">
-          {/* Command palette */}
           {showCmd && (
             <div className="ai-cmd-palette" ref={cmdRef}>
               {COMMANDS.map((cmd, i) => (
-                <div
-                  key={cmd.prefix}
-                  className={`ai-cmd-item${i === cmdIdx ? ' active' : ''}`}
-                  onClick={() => selectCommand(cmd)}
-                >
+                <div key={cmd.prefix} className={`ai-cmd-item${i === cmdIdx ? ' active' : ''}`} onClick={() => selectCommand(cmd)}>
                   <span className="ai-cmd-icon">{cmd.icon}</span>
                   <span className="ai-cmd-label">{cmd.label}</span>
                   <span className="ai-cmd-prefix">{cmd.prefix}</span>
@@ -235,32 +268,23 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
 
           <div className="ai-chat-toolbar">
             <div className="ai-toolbar-left">
-              <button
-                className={`ai-icon-btn${showCmd ? ' active' : ''}`}
-                onClick={() => { setShowCmd((v) => !v); textareaRef.current?.focus() }}
-                title="Commands"
-              >
+              <button className={`ai-icon-btn${showCmd ? ' active' : ''}`} onClick={() => { setShowCmd((v) => !v); textareaRef.current?.focus() }} title="Commands">
                 <Command size={16} />
               </button>
               <button className="ai-icon-btn" onClick={onLive} title="Enter Live mode">
                 <Mic2 size={16} />
               </button>
             </div>
-            <button
-              className={`ai-send-btn${input.trim() ? ' ready' : ''}`}
-              onClick={send}
-              disabled={busy || !input.trim()}
-            >
+            <button className={`ai-send-btn${input.trim() ? ' ready' : ''}`} onClick={send} disabled={busy || !input.trim()}>
               {busy ? <Loader size={16} className="ai-spin" /> : <Send size={16} />}
               <span>Send</span>
             </button>
           </div>
         </div>
 
-        {/* Suggestion chips (only when no messages) */}
-        {!messages.length && (
+        {!hasMessages && (
           <div className="ai-chips">
-            {COMMANDS.map((cmd, i) => (
+            {COMMANDS.map((cmd) => (
               <button key={cmd.prefix} className="ai-chip" onClick={() => selectCommand(cmd)}>
                 {cmd.icon}<span>{cmd.label}</span>
               </button>
