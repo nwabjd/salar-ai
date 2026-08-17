@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 use std::{collections::HashMap, fs, path::PathBuf, process::Command, time::{SystemTime, UNIX_EPOCH}};
-use sysinfo::System;
+use sysinfo::{Disks, System};
 use tauri::Manager;
 use url::Url;
 
@@ -75,19 +75,20 @@ fn live_metrics() -> Result<Value, String> {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let cpu_percent = sys.global_cpu_info().cpu_usage();
+    let cpu_percent = sys.global_cpu_usage();
     let cpu_count = sys.cpus().len();
     let cpu_brand = sys.cpus().first().map(|c| c.brand().to_string()).unwrap_or_default();
     let mem_total = sys.total_memory();
     let mem_used = sys.used_memory();
     let mem_percent = if mem_total > 0 { (mem_used as f64 / mem_total as f64) * 100.0 } else { 0.0 };
 
-    let (disk_total, disk_used) = sys.disks().iter().fold((0u64, 0u64), |(tot, used), d| {
+    let disks = Disks::new_with_refreshed_list();
+    let (disk_total, disk_used) = disks.list().iter().fold((0u64, 0u64), |(tot, used), d| {
         (tot + d.total_space(), used + (d.total_space() - d.available_space()))
     });
     let disk_percent = if disk_total > 0 { (disk_used as f64 / disk_total as f64) * 100.0 } else { 0.0 };
 
-    let boot = sys.boot_time();
+    let boot = System::boot_time();
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     let uptime = now.saturating_sub(boot);
 
