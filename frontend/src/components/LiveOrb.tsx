@@ -67,31 +67,6 @@ export function LiveOrb({
         />
       </div>
 
-      {/* Status pill */}
-      <div
-        className={`
-          absolute bottom-3 left-1/2 -translate-x-1/2 z-20
-          flex items-center gap-2 rounded-full
-          border border-white/10 bg-black/40 backdrop-blur-xl
-          px-4 py-2 text-xs text-white/70
-          transition-all duration-500
-          ${isActive ? 'opacity-100 scale-100' : 'opacity-60 scale-95'}
-        `}
-        style={{ position: 'absolute' }}
-      >
-        <span
-          className={`h-2 w-2 rounded-full transition-all duration-300 ${
-            isSpeaking
-              ? 'bg-violet-400 shadow-[0_0_12px_rgba(167,139,250,.9)]'
-              : isListening
-              ? 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.9)]'
-              : isThinking
-              ? 'bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,.9)]'
-              : 'bg-white/30'
-          }`}
-        />
-        {isSpeaking ? 'AI SPEAKING' : isListening ? 'LISTENING' : isThinking ? 'THINKING' : 'TAP TO SPEAK'}
-      </div>
     </div>
   )
 }
