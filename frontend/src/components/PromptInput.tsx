@@ -2,10 +2,12 @@ import React, { useCallback, useRef, useState } from 'react'
 import { Paperclip, Send, X, ChevronDown, Sparkles, Zap, Brain, Mic2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAutoResizeTextarea } from '../hooks/use-auto-resize-textarea'
+import { Swirling } from './Swirling'
 
 interface PromptInputProps {
   onSubmit: (message: string, meta: { model: string; effort: string; attachments: File[] }) => void
   onLive?: () => void
+  busy?: boolean
   placeholder?: string
   className?: string
 }
@@ -18,7 +20,7 @@ const MODELS = [
 
 const EFFORTS = ['Low', 'Medium', 'High']
 
-export default function PromptInput({ onSubmit, onLive, placeholder = 'Ask anything…', className = '' }: PromptInputProps) {
+export default function PromptInput({ onSubmit, onLive, busy = false, placeholder = 'Ask anything…', className = '' }: PromptInputProps) {
   const [value, setValue] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [isFocused, setIsFocused] = useState(false)
@@ -142,8 +144,8 @@ export default function PromptInput({ onSubmit, onLive, placeholder = 'Ask anyth
                 <Mic2 size={16} />
               </button>
             )}
-            <button className={`pi-send${value.trim() || files.length > 0 ? ' ready' : ''}`} onClick={handleSubmit} disabled={!value.trim() && files.length === 0}>
-              <Send size={16} />
+            <button className={`pi-send${(value.trim() || files.length > 0) && !busy ? ' ready' : ''}${busy ? ' busy' : ''}`} onClick={handleSubmit} disabled={(!value.trim() && files.length === 0) || busy}>
+              {busy ? <Swirling size={18} /> : <Send size={16} />}
             </button>
           </div>
         </div>

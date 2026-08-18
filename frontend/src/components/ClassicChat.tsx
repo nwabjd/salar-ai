@@ -149,7 +149,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
         )}
 
         <div className="ai-composer">
-          <PromptInput onSubmit={handleSend} onLive={onLive} placeholder="Ask Salaar a question…" />
+          <PromptInput onSubmit={handleSend} onLive={onLive} busy={busy} placeholder="Ask Salaar a question…" />
         </div>
       </div>
     </div>
