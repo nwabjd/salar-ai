@@ -19,7 +19,6 @@ import './landing.css'
 import './cosmic-landing.css'
 import './nova/nova.css'
 import SalaarLanding from './components/SalaarLanding'
-import { NovaShell } from './nova'
 import { initialLiveState, liveReducer } from './live/realtime-state'
 import { GeminiLiveClient } from './live/gemini-live-client'
 import { FallbackVoiceClient } from './live/fallback-voice-client'
@@ -66,9 +65,6 @@ function App() {
   const [live, setLive] = useState(false)
   const [usage, setUsage] = useState<Usage | null>(null)
   const [showPricing, setShowPricing] = useState(false)
-  const [quantumMode, setQuantumMode] = useState(() => {
-    try { return localStorage.getItem('salar-quantum-mode') !== 'off' } catch { return true }
-  })
 
   const enterApp = useCallback(async (supabaseToken?: string | null) => {
     const result = await sessionCoordinator.connect(supabaseToken)
@@ -152,15 +148,6 @@ function App() {
   if (!ready) return <Loader/>
   if (access !== 'connected') return <SalaarLanding onEnterApp={enterApp}/>
 
-  if (quantumMode) {
-    return <NovaShell
-      api={api}
-      onLive={() => setLive(true)}
-      onSignOut={handleSignOut}
-      onExitQuantum={() => { setQuantumMode(false); try { localStorage.setItem('salar-quantum-mode', 'off') } catch {} }}
-    />
-  }
-
   return <><main className={`app-shell${live ? ' live-open' : ''}`}>
     <div className="liquid-stage"><LiquidEther colors={['#5227FF','#FF9FFC','#B497CF']} mouseForce={20} cursorSize={100} isViscous={false} viscous={30} iterationsViscous={32} iterationsPoisson={32} resolution={0.5} isBounce={false} autoDemo autoSpeed={0.5} autoIntensity={2.2} takeoverDuration={0.25} autoResumeDelay={3000} autoRampDuration={0.6}/></div>
     <header className="topbar">
@@ -169,7 +156,6 @@ function App() {
         {usage && <button className="usage-chip" onClick={() => setShowPricing(true)} title="Plan & billing"><Sparkles size={12}/><b>{usage.used.toLocaleString()}</b> / {usage.limit === null ? 'unlimited' : usage.limit.toLocaleString()} <small>{usage.exempt ? 'ADMIN' : usage.plan.toUpperCase()}</small></button>}
       </nav>
       <div className="topbar-actions">
-        <button className="connection" onClick={() => { setQuantumMode(true); try { localStorage.setItem('salar-quantum-mode', 'on') } catch {} }}><Sparkles size={13}/> QUANTUM</button>
         <ProfileDropdown onSignOut={handleSignOut} onShowPricing={() => setShowPricing(true)} />
       </div>
     </header>
