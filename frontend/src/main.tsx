@@ -11,6 +11,7 @@ import { Conversation, Message, SalarApi, WorldAction, WorldSituation } from './
 import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
 import { ClassicChat } from './components/ClassicChat'
+import ProfileDropdown from './components/ProfileDropdown'
 import './theme.css'
 import './styles.css'
 import './landing.css'
@@ -168,7 +169,7 @@ function App() {
       </nav>
       <div className="topbar-actions">
         <button className="connection" onClick={() => { setQuantumMode(true); try { localStorage.setItem('salar-quantum-mode', 'on') } catch {} }}><Sparkles size={13}/> QUANTUM</button>
-        <button className="connection signout" onClick={handleSignOut}><LogOut size={13}/> SIGN OUT</button>
+        <ProfileDropdown onSignOut={handleSignOut} onShowPricing={() => setShowPricing(true)} />
       </div>
     </header>
     <section className="workspace chat-workspace">

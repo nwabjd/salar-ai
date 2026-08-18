@@ -94,7 +94,40 @@
 
 .situation-chip.action-chip.running{opacity:.55;pointer-events:none;border-color:rgba(255,255,255,.3)}.situation-chip.action-chip.risky{border-color:rgba(245,193,92,.55)}.action-score{margin-left:4px;padding:1px 5px;border-radius:4px;background:rgba(112,81,222,.2);color:#b89cff;font-size:7px;letter-spacing:.05em}
 
-/* ===== AI Chat ===== */
+/* ===== Profile Dropdown ===== */
+.pd-wrap{position:relative}
+.pd-trigger{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border:1px solid var(--line);border-radius:14px;background:rgba(7,6,12,.48);backdrop-filter:blur(16px);cursor:pointer;transition:all .2s}
+.pd-trigger:hover{border-color:var(--line-bright);background:rgba(7,6,12,.65)}
+.pd-info{display:flex;flex-direction:column;text-align:right}
+.pd-name{font-size:10px;font-weight:600;color:var(--ink);letter-spacing:.02em}
+.pd-email{font-size:8px;color:var(--muted);letter-spacing:.02em}
+.pd-avatar{width:34px;height:34px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pd-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pd-avatar span{font-size:13px;font-weight:700;color:#fff}
+
+.pd-menu{position:absolute;top:calc(100% + 8px);right:0;width:240px;background:rgba(12,10,20,.95);border:1px solid rgba(255,255,255,.08);border-radius:16px;backdrop-filter:blur(40px);box-shadow:0 16px 48px rgba(0,0,0,.6);z-index:100;padding:6px;animation:pdIn .15s ease-out}
+@keyframes pdIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+
+.pd-item{display:flex;align-items:center;justify-content:space-between;width:100%;padding:10px 12px;border:none;border-radius:12px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;font-size:13px;text-align:left}
+.pd-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.95)}
+.pd-item-left{display:flex;align-items:center;gap:10px}
+.pd-item-icon{display:flex;align-items:center;color:rgba(255,255,255,.4)}
+.pd-item:hover .pd-item-icon{color:rgba(255,255,255,.7)}
+.pd-item-label{font-weight:500}
+.pd-item-right{display:flex;align-items:center;gap:6px}
+.pd-chevron{color:rgba(255,255,255,.15);transition:color .15s}
+.pd-item:hover .pd-chevron{color:rgba(255,255,255,.4)}
+
+.pd-badge{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;letter-spacing:.03em;white-space:nowrap}
+.pd-badge-blue{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.15)}
+.pd-badge-purple{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.15)}
+.pd-icon-dot{width:15px;height:15px;border-radius:50%;display:inline-block}
+.pd-dot-blue{background:rgba(59,130,246,.5);border:1.5px solid #60a5fa}
+
+.pd-separator{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);margin:4px 8px}
+
+.pd-logout{color:rgba(239,68,68,.7)!important;gap:10px}
+.pd-logout:hover{background:rgba(239,68,68,.1)!important;color:#ef4444!important;border-color:rgba(239,68,68,.2)!important}
 .ai-chat-wrap{position:relative;width:100%;height:100%;overflow:hidden}
 .ai-chat-orbs{position:absolute;inset:0;pointer-events:none}
 .ai-orb{position:absolute;border-radius:50%;filter:blur(128px);opacity:.1;animation:aiPulse 4s ease-in-out infinite}
