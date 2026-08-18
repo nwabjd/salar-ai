@@ -54,13 +54,11 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const [toolActivity, setToolActivity] = useState('')
   const [showCmd, setShowCmd] = useState(false)
   const [cmdIdx, setCmdIdx] = useState(0)
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [inputFocused, setInputFocused] = useState(false)
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cmdRef = useRef<HTMLDivElement>(null)
-  const convRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     api.conversations().then(async (list) => {
@@ -86,12 +84,6 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
       setShowCmd(false)
     }
   }, [input])
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY })
-    window.addEventListener('mousemove', handler)
-    return () => window.removeEventListener('mousemove', handler)
-  }, [])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -173,10 +165,6 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
         <div className="ai-orb ai-orb-fuchsia" />
       </div>
 
-      {inputFocused && (
-        <div className="ai-cursor-glow" style={{ left: mousePos.x - 400, top: mousePos.y - 400 }} />
-      )}
-
       <div className="ai-chat-inner">
         {!hasMessages && (
           <div className="ai-chat-title">
@@ -186,52 +174,68 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           </div>
         )}
 
+        {/* Conversation */}
         {hasMessages && (
-          <div className="ai-conversation" ref={convRef}>
+          <div className="ai-conversation">
             <div className="ai-conv-scroll">
               {messages.map((msg) => (
-                <div key={msg.id} className={`ai-msg-row ai-msg-${msg.role}`}>
-                  <div className="ai-msg-avatar">
-                    {msg.role === 'assistant'
-                      ? <div className="ai-avatar-salar">S</div>
-                      : <div className="ai-avatar-user">J</div>}
-                  </div>
-                  <div className="ai-msg-body">
-                    <span className="ai-msg-name">{msg.role === 'assistant' ? 'SALAR' : 'JD'}</span>
-                    <div className="ai-msg-content">
-                      <p>{msg.content}</p>
-                    </div>
+                <div key={msg.id} className={`ai-msg ${msg.role === 'assistant' ? 'ai-msg-assistant' : 'ai-msg-user'}`}>
+                  {msg.role === 'assistant' && (
+                    <img
+                      src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32"
+                      alt="SALAR"
+                      className="ai-msg-avatar"
+                      width={32}
+                      height={32}
+                    />
+                  )}
+                  <div className="ai-msg-col">
+                    <div className="ai-msg-content"><p>{msg.content}</p></div>
                     {msg.role === 'assistant' && <MessageActions content={msg.content} />}
                   </div>
                 </div>
               ))}
 
               {streaming && (
-                <div className="ai-msg-row ai-msg-assistant">
-                  <div className="ai-msg-avatar"><div className="ai-avatar-salar">S</div></div>
-                  <div className="ai-msg-body">
-                    <span className="ai-msg-name">SALAR</span>
+                <div className="ai-msg ai-msg-assistant">
+                  <img
+                    src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32"
+                    alt="SALAR"
+                    className="ai-msg-avatar"
+                    width={32}
+                    height={32}
+                  />
+                  <div className="ai-msg-col">
                     <div className="ai-msg-content"><p>{streaming}<span className="ai-cursor-blink">|</span></p></div>
-                    <MessageActions content={streaming} />
                   </div>
                 </div>
               )}
 
               {toolActivity && !streaming && (
-                <div className="ai-msg-row ai-msg-assistant">
-                  <div className="ai-msg-avatar"><div className="ai-avatar-salar">S</div></div>
-                  <div className="ai-msg-body">
-                    <span className="ai-msg-name">SALAR</span>
+                <div className="ai-msg ai-msg-assistant">
+                  <img
+                    src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32"
+                    alt="SALAR"
+                    className="ai-msg-avatar"
+                    width={32}
+                    height={32}
+                  />
+                  <div className="ai-msg-col">
                     <div className="ai-msg-content"><p className="ai-tool-hint">{toolActivity}</p></div>
                   </div>
                 </div>
               )}
 
               {busy && !streaming && !toolActivity && (
-                <div className="ai-msg-row ai-msg-assistant">
-                  <div className="ai-msg-avatar"><div className="ai-avatar-salar">S</div></div>
-                  <div className="ai-msg-body">
-                    <span className="ai-msg-name">SALAR</span>
+                <div className="ai-msg ai-msg-assistant">
+                  <img
+                    src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32"
+                    alt="SALAR"
+                    className="ai-msg-avatar"
+                    width={32}
+                    height={32}
+                  />
+                  <div className="ai-msg-col">
                     <div className="ai-msg-content"><p>Reasoning across your private context…<TypingDots /></p></div>
                   </div>
                 </div>
@@ -242,43 +246,47 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           </div>
         )}
 
-        <div className="ai-chat-box">
-          {showCmd && (
-            <div className="ai-cmd-palette" ref={cmdRef}>
-              {COMMANDS.map((cmd, i) => (
-                <div key={cmd.prefix} className={`ai-cmd-item${i === cmdIdx ? ' active' : ''}`} onClick={() => selectCommand(cmd)}>
-                  <span className="ai-cmd-icon">{cmd.icon}</span>
-                  <span className="ai-cmd-label">{cmd.label}</span>
-                  <span className="ai-cmd-prefix">{cmd.prefix}</span>
-                </div>
-              ))}
-            </div>
-          )}
+        {/* Composer */}
+        <div className="ai-composer">
+          <div className="ai-chat-box">
+            {showCmd && (
+              <div className="ai-cmd-palette" ref={cmdRef}>
+                {COMMANDS.map((cmd, i) => (
+                  <div key={cmd.prefix} className={`ai-cmd-item${i === cmdIdx ? ' active' : ''}`} onClick={() => selectCommand(cmd)}>
+                    <span className="ai-cmd-icon">{cmd.icon}</span>
+                    <span className="ai-cmd-label">{cmd.label}</span>
+                    <span className="ai-cmd-prefix">{cmd.prefix}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => { setInput(e.target.value); adjustHeight() }}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-            placeholder="Ask Salaar a question…"
-            rows={1}
-          />
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => { setInput(e.target.value); adjustHeight() }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              placeholder="Ask Salaar a question…"
+              rows={1}
+            />
 
-          <div className="ai-chat-toolbar">
-            <div className="ai-toolbar-left">
-              <button className={`ai-icon-btn${showCmd ? ' active' : ''}`} onClick={() => { setShowCmd((v) => !v); textareaRef.current?.focus() }} title="Commands">
-                <Command size={16} />
-              </button>
-              <button className="ai-icon-btn" onClick={onLive} title="Enter Live mode">
-                <Mic2 size={16} />
+            <div className="ai-chat-toolbar">
+              <div className="ai-toolbar-left">
+                <button className={`ai-icon-btn${showCmd ? ' active' : ''}`} onClick={() => { setShowCmd((v) => !v); textareaRef.current?.focus() }} title="Commands">
+                  <Command size={16} />
+                </button>
+                <button className="ai-icon-btn ai-live-btn" onClick={onLive} title="Enter Live mode">
+                  <Mic2 size={16} />
+                  <span>Live</span>
+                </button>
+              </div>
+              <button className={`ai-send-btn${input.trim() ? ' ready' : ''}`} onClick={send} disabled={busy || !input.trim()}>
+                {busy ? <Loader size={16} className="ai-spin" /> : <Send size={16} />}
+                <span>Send</span>
               </button>
             </div>
-            <button className={`ai-send-btn${input.trim() ? ' ready' : ''}`} onClick={send} disabled={busy || !input.trim()}>
-              {busy ? <Loader size={16} className="ai-spin" /> : <Send size={16} />}
-              <span>Send</span>
-            </button>
           </div>
         </div>
 
