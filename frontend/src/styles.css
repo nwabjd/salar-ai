@@ -318,3 +318,53 @@
   .ai-msg{max-width:90%}
   .ai-msg-user{max-width:85%}
 }
+
+/* ===== Gemini-Style Chat ===== */
+.g-chat-wrap{position:relative;width:100%;height:100%;overflow:hidden;display:flex;flex-direction:column}
+.g-chat-glow{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);width:500px;height:500px;background:radial-gradient(circle,rgba(26,115,232,.08) 0%,transparent 70%);pointer-events:none;z-index:0}
+.g-chat-inner{position:relative;z-index:1;width:100%;height:100%;display:flex;flex-direction:column}
+.g-chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px}
+.g-empty-orb{width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,rgba(26,115,232,.15) 0%,rgba(138,43,226,.12) 50%,rgba(26,115,232,.08) 100%);box-shadow:0 0 60px rgba(26,115,232,.15),0 0 120px rgba(26,115,232,.08);animation:gPulse 3s ease-in-out infinite}
+@keyframes gPulse{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.05);opacity:1}}
+.g-chat-empty h1{font-size:28px;font-weight:400;color:rgba(255,255,255,.7);letter-spacing:-.02em}
+.g-conversation{flex:1;min-height:0;overflow:hidden}
+.g-conv-scroll{height:100%;overflow-y:auto;padding:24px 24px 8px;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent}
+.g-msg{display:flex;flex-direction:column;width:100%}
+.g-msg-user{align-items:flex-end}
+.g-msg-assistant{align-items:flex-start}
+.g-msg-content{max-width:85%;font-size:14px;line-height:1.7;color:rgba(255,255,255,.85)}
+.g-msg-content p{margin:0;white-space:pre-wrap}
+.g-msg-content-user{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:20px 20px 4px 20px;padding:10px 16px}
+.g-msg-content-assistant{background:transparent;border:none;border-radius:0;padding:0}
+.g-msg-actions{display:flex;gap:2px;margin-top:6px}
+.g-msg-action{width:28px;height:28px;border:none;border-radius:6px;background:transparent;color:rgba(255,255,255,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.g-msg-action:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.8)}
+.g-tool-hint{color:rgba(201,165,110,.8)!important;font-size:12px!important;font-style:italic}
+.g-cursor-blink{animation:gBlink 1s step-end infinite;font-weight:300;opacity:.5}
+@keyframes gBlink{0%,100%{opacity:.5}50%{opacity:0}}
+.typing-dots{display:inline-flex;align-items:center;gap:3px;margin-left:4px}
+.typing-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.8);animation:gDotPulse 1.2s ease-in-out infinite}
+@keyframes gDotPulse{0%,100%{opacity:.3;transform:scale(.85)}50%{opacity:.9;transform:scale(1.1)}}
+.g-composer-wrap{flex-shrink:0;padding:0 24px 16px}
+.g-composer{display:flex;align-items:center;gap:8px;height:52px;padding:6px 8px;border-radius:28px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(20px);transition:all .2s}
+.g-composer:focus-within{border-color:rgba(255,255,255,.12);box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.g-composer-plus{position:relative}
+.g-plus-btn{width:36px;height:36px;border:none;border-radius:50%;background:transparent;color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.g-plus-btn:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.8)}
+.g-plus-menu{position:absolute;bottom:calc(100% + 8px);left:0;min-width:160px;background:rgba(12,10,20,.95);border:1px solid rgba(255,255,255,.08);border-radius:12px;backdrop-filter:blur(40px);box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:50;padding:6px}
+.g-plus-item{display:block;width:100%;padding:10px 14px;border:none;border-radius:8px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px;text-align:left;transition:all .12s}
+.g-plus-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.95)}
+.g-composer-input{flex:1;min-width:0}
+.g-composer-input textarea{width:100%;resize:none;border:none;outline:none;background:transparent;color:rgba(255,255,255,.9);font-size:15px;line-height:1.4;padding:8px 0;min-height:24px;max-height:120px;font-family:inherit}
+.g-composer-input textarea::placeholder{color:rgba(255,255,255,.35)}
+.g-composer-mic{}
+.g-mic-btn{width:36px;height:36px;border:none;border-radius:50%;background:transparent;color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.g-mic-btn:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.8)}
+.g-composer-send{}
+.g-send-btn{width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.g-send-disabled{background:rgba(255,255,255,.06);color:rgba(255,255,255,.25);cursor:not-allowed}
+.g-send-ready{background:#1a73e8;color:white;box-shadow:0 2px 8px rgba(26,115,232,.3)}
+.g-send-ready:hover{background:#1557b0;box-shadow:0 4px 12px rgba(26,115,232,.4)}
+.g-send-stop{background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);animation:gPulseBtn 2s ease-in-out infinite}
+.g-send-stop:hover{background:rgba(255,255,255,.12);color:rgba(255,255,255,.8)}
+@keyframes gPulseBtn{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.1)}50%{box-shadow:0 0 0 6px rgba(255,255,255,0)}}

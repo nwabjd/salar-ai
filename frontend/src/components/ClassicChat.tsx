@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check, Mic2 } from 'lucide-react'
+import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check, Mic2, ArrowUp, Square, Plus } from 'lucide-react'
 import { ChatInput, ChatInputTextArea, ChatInputSubmit } from './ui/chat-input'
 import { Conversation, Message, SalarApi } from '../api'
 
@@ -42,6 +42,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const [input, setInput] = useState('')
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
+  const [showPlusMenu, setShowPlusMenu] = useState(false)
 
   useEffect(() => {
     api.conversations().then(async (list) => {
@@ -89,60 +90,64 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     )
   }
 
+  function handleStop() {
+    if (streamBuf.current) {
+      const reply = streamBuf.current
+      const userMsg = messages[messages.length - 1]
+      setMessages((prev) => [...prev.slice(0, -1), userMsg, { id: 'stop-' + Date.now(), role: 'assistant', content: reply, created_at: new Date().toISOString() }])
+    }
+    setStreaming(''); streamBuf.current = ''; setToolActivity(''); setBusy(false)
+  }
+
   const hasMessages = messages.length > 0 || busy
+  const composerHasText = input.trim().length > 0
 
   return (
-    <div className="ai-chat-wrap">
-      <div className="ai-chat-orbs">
-        <div className="ai-orb ai-orb-violet" />
-        <div className="ai-orb ai-orb-indigo" />
-        <div className="ai-orb ai-orb-fuchsia" />
-      </div>
+    <div className="g-chat-wrap">
+      <div className="g-chat-glow" />
 
-      <div className="ai-chat-inner">
+      <div className="g-chat-inner">
         {!hasMessages && (
-          <div className="ai-chat-title">
-            <h1>How can I help today?</h1>
-            <div className="ai-chat-title-line" />
-            <p>Type a command or ask a question</p>
+          <div className="g-chat-empty">
+            <div className="g-empty-orb" />
+            <h1>How can I help you today?</h1>
           </div>
         )}
 
         {hasMessages && (
-          <div className="ai-conversation">
-            <div className="ai-conv-scroll">
+          <div className="g-conversation">
+            <div className="g-conv-scroll">
               {messages.map((msg) => (
-                <div key={msg.id} className={`ai-msg ${msg.role === 'assistant' ? 'ai-msg-assistant' : 'ai-msg-user'}`}>
-                  {msg.role === 'assistant' && (
-                    <img src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32" alt="SALAR" className="ai-msg-avatar" width={32} height={32} />
+                <div key={msg.id} className={`g-msg ${msg.role === 'assistant' ? 'g-msg-assistant' : 'g-msg-user'}`}>
+                  {msg.role === 'assistant' ? (
+                    <div className="g-msg-content g-msg-content-assistant">
+                      <p>{msg.content}</p>
+                    </div>
+                  ) : (
+                    <div className="g-msg-content g-msg-content-user">
+                      <p>{msg.content}</p>
+                    </div>
                   )}
-                  <div className="ai-msg-col">
-                    <div className="ai-msg-content"><p>{msg.content}</p></div>
-                    {msg.role === 'assistant' && <MessageActions content={msg.content} />}
-                  </div>
                 </div>
               ))}
               {streaming && (
-                <div className="ai-msg ai-msg-assistant">
-                  <img src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32" alt="SALAR" className="ai-msg-avatar" width={32} height={32} />
-                  <div className="ai-msg-col">
-                    <div className="ai-msg-content"><p>{streaming}<span className="ai-cursor-blink">|</span></p></div>
+                <div className="g-msg g-msg-assistant">
+                  <div className="g-msg-content g-msg-content-assistant">
+                    <p>{streaming}<span className="g-cursor-blink">|</span></p>
                   </div>
                 </div>
               )}
               {toolActivity && !streaming && (
-                <div className="ai-msg ai-msg-assistant">
-                  <img src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32" alt="SALAR" className="ai-msg-avatar" width={32} height={32} />
-                  <div className="ai-msg-col">
-                    <div className="ai-msg-content"><p className="ai-tool-hint">{toolActivity}</p></div>
+                <div className="g-msg g-msg-assistant">
+                  <div className="g-msg-content g-msg-content-assistant">
+                    <p className="g-tool-hint">{toolActivity}</p>
                   </div>
                 </div>
               )}
               {busy && !streaming && !toolActivity && (
-                <div className="ai-msg ai-msg-assistant">
-                  <img src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32" alt="SALAR" className="ai-msg-avatar" width={32} height={32} />
-                  <div className="ai-msg-col">
-                    <div className="ai-msg-content"><p>Reasoning across your private context…<TypingDots /></p></div>
+                <div className="g-msg g-msg-assistant">
+                  <div className="g-msg-content g-msg-content-assistant">
+                    <p>Reasoning across your private context…<TypingDots /></p>
                   </div>
                 </div>
               )}
@@ -151,25 +156,67 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           </div>
         )}
 
-        <div className="ai-composer">
-          <ChatInput
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onSubmit={handleSend}
-            loading={busy}
-          >
-            <ChatInputTextArea placeholder="Ask Salaar a question…" />
-            <div className="flex items-center gap-2">
+        <div className="g-composer-wrap">
+          <div className="g-composer">
+            <div className="g-composer-plus">
               <button
-                className="pi-icon-btn pi-live"
+                className="g-plus-btn"
+                onClick={() => setShowPlusMenu(!showPlusMenu)}
+                title="Menu"
+              >
+                <Plus size={18} />
+              </button>
+              {showPlusMenu && (
+                <div className="g-plus-menu">
+                  <button className="g-plus-item">Upload file</button>
+                  <button className="g-plus-item">Drive</button>
+                  <button className="g-plus-item">GitHub</button>
+                </div>
+              )}
+            </div>
+
+            <div className="g-composer-input">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && composerHasText && !busy) {
+                    e.preventDefault()
+                    handleSend()
+                  }
+                }}
+                placeholder="Ask Salaar a question…"
+                rows={1}
+              />
+            </div>
+
+            <div className="g-composer-mic">
+              <button
+                className="g-mic-btn"
                 onClick={onLive}
                 title="Live voice"
               >
-                <Mic2 size={16} />
+                <Mic2 size={18} />
               </button>
-              <ChatInputSubmit />
             </div>
-          </ChatInput>
+
+            <div className="g-composer-send">
+              {busy ? (
+                <button className="g-send-btn g-send-stop" onClick={handleStop} title="Stop">
+                  <Square size={16} />
+                </button>
+              ) : (
+                <button
+                  className={`g-send-btn ${composerHasText ? 'g-send-ready' : 'g-send-disabled'}`}
+                  disabled={!composerHasText}
+                  onClick={handleSend}
+                  title="Send"
+                >
+                  <ArrowUp size={18} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
