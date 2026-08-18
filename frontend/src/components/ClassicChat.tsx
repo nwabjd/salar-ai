@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Mic2, Send, Command, Image, Layers, Monitor, Sparkles, Loader, Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
+import { Globe, Paperclip, Send, Command, Image, Layers, Monitor, Sparkles, Loader, Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check, Mic2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useAutoResizeTextarea } from '../hooks/use-auto-resize-textarea'
 import { Conversation, Message, SalarApi } from '../api'
 
 interface CommandSuggestion {
@@ -54,10 +56,11 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const [toolActivity, setToolActivity] = useState('')
   const [showCmd, setShowCmd] = useState(false)
   const [cmdIdx, setCmdIdx] = useState(0)
-  const [inputFocused, setInputFocused] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
+  const [showSearch, setShowSearch] = useState(true)
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { textareaRef, adjustHeight } = useAutoResizeTextarea({ minHeight: 52, maxHeight: 200 })
   const cmdRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -91,15 +94,6 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const adjustHeight = useCallback((reset?: boolean) => {
-    const ta = textareaRef.current
-    if (!ta) return
-    if (reset) { ta.style.height = '60px'; return }
-    ta.style.height = '60px'
-    const h = Math.max(60, Math.min(ta.scrollHeight, 200))
-    ta.style.height = `${h}px`
   }, [])
 
   function selectCommand(cmd: CommandSuggestion) {
@@ -174,20 +168,13 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           </div>
         )}
 
-        {/* Conversation */}
         {hasMessages && (
           <div className="ai-conversation">
             <div className="ai-conv-scroll">
               {messages.map((msg) => (
                 <div key={msg.id} className={`ai-msg ${msg.role === 'assistant' ? 'ai-msg-assistant' : 'ai-msg-user'}`}>
                   {msg.role === 'assistant' && (
-                    <img
-                      src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32"
-                      alt="SALAR"
-                      className="ai-msg-avatar"
-                      width={32}
-                      height={32}
-                    />
+                    <img src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32" alt="SALAR" className="ai-msg-avatar" width={32} height={32} />
                   )}
                   <div className="ai-msg-col">
                     <div className="ai-msg-content"><p>{msg.content}</p></div>
@@ -195,60 +182,38 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
                   </div>
                 </div>
               ))}
-
               {streaming && (
                 <div className="ai-msg ai-msg-assistant">
-                  <img
-                    src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32"
-                    alt="SALAR"
-                    className="ai-msg-avatar"
-                    width={32}
-                    height={32}
-                  />
+                  <img src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32" alt="SALAR" className="ai-msg-avatar" width={32} height={32} />
                   <div className="ai-msg-col">
                     <div className="ai-msg-content"><p>{streaming}<span className="ai-cursor-blink">|</span></p></div>
                   </div>
                 </div>
               )}
-
               {toolActivity && !streaming && (
                 <div className="ai-msg ai-msg-assistant">
-                  <img
-                    src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32"
-                    alt="SALAR"
-                    className="ai-msg-avatar"
-                    width={32}
-                    height={32}
-                  />
+                  <img src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32" alt="SALAR" className="ai-msg-avatar" width={32} height={32} />
                   <div className="ai-msg-col">
                     <div className="ai-msg-content"><p className="ai-tool-hint">{toolActivity}</p></div>
                   </div>
                 </div>
               )}
-
               {busy && !streaming && !toolActivity && (
                 <div className="ai-msg ai-msg-assistant">
-                  <img
-                    src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32"
-                    alt="SALAR"
-                    className="ai-msg-avatar"
-                    width={32}
-                    height={32}
-                  />
+                  <img src="https://ui-avatars.com/api/?name=SALAR&background=8b5cf6&color=fff&bold=true&size=32" alt="SALAR" className="ai-msg-avatar" width={32} height={32} />
                   <div className="ai-msg-col">
                     <div className="ai-msg-content"><p>Reasoning across your private context…<TypingDots /></p></div>
                   </div>
                 </div>
               )}
-
               <div ref={endRef} />
             </div>
           </div>
         )}
 
-        {/* Composer */}
+        {/* AI Input Search */}
         <div className="ai-composer">
-          <div className="ai-chat-box">
+          <div className="ai-search-wrap">
             {showCmd && (
               <div className="ai-cmd-palette" ref={cmdRef}>
                 {COMMANDS.map((cmd, i) => (
@@ -261,31 +226,51 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
               </div>
             )}
 
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => { setInput(e.target.value); adjustHeight() }}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-              placeholder="Ask Salaar a question…"
-              rows={1}
-            />
+            <div className={`ai-search-box${isFocused ? ' focused' : ''}`} onClick={() => textareaRef.current?.focus()}>
+              <div className="ai-search-textarea-wrap">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => { setInput(e.target.value); adjustHeight() }}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  placeholder="Ask Salaar a question…"
+                  className="ai-search-textarea"
+                />
+              </div>
 
-            <div className="ai-chat-toolbar">
-              <div className="ai-toolbar-left">
-                <button className={`ai-icon-btn${showCmd ? ' active' : ''}`} onClick={() => { setShowCmd((v) => !v); textareaRef.current?.focus() }} title="Commands">
-                  <Command size={16} />
-                </button>
-                <button className="ai-icon-btn ai-live-btn" onClick={onLive} title="Enter Live mode">
-                  <Mic2 size={16} />
-                  <span>Live</span>
+              <div className="ai-search-bottom">
+                <div className="ai-search-left">
+                  <label className="ai-search-attach" title="Attach file">
+                    <input className="hidden" type="file" />
+                    <Paperclip size={16} />
+                  </label>
+                  <button
+                    className={`ai-search-globe${showSearch ? ' active' : ''}`}
+                    onClick={() => setShowSearch((v) => !v)}
+                    title="Toggle web search"
+                  >
+                    <motion.div animate={{ rotate: showSearch ? 180 : 0, scale: showSearch ? 1.1 : 1 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }} whileHover={{ rotate: showSearch ? 180 : 15, scale: 1.1 }}>
+                      <Globe size={16} />
+                    </motion.div>
+                    <AnimatePresence>
+                      {showSearch && (
+                        <motion.span initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
+                          Search
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </button>
+                  <button className="ai-search-live" onClick={onLive} title="Enter Live mode">
+                    <Mic2 size={16} />
+                    <span>Live</span>
+                  </button>
+                </div>
+                <button className={`ai-search-send${input.trim() ? ' ready' : ''}`} onClick={send} disabled={busy || !input.trim()}>
+                  {busy ? <Loader size={16} className="ai-spin" /> : <Send size={16} />}
                 </button>
               </div>
-              <button className={`ai-send-btn${input.trim() ? ' ready' : ''}`} onClick={send} disabled={busy || !input.trim()}>
-                {busy ? <Loader size={16} className="ai-spin" /> : <Send size={16} />}
-                <span>Send</span>
-              </button>
             </div>
           </div>
         </div>
