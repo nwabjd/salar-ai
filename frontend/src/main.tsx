@@ -12,7 +12,7 @@ import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
 import { ClassicChat } from './components/ClassicChat'
 import ProfileDropdown from './components/ProfileDropdown'
-import { LiveOrb } from './components/LiveOrb'
+import { VoiceOrb } from './components/VoiceOrb'
 import { OrbController } from './live/orb-controller'
 import './theme.css'
 import './styles.css'
@@ -374,19 +374,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     <div className="lv-wrap">
       <button className="lv-close" onClick={handleClose}><X size={18} /></button>
 
-      <LiveOrb
-        size={420}
-        state={orbState}
-        micVolume={micVol}
-        aiVolume={aiVol}
-        onClick={() => {
-          if (state.phase === 'listening' || state.phase === 'speaking') {
-            clientRef.current?.stop()
-          } else {
-            clientRef.current?.start().catch(() => {})
-          }
-        }}
-      />
+      <VoiceOrb />
 
       {state.history.length > 0 && (
         <div className="lv-transcript">
