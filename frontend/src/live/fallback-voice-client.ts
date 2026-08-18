@@ -28,7 +28,8 @@ type FallbackApi = {
 type FallbackOptions = {
   token: string
   onEvent: (event: LiveEvent) => void
-  onVolume?: (volume: number) => void
+  onMicVolume?: (volume: number) => void
+  onPlaybackVolume?: (volume: number) => void
   api: FallbackApi
   playback?: (blob: Blob, onVolume?: (volume: number) => void) => Promise<void>
 }
@@ -87,7 +88,8 @@ export class FallbackVoiceClient {
     this.stream = null
     this.audioContext?.close().catch(() => undefined)
     this.audioContext = null
-    this.options.onVolume?.(0)
+    this.options.onMicVolume?.(0)
+    this.options.onPlaybackVolume?.(0)
   }
 
   async acceptRecordedTurn(blob: Blob): Promise<void> {
@@ -135,7 +137,7 @@ export class FallbackVoiceClient {
       const voice = await this.api.tts(complete, false)
       if (this.stopped) return
       this.options.onEvent({ type: 'audio' })
-      await this.playback(voice, this.options.onVolume)
+      await this.playback(voice, this.options.onPlaybackVolume)
       this.options.onEvent({ type: 'response_done' })
       this.options.onEvent({ type: 'playback_drained' })
     } catch (reason) {
@@ -171,7 +173,7 @@ export class FallbackVoiceClient {
       if (!this.analyser || recorder.state !== 'recording') return
       this.analyser.getByteFrequencyData(samples)
       const average = samples.reduce((sum, value) => sum + value, 0) / samples.length
-      this.options.onVolume?.(average)
+      this.options.onMicVolume?.(average)
       const now = Date.now()
       if (average >= SPEECH_THRESHOLD) {
         this.heardSpeech = true

@@ -70,7 +70,8 @@ export function translateGeminiSocketMessage(message: Record<string, unknown>): 
 type ClientOptions = {
   token: string
   onEvent: (event: LiveEvent) => void
-  onVolume?: (volume: number) => void
+  onMicVolume?: (volume: number) => void
+  onPlaybackVolume?: (volume: number) => void
   onFallback?: () => void
 }
 
@@ -139,12 +140,12 @@ export class GeminiLiveClient {
   private handleWorkletMessage(message: { type?: string; samples?: Int16Array; volume?: number }): void {
     if (message.type === 'capture' && message.samples && this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify({ type: 'audio', data: pcm16ToBase64(message.samples) }))
-      this.options.onVolume?.(message.volume || 0)
+      this.options.onMicVolume?.(message.volume || 0)
     } else if (message.type === 'playback_drained') {
       this.options.onEvent({ type: 'playback_drained' })
-      this.options.onVolume?.(0)
+      this.options.onPlaybackVolume?.(0)
     } else if (message.type === 'playback_volume') {
-      this.options.onVolume?.(message.volume || 0)
+      this.options.onPlaybackVolume?.(message.volume || 0)
     }
   }
 

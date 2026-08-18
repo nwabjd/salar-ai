@@ -12,7 +12,8 @@ import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
 import { ClassicChat } from './components/ClassicChat'
 import ProfileDropdown from './components/ProfileDropdown'
-import LiveVoice from './components/LiveVoice'
+import { LiveOrb } from './components/LiveOrb'
+import { OrbController } from './live/orb-controller'
 import './theme.css'
 import './styles.css'
 import './landing.css'
@@ -290,26 +291,43 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
 
 function Live({ connected, onClose }: { connected: boolean; onClose: () => void }) {
   const [state, dispatch] = useReducer(liveReducer, initialLiveState)
-  const [volume, setVolume] = useState(0)
   const [textInput, setTextInput] = useState('')
-  const [showTextInput, setShowTextInput] = useState(false)
   const clientRef = useRef<HybridVoiceClient | null>(null)
-  const historyEndRef = useRef<HTMLDivElement>(null)
+  const controllerRef = useRef(new OrbController())
+  const [orbState, setOrbState] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle')
+  const [micVol, setMicVol] = useState(0)
+  const [aiVol, setAiVol] = useState(0)
 
   useEffect(() => {
     if (!connected) return
     let client: HybridVoiceClient
+    const controller = controllerRef.current
+
     const native = new GeminiLiveClient({
       token: api.token,
-      onEvent: dispatch,
-      onVolume: setVolume,
+      onEvent: (event) => {
+        dispatch(event)
+        if ('phase' in (controller as any)) {}
+      },
+      onMicVolume: (v) => {
+        controller.setMicVolume(v)
+      },
+      onPlaybackVolume: (v) => {
+        controller.setPlaybackVolume(v)
+      },
       onFallback: () => {
         void client.activateFallback().catch((reason) => {
           dispatch({ type: 'error', error: reason instanceof Error ? reason.message : 'Fallback voice unavailable' })
         })
       },
     })
-    const fallback = new FallbackVoiceClient({ token: api.token, api, onEvent: dispatch, onVolume: setVolume })
+    const fallback = new FallbackVoiceClient({
+      token: api.token,
+      api,
+      onEvent: dispatch,
+      onMicVolume: (v) => controller.setMicVolume(v),
+      onPlaybackVolume: (v) => controller.setPlaybackVolume(v),
+    })
     client = new HybridVoiceClient(native, fallback)
     clientRef.current = client
     client.start().catch((reason) => {
@@ -322,8 +340,21 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   }, [connected])
 
   useEffect(() => {
-    historyEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [state.history])
+    controllerRef.current.setPhase(state.phase)
+  }, [state.phase])
+
+  useEffect(() => {
+    let raf: number
+    const tick = () => {
+      const c = controllerRef.current
+      setOrbState(c.getState())
+      setMicVol(c.getMicVolume())
+      setAiVol(c.getAiVolume())
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
   function handleClose() {
     clientRef.current?.stop()
@@ -337,28 +368,50 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     dispatch({ type: 'speech_stopped' })
     clientRef.current?.sendText(text)
     setTextInput('')
-    setShowTextInput(false)
   }
 
-  const ringPhase = state.phase === 'connecting' || state.phase === 'reconnecting' || state.phase === 'error' ? 'idle' : state.phase
-  const label = state.phase === 'connecting' ? 'Connecting…' : state.phase === 'reconnecting' ? 'Reconnecting…' : state.phase === 'listening' ? 'Listening…' : state.phase === 'thinking' ? 'Thinking…' : state.phase === 'speaking' ? 'Speaking…' : 'Live unavailable'
-  const activeTranscript = state.phase === 'speaking' ? state.outputTranscript : state.inputTranscript
+  return (
+    <div className="lv-wrap">
+      <button className="lv-close" onClick={handleClose}><X size={18} /></button>
 
-  return <LiveVoice
-    state={state}
-    volume={volume}
-    textInput={textInput}
-    onTextInput={setTextInput}
-    onTextSubmit={handleTextSubmit}
-    onToggleMic={() => {
-      if (state.phase === 'listening' || state.phase === 'speaking') {
-        clientRef.current?.stop()
-      } else {
-        clientRef.current?.start().catch(() => {})
-      }
-    }}
-    onClose={handleClose}
-  />
+      <LiveOrb
+        size={420}
+        state={orbState}
+        micVolume={micVol}
+        aiVolume={aiVol}
+        onClick={() => {
+          if (state.phase === 'listening' || state.phase === 'speaking') {
+            clientRef.current?.stop()
+          } else {
+            clientRef.current?.start().catch(() => {})
+          }
+        }}
+      />
+
+      {state.history.length > 0 && (
+        <div className="lv-transcript">
+          {state.history.map((turn, i) => (
+            <p key={i} className={`lv-turn lv-turn-${turn.role}`}>{turn.text}</p>
+          ))}
+          {state.inputTranscript && <p className="lv-turn lv-turn-user">{state.inputTranscript}</p>}
+        </div>
+      )}
+
+      <form className="lv-text-form" onSubmit={(e) => { e.preventDefault(); handleTextSubmit() }}>
+        <input
+          className="lv-text-input"
+          placeholder="Type a message…"
+          value={textInput}
+          onChange={(e) => setTextInput(e.target.value)}
+        />
+        <button type="submit" className="lv-text-send" disabled={!textInput.trim() || state.phase === 'thinking' || state.phase === 'speaking'}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </form>
+
+      {state.error && <p className="lv-error">{state.error}</p>}
+    </div>
+  )
 }
 
 function LegacyLive({ connected, onClose }: { connected: boolean; onClose: () => void }) {
