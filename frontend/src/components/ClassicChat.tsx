@@ -275,15 +275,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           </div>
         </div>
 
-        {!hasMessages && (
-          <div className="ai-chips">
-            {COMMANDS.map((cmd) => (
-              <button key={cmd.prefix} className="ai-chip" onClick={() => selectCommand(cmd)}>
-                {cmd.icon}<span>{cmd.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
+
       </div>
     </div>
   )
