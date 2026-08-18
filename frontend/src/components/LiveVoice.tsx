@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Mic, MicOff, X, Loader } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { X } from 'lucide-react'
+import SmokyButton from './SmokyButton'
 import { type LiveState } from '../live/realtime-state'
 
 interface LiveVoiceProps {
@@ -15,7 +15,6 @@ interface LiveVoiceProps {
 
 export default function LiveVoice({ state, volume, textInput, onTextInput, onTextSubmit, onToggleMic, onClose }: LiveVoiceProps) {
   const [elapsed, setElapsed] = useState(0)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const isActive = state.phase === 'listening' || state.phase === 'speaking'
   const isThinking = state.phase === 'thinking'
@@ -40,34 +39,38 @@ export default function LiveVoice({ state, volume, textInput, onTextInput, onTex
 
   const bars = 48
 
+  const statusLabel = isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : isThinking ? 'Thinking…' : 'Tap to speak'
+
   return (
     <div className="lv-wrap">
       <div className="lv-container">
         <button className="lv-close" onClick={onClose}><X size={18} /></button>
 
-        {/* Mic button */}
-        <button className={`lv-mic-btn${isActive ? ' active' : ''}${isThinking ? ' thinking' : ''}`} onClick={onToggleMic}>
-          <AnimatePresence mode="wait">
-            {isThinking ? (
-              <motion.div key="loader" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-                <Loader size={28} className="lv-spin" />
-              </motion.div>
-            ) : isActive ? (
-              <motion.div key="stop" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-                <MicOff size={28} />
-              </motion.div>
-            ) : (
-              <motion.div key="mic" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-                <Mic size={28} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </button>
+        {/* Status */}
+        <span className={`lv-status${isActive ? ' active' : ''}`}>{statusLabel}</span>
 
         {/* Timer */}
         <span className={`lv-timer${isActive ? ' active' : ''}`}>
           {formatTime(elapsed)}
         </span>
+
+        {/* Smoky mic button */}
+        <SmokyButton
+          active={isActive}
+          onClick={onToggleMic}
+        >
+          <div className="lv-mic-inner">
+            {isThinking ? (
+              <div className="lv-thinking-ring" />
+            ) : (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+            )}
+          </div>
+        </SmokyButton>
 
         {/* Waveform bars */}
         <div className="lv-waveform">
@@ -86,13 +89,8 @@ export default function LiveVoice({ state, volume, textInput, onTextInput, onTex
           })}
         </div>
 
-        {/* Status text */}
-        <p className="lv-status">
-          {isListening ? 'Listening…' : isSpeaking ? 'Speaking…' : isThinking ? 'Thinking…' : isListening ? 'Listening…' : 'Tap to speak'}
-        </p>
-
         {/* Transcript */}
-          {state.history.length > 0 && (
+        {state.history.length > 0 && (
           <div className="lv-transcript">
             {state.history.map((turn, i) => (
               <p key={i} className={`lv-turn lv-turn-${turn.role}`}>{turn.text}</p>
@@ -104,16 +102,18 @@ export default function LiveVoice({ state, volume, textInput, onTextInput, onTex
         {/* Text input */}
         <form className="lv-text-form" onSubmit={(e) => { e.preventDefault(); onTextSubmit() }}>
           <input
-            ref={inputRef}
             className="lv-text-input"
             placeholder="Type a message…"
             value={textInput}
             onChange={(e) => onTextInput(e.target.value)}
           />
           <button type="submit" className="lv-text-send" disabled={!textInput.trim() || isThinking || isSpeaking}>
-            <Mic size={16} />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </form>
+
+        {/* Error */}
+        {state.error && <p className="lv-error">{state.error}</p>}
       </div>
     </div>
   )
