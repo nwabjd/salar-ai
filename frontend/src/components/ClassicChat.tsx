@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Image, Layers, Monitor, Sparkles, Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
-import PromptInput from './PromptInput'
+import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check, Mic2 } from 'lucide-react'
+import { ChatInput, ChatInputTextArea, ChatInputSubmit } from './ui/chat-input'
 import { Conversation, Message, SalarApi } from '../api'
 
 function TypingDots() {
@@ -39,6 +39,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const [busy, setBusy] = useState(false)
   const [streaming, setStreaming] = useState('')
   const [toolActivity, setToolActivity] = useState('')
+  const [input, setInput] = useState('')
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -57,8 +58,10 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streaming, toolActivity])
 
-  function handleSend(content: string, meta?: { model: string; effort: string; attachments: File[] }) {
-    if (!content.trim() || !conversation || busy) return
+  function handleSend() {
+    const content = input.trim()
+    if (!content || !conversation || busy) return
+    setInput('')
     setBusy(true); setStreaming(''); setToolActivity(''); streamBuf.current = ''
     const userMsg: Message = { id: 'tmp-' + Date.now(), role: 'user', content, created_at: new Date().toISOString() }
     setMessages((prev) => [...prev, userMsg])
@@ -149,7 +152,24 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
         )}
 
         <div className="ai-composer">
-          <PromptInput onSubmit={handleSend} onLive={onLive} busy={busy} placeholder="Ask Salaar a question…" />
+          <ChatInput
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onSubmit={handleSend}
+            loading={busy}
+          >
+            <ChatInputTextArea placeholder="Ask Salaar a question…" />
+            <div className="flex items-center gap-2">
+              <button
+                className="pi-icon-btn pi-live"
+                onClick={onLive}
+                title="Live voice"
+              >
+                <Mic2 size={16} />
+              </button>
+              <ChatInputSubmit />
+            </div>
+          </ChatInput>
         </div>
       </div>
     </div>
