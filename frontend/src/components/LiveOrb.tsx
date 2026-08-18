@@ -26,8 +26,8 @@ export function LiveOrb({
   const isThinking = state === 'thinking'
 
   const filterIntensity = isActive
-    ? `drop-shadow(0 0 ${8 + totalVolume * 20}px #ff3e1c${isListening ? 'cc' : '55'}) drop-shadow(0 0 ${8 + totalVolume * 20}px #1c8cff${isSpeaking ? 'cc' : '55'})`
-    : 'drop-shadow(0 0 6px #ff3e1c88) drop-shadow(0 0 6px #1c8cff88)'
+    ? `drop-shadow(0 0 ${8 + totalVolume * 20}px #1cffa0${isListening ? 'ee' : '66'}) drop-shadow(0 0 ${8 + totalVolume * 20}px #ff1c73${isSpeaking ? 'ee' : '66'})`
+    : 'drop-shadow(0 0 6px #1cffa0de) drop-shadow(0 0 6px #ff1c4de8)'
 
   const animDuration = isSpeaking ? '3s' : isThinking ? '4s' : '6s'
 
@@ -55,14 +55,14 @@ export function LiveOrb({
           className="orb-inner"
           style={{
             animationDuration: animDuration,
-            background: isListening ? '#00e5a0' : isSpeaking ? '#a855f7' : isThinking ? '#f59e0b' : '#ff3e1c',
+            background: isListening ? '#1cffa8' : isSpeaking ? '#a855f7' : isThinking ? '#f59e0b' : '#1cffa8',
           }}
         />
         <div
           className="orb-inner orb-inner-blue"
           style={{
             animationDuration: isSpeaking ? '4s' : '8s',
-            background: isSpeaking ? '#c084fc' : '#1c8cff',
+            background: isSpeaking ? '#c084fc' : '#ff1c73',
           }}
         />
       </div>
