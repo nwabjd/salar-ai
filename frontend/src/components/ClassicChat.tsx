@@ -1,21 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Globe, Paperclip, Send, Command, Image, Layers, Monitor, Sparkles, Loader, Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check, Mic2 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useAutoResizeTextarea } from '../hooks/use-auto-resize-textarea'
+import React, { useEffect, useRef, useState } from 'react'
+import { Image, Layers, Monitor, Sparkles, Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
+import PromptInput from './PromptInput'
 import { Conversation, Message, SalarApi } from '../api'
-
-interface CommandSuggestion {
-  icon: React.ReactNode
-  label: string
-  prefix: string
-}
-
-const COMMANDS: CommandSuggestion[] = [
-  { icon: <Image size={16} />, label: 'Clone UI', prefix: '/clone' },
-  { icon: <Layers size={16} />, label: 'Import Figma', prefix: '/figma' },
-  { icon: <Monitor size={16} />, label: 'Create Page', prefix: '/page' },
-  { icon: <Sparkles size={16} />, label: 'Improve', prefix: '/improve' },
-]
 
 function TypingDots() {
   return (
@@ -24,22 +10,6 @@ function TypingDots() {
         <span key={d} className="typing-dot" style={{ animationDelay: `${d * 0.15}s` }} />
       ))}
     </span>
-  )
-}
-
-function LiveIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="ai-live-svg">
-      <circle cx="8" cy="8" r="2.5" fill="currentColor" className="ai-live-dot" />
-      <line x1="8" y1="0.5" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="ai-live-line ai-live-line-1" />
-      <line x1="8" y1="12" x2="8" y2="15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="ai-live-line ai-live-line-2" />
-      <line x1="0.5" y1="8" x2="4" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="ai-live-line ai-live-line-3" />
-      <line x1="12" y1="8" x2="15.5" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="ai-live-line ai-live-line-4" />
-      <line x1="2.8" y1="2.8" x2="5.2" y2="5.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="ai-live-line ai-live-line-5" />
-      <line x1="10.8" y1="10.8" x2="13.2" y2="13.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="ai-live-line ai-live-line-6" />
-      <line x1="2.8" y1="13.2" x2="5.2" y2="10.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="ai-live-line ai-live-line-7" />
-      <line x1="10.8" y1="5.2" x2="13.2" y2="2.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="ai-live-line ai-live-line-8" />
-    </svg>
   )
 }
 
@@ -66,18 +36,11 @@ function MessageActions({ content }: { content: string }) {
 export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void }) {
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [streaming, setStreaming] = useState('')
   const [toolActivity, setToolActivity] = useState('')
-  const [showCmd, setShowCmd] = useState(false)
-  const [cmdIdx, setCmdIdx] = useState(0)
-  const [isFocused, setIsFocused] = useState(false)
-  const [showSearch, setShowSearch] = useState(true)
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
-  const { textareaRef, adjustHeight } = useAutoResizeTextarea({ minHeight: 52, maxHeight: 200 })
-  const cmdRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     api.conversations().then(async (list) => {
@@ -94,51 +57,9 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streaming, toolActivity])
 
-  useEffect(() => {
-    if (input.startsWith('/') && !input.includes(' ')) {
-      setShowCmd(true)
-      const idx = COMMANDS.findIndex((c) => c.prefix.startsWith(input))
-      setCmdIdx(idx >= 0 ? idx : 0)
-    } else {
-      setShowCmd(false)
-    }
-  }, [input])
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (cmdRef.current && !cmdRef.current.contains(e.target as Node)) setShowCmd(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  function selectCommand(cmd: CommandSuggestion) {
-    setInput(cmd.prefix + ' ')
-    setShowCmd(false)
-    textareaRef.current?.focus()
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (showCmd) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setCmdIdx((i) => (i + 1) % COMMANDS.length) }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); setCmdIdx((i) => (i - 1 + COMMANDS.length) % COMMANDS.length) }
-      else if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); selectCommand(COMMANDS[cmdIdx]) }
-      else if (e.key === 'Escape') { e.preventDefault(); setShowCmd(false) }
-    } else if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      send()
-    }
-  }
-
-  function send() {
-    if (!input.trim() || !conversation || busy) return
-    sendContent(input)
-  }
-
-  function sendContent(content: string) {
+  function handleSend(content: string, meta?: { model: string; effort: string; attachments: File[] }) {
     if (!content.trim() || !conversation || busy) return
-    setInput(''); setBusy(true); setStreaming(''); setToolActivity(''); streamBuf.current = ''
-    adjustHeight(true)
+    setBusy(true); setStreaming(''); setToolActivity(''); streamBuf.current = ''
     const userMsg: Message = { id: 'tmp-' + Date.now(), role: 'user', content, created_at: new Date().toISOString() }
     setMessages((prev) => [...prev, userMsg])
     let done = false
@@ -227,72 +148,9 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           </div>
         )}
 
-        {/* AI Input Search */}
         <div className="ai-composer">
-          <div className="ai-search-wrap">
-            {showCmd && (
-              <div className="ai-cmd-palette" ref={cmdRef}>
-                {COMMANDS.map((cmd, i) => (
-                  <div key={cmd.prefix} className={`ai-cmd-item${i === cmdIdx ? ' active' : ''}`} onClick={() => selectCommand(cmd)}>
-                    <span className="ai-cmd-icon">{cmd.icon}</span>
-                    <span className="ai-cmd-label">{cmd.label}</span>
-                    <span className="ai-cmd-prefix">{cmd.prefix}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className={`ai-search-box${isFocused ? ' focused' : ''}`} onClick={() => textareaRef.current?.focus()}>
-              <div className="ai-search-textarea-wrap">
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => { setInput(e.target.value); adjustHeight() }}
-                  onKeyDown={handleKeyDown}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  placeholder="Ask Salaar a question…"
-                  className="ai-search-textarea"
-                />
-              </div>
-
-              <div className="ai-search-bottom">
-                <div className="ai-search-left">
-                  <label className="ai-search-attach" title="Attach file">
-                    <input className="hidden" type="file" />
-                    <Paperclip size={16} />
-                  </label>
-                  <button
-                    className={`ai-search-globe${showSearch ? ' active' : ''}`}
-                    onClick={() => setShowSearch((v) => !v)}
-                    title="Toggle web search"
-                  >
-                    <motion.div animate={{ rotate: showSearch ? 180 : 0, scale: showSearch ? 1.1 : 1 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }} whileHover={{ rotate: showSearch ? 180 : 15, scale: 1.1 }}>
-                      <Globe size={16} />
-                    </motion.div>
-                    <AnimatePresence>
-                      {showSearch && (
-                        <motion.span initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
-                          Search
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </button>
-                </div>
-                <div className="ai-search-right">
-                  <button className="ai-search-live" onClick={onLive} title="Enter Live mode">
-                    <LiveIcon />
-                  </button>
-                  <button className={`ai-search-send${input.trim() ? ' ready' : ''}`} onClick={send} disabled={busy || !input.trim()}>
-                    {busy ? <Loader size={16} className="ai-spin" /> : <Send size={16} />}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <PromptInput onSubmit={handleSend} onLive={onLive} placeholder="Ask Salaar a question…" />
         </div>
-
-
       </div>
     </div>
   )
