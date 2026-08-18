@@ -12,6 +12,7 @@ import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
 import { ClassicChat } from './components/ClassicChat'
 import ProfileDropdown from './components/ProfileDropdown'
+import LiveVoice from './components/LiveVoice'
 import './theme.css'
 import './styles.css'
 import './landing.css'
@@ -357,23 +358,21 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   const label = state.phase === 'connecting' ? 'Connecting…' : state.phase === 'reconnecting' ? 'Reconnecting…' : state.phase === 'listening' ? 'Listening…' : state.phase === 'thinking' ? 'Thinking…' : state.phase === 'speaking' ? 'Speaking…' : 'Live unavailable'
   const activeTranscript = state.phase === 'speaking' ? state.outputTranscript : state.inputTranscript
 
-  return <main className="live">
-    <div className="rings"><MagicRings color="#fc42ff" colorTwo="#42fcff" ringCount={6} speed={1} attenuation={10} lineThickness={2} baseRadius={0.35} radiusStep={0.1} scaleRate={0.1} blur={0} noiseAmount={0.1} rotation={0} ringGap={1.5} fadeIn={0.7} fadeOut={0.5} followMouse={false} mouseInfluence={0.2} hoverScale={1.2} parallax={0.05} clickBurst={false} phase={ringPhase} volume={volume}/></div>
-    <button className="close" onClick={handleClose} aria-label="Close Live mode"><X/></button>
-    <div className="live-history">
-      {state.history.map((item, index) => <div key={`${item.role}-${index}`} className={`live-msg ${item.role}`}><span className="live-msg-role">{item.role === 'user' ? 'You' : 'SALAR'}</span><p>{item.text}</p></div>)}
-      <div ref={historyEndRef}/>
-    </div>
-    <div className="live-copy">
-      <span className="live-label">{label}</span>
-      {state.error && <p className="live-heard" style={{ color: '#ff6b6b' }}>{state.error}</p>}
-      {activeTranscript && <p className="live-heard">{activeTranscript}</p>}
-    </div>
-    <div className="live-controls">
-      <button className="live-text-toggle" onClick={() => setShowTextInput((open) => !open)} title="Type instead of speak"><MessageSquare size={16}/></button>
-      {showTextInput && <div className="live-text-input"><input value={textInput} onChange={(event) => setTextInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') handleTextSubmit() }} placeholder="Type a message…" disabled={state.phase === 'thinking' || state.phase === 'speaking'}/><button onClick={handleTextSubmit} disabled={!textInput.trim() || state.phase === 'thinking' || state.phase === 'speaking'}><Send size={14}/></button></div>}
-    </div>
-  </main>
+  return <LiveVoice
+    state={state}
+    volume={volume}
+    textInput={textInput}
+    onTextInput={setTextInput}
+    onTextSubmit={handleTextSubmit}
+    onToggleMic={() => {
+      if (state.phase === 'listening' || state.phase === 'speaking') {
+        clientRef.current?.stop()
+      } else {
+        clientRef.current?.start().catch(() => {})
+      }
+    }}
+    onClose={handleClose}
+  />
 }
 
 function LegacyLive({ connected, onClose }: { connected: boolean; onClose: () => void }) {

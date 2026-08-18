@@ -182,6 +182,40 @@
 .ai-chip svg{width:14px;height:14px}
 @media(max-width:640px){.ai-chat-title h1{font-size:24px}.ai-orb-violet,.ai-orb-indigo{width:256px;height:256px}.ai-orb-fuchsia{width:192px;height:192px}.ai-composer{padding:0 12px 12px}.ai-conv-scroll{padding:16px 12px 8px}.ai-chips{padding:12px 12px 0}.ai-msg{max-width:90%}.ai-msg-user{max-width:85%}}
 
+/* ===== Live Voice ===== */
+.lv-wrap{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(3,2,8,.85);backdrop-filter:blur(40px)}
+.lv-container{display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px 32px;position:relative;width:100%;max-width:400px}
+.lv-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border:none;border-radius:10px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.lv-close:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+
+.lv-mic-btn{width:72px;height:72px;border-radius:20px;border:none;background:rgba(255,255,255,.06);color:rgba(255,255,255,.7);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s}
+.lv-mic-btn.active{background:rgba(239,68,68,.15);color:#ef4444;border:2px solid rgba(239,68,68,.3)}
+.lv-mic-btn.thinking{background:rgba(56,189,248,.12);color:#38bdf8;border:2px solid rgba(56,189,248,.25)}
+.lv-mic-btn:hover{transform:scale(1.05)}
+
+.lv-timer{font-family:'DM Mono',monospace;font-size:14px;color:rgba(255,255,255,.25);transition:color .3s}
+.lv-timer.active{color:rgba(255,255,255,.6)}
+
+.lv-waveform{display:flex;align-items:center;justify-content:center;gap:2px;height:32px;width:256px}
+.lv-bar{width:2px;height:4px;border-radius:2px;background:rgba(255,255,255,.1);transition:all .3s}
+.lv-bar.active{background:rgba(255,255,255,.4);animation:lvPulse 1s ease-in-out infinite}
+@keyframes lvPulse{0%,100%{opacity:.3;transform:scaleY(1)}50%{opacity:.8;transform:scaleY(1.8)}}
+
+.lv-status{font-size:13px;color:rgba(255,255,255,.4);height:20px}
+
+.lv-transcript{width:100%;max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent}
+.lv-turn{font-size:12px;line-height:1.5;padding:8px 12px;border-radius:10px;max-width:85%}
+.lv-turn-user{background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.2);color:rgba(255,255,255,.8);align-self:flex-end}
+.lv-turn-assistant{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.7);align-self:flex-start}
+
+.lv-text-form{display:flex;gap:6px;width:100%;margin-top:8px}
+.lv-text-input{flex:1;height:40px;border:none;border-radius:10px;padding:0 14px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);font-size:13px;outline:none}
+.lv-text-input::placeholder{color:rgba(255,255,255,.25)}
+.lv-text-send{width:40px;height:40px;border:none;border-radius:10px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.lv-text-send:hover:not(:disabled){background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+.lv-text-send:disabled{opacity:.4;cursor:not-allowed}
+.lv-spin{animation:aiSpin 2s linear infinite}
+
 /* ===== Profile Dropdown ===== */
 .pd-wrap{position:relative}
 .pd-trigger{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border:1px solid var(--line);border-radius:14px;background:rgba(7,6,12,.48);backdrop-filter:blur(16px);cursor:pointer;transition:all .2s}
