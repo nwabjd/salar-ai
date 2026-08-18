@@ -145,8 +145,24 @@
 .ai-search-globe:hover{color:rgba(255,255,255,.8)}
 .ai-search-globe.active:hover{color:#38bdf8}
 .ai-search-globe span{white-space:nowrap;overflow:hidden}
-.ai-search-live{display:flex;align-items:center;gap:5px;height:32px;padding:0 10px;border-radius:20px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);cursor:pointer;border:1.5px solid transparent;transition:all .2s;font-size:12px;font-weight:500}
-.ai-search-live:hover{background:rgba(239,68,68,.1);color:#ef4444;border-color:rgba(239,68,68,.25)}
+.ai-search-live{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);cursor:pointer;border:1.5px solid transparent;transition:all .2s}
+.ai-search-live:hover{background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.25)}
+.ai-live-svg{transition:transform .2s ease}
+.ai-search-live:hover .ai-live-svg{transform:scale(1.15)}
+.ai-live-dot{transition:all .2s ease}
+.ai-search-live:hover .ai-live-dot{fill:#ef4444;filter:drop-shadow(0 0 4px rgba(239,68,68,.6))}
+.ai-live-line{transition:all .3s ease;opacity:.35;transform-origin:center}
+.ai-search-live:hover .ai-live-line{opacity:1;stroke:#ef4444}
+.ai-search-live:hover .ai-live-line-1{transform:translateY(-1.5px);animation:aiLivePulse 1.2s ease-in-out infinite}
+.ai-search-live:hover .ai-live-line-2{transform:translateY(1.5px);animation:aiLivePulse 1.2s ease-in-out infinite .15s}
+.ai-search-live:hover .ai-live-line-3{transform:translateX(-1.5px);animation:aiLivePulse 1.2s ease-in-out infinite .3s}
+.ai-search-live:hover .ai-live-line-4{transform:translateX(1.5px);animation:aiLivePulse 1.2s ease-in-out infinite .45s}
+.ai-search-live:hover .ai-live-line-5{animation:aiLivePulse 1.2s ease-in-out infinite .1s}
+.ai-search-live:hover .ai-live-line-6{animation:aiLivePulse 1.2s ease-in-out infinite .25s}
+.ai-search-live:hover .ai-live-line-7{animation:aiLivePulse 1.2s ease-in-out infinite .4s}
+.ai-search-live:hover .ai-live-line-8{animation:aiLivePulse 1.2s ease-in-out infinite .55s}
+@keyframes aiLivePulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.2)}}
+.ai-search-right{display:flex;align-items:center;gap:4px}
 .ai-search-send{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;border:none;background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);cursor:pointer;transition:all .2s}
 .ai-search-send.ready{background:rgba(56,189,248,.15);color:#38bdf8}
 .ai-search-send:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}

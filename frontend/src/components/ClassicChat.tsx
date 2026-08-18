@@ -27,6 +27,22 @@ function TypingDots() {
   )
 }
 
+function LiveIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="ai-live-svg">
+      <circle cx="8" cy="8" r="2.5" fill="currentColor" className="ai-live-dot" />
+      <line x1="8" y1="0.5" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="ai-live-line ai-live-line-1" />
+      <line x1="8" y1="12" x2="8" y2="15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="ai-live-line ai-live-line-2" />
+      <line x1="0.5" y1="8" x2="4" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="ai-live-line ai-live-line-3" />
+      <line x1="12" y1="8" x2="15.5" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="ai-live-line ai-live-line-4" />
+      <line x1="2.8" y1="2.8" x2="5.2" y2="5.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="ai-live-line ai-live-line-5" />
+      <line x1="10.8" y1="10.8" x2="13.2" y2="13.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="ai-live-line ai-live-line-6" />
+      <line x1="2.8" y1="13.2" x2="5.2" y2="10.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="ai-live-line ai-live-line-7" />
+      <line x1="10.8" y1="5.2" x2="13.2" y2="2.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="ai-live-line ai-live-line-8" />
+    </svg>
+  )
+}
+
 function MessageActions({ content }: { content: string }) {
   const [copied, setCopied] = useState(false)
   function handleCopy() {
@@ -262,14 +278,15 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
                       )}
                     </AnimatePresence>
                   </button>
+                </div>
+                <div className="ai-search-right">
                   <button className="ai-search-live" onClick={onLive} title="Enter Live mode">
-                    <Mic2 size={16} />
-                    <span>Live</span>
+                    <LiveIcon />
+                  </button>
+                  <button className={`ai-search-send${input.trim() ? ' ready' : ''}`} onClick={send} disabled={busy || !input.trim()}>
+                    {busy ? <Loader size={16} className="ai-spin" /> : <Send size={16} />}
                   </button>
                 </div>
-                <button className={`ai-search-send${input.trim() ? ' ready' : ''}`} onClick={send} disabled={busy || !input.trim()}>
-                  {busy ? <Loader size={16} className="ai-spin" /> : <Send size={16} />}
-                </button>
               </div>
             </div>
           </div>
