@@ -11,6 +11,7 @@ export interface OrbInputProps {
   className?: string
   onChange?: (value: string) => void
   onSubmit?: (value: string) => void
+  onOrbClick?: () => void
 }
 
 export function OrbInput({
@@ -22,6 +23,7 @@ export function OrbInput({
   className,
   onChange,
   onSubmit,
+  onOrbClick,
 }: OrbInputProps) {
   const [internalValue, setInternalValue] = useState(defaultValue)
   const [isFocused, setIsFocused] = useState(false)
@@ -143,7 +145,14 @@ export function OrbInput({
   return (
     <div className={className ? `orb-input-root ${className}` : "orb-input-root"}>
       <div className={barClass}>
-        <div className="orb-input-orb-col">
+        <div
+          className={`orb-input-orb-col${onOrbClick ? ' orb-input-orb-col--clickable' : ''}`}
+          onClick={onOrbClick}
+          role={onOrbClick ? 'button' : undefined}
+          tabIndex={onOrbClick ? 0 : undefined}
+          onKeyDown={onOrbClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOrbClick() } } : undefined}
+          aria-label={onOrbClick ? 'Open live voice' : undefined}
+        >
           <div className={`orb-input-orb ${loading ? "orb-input-orb--loading" : ""}`}>
             <img
               src="https://media.giphy.com/media/26gsuUjoEBmLrNBxC/giphy.gif"

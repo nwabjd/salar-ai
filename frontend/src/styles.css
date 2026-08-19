@@ -165,8 +165,10 @@
 
 /* ===== Live Voice ===== */
 .lv-wrap{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:rgba(3,2,8,.92);backdrop-filter:blur(60px)}
-.lv-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border:none;border-radius:12px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;z-index:10}
+.lv-close{position:absolute;top:16px;left:16px;width:40px;height:40px;border:none;border-radius:12px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;z-index:10}
 .lv-close:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+.lv-video-wrap{width:420px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.lv-video{width:420px;height:auto}
 .lv-timer{font-family:'DM Mono',monospace;font-size:14px;color:rgba(255,255,255,.25);transition:color .3s}
 .lv-timer.active{color:rgba(255,255,255,.6)}
 .lv-transcript{width:100%;max-width:400px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent;padding:0 24px}
@@ -453,6 +455,22 @@
   align-items:center;
   justify-content:center;
 }
+.orb-input-orb-col--clickable{
+  cursor:pointer;
+  border-radius:50%;
+  transition:transform .2s ease, filter .2s ease;
+}
+.orb-input-orb-col--clickable:hover{
+  transform:scale(1.12);
+  filter:brightness(1.2);
+}
+.orb-input-orb-col--clickable:active{
+  transform:scale(.95);
+}
+.orb-input-orb-col--clickable:focus-visible{
+  outline:2px solid rgba(139,92,246,.6);
+  outline-offset:3px;
+}
 .orb-input-orb{
   width:64px;
   height:64px;
@@ -514,6 +532,17 @@
   font-family:inherit;
   scrollbar-width:thin;
   scrollbar-color:rgba(255,255,255,.15) transparent;
+  -webkit-tap-highlight-color:transparent;
+}
+.orb-input-textarea:focus,
+.orb-input-textarea:focus-visible{
+  outline:none;
+  box-shadow:none;
+  -webkit-focus-ring-color:transparent;
+}
+.orb-input-bar:focus-within{
+  outline:none;
+  box-shadow:none;
 }
 .orb-input-textarea::placeholder{color:rgba(255,255,255,.4);font-weight:300}
 .orb-input-textarea:disabled{cursor:not-allowed;opacity:.5}

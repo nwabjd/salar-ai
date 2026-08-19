@@ -96,7 +96,10 @@
 }
 
 /* ---- Focus / accessibility ---- */
-:focus-visible {
+.nova-core :focus-visible,
+.nova-core > :focus-visible,
+[class*="nova-"] :focus-visible,
+[class*="nova-"]:focus-visible {
   outline: 2px solid var(--nova-cyan);
   outline-offset: 2px;
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check, Mic2 } from 'lucide-react'
+import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
 import { OrbInput } from './ui/animated-input'
 import { Conversation, Message, SalarApi } from '../api'
 
@@ -95,7 +95,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           <div className="cc-empty">
             <h1 className="cc-empty-heading">How can I help you today?</h1>
             <div className="cc-composer-wrap">
-              <OrbInput onSubmit={handleSend} />
+              <OrbInput onSubmit={handleSend} onOrbClick={onLive} />
             </div>
           </div>
         ) : (
@@ -143,13 +143,11 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           <div className="orb-composer-inner">
             <OrbInput
               onSubmit={handleSend}
+              onOrbClick={onLive}
               placeholder={busy ? "Salaar is thinking..." : undefined}
               disabled={busy}
               loading={busy}
             />
-            <button className="orb-mic-btn" onClick={onLive} title="Live voice" aria-label="Open live voice">
-              <Mic2 size={16} />
-            </button>
           </div>
         </div>
       )}

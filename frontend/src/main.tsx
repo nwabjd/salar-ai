@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Calendar, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, Send, Sparkles, X, MessageSquare } from 'lucide-react'
+import { Calendar, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, Send, Sparkles, X, MessageSquare, ArrowLeft } from 'lucide-react'
 import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
 import Strands from './effects/Strands.jsx'
@@ -12,7 +12,6 @@ import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
 import { ClassicChat } from './components/ClassicChat'
 import ProfileDropdown from './components/ProfileDropdown'
-import { LiveOrb } from './components/LiveOrb'
 import { OrbController } from './live/orb-controller'
 import './theme.css'
 import './styles.css'
@@ -291,7 +290,6 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
 
 function Live({ connected, onClose }: { connected: boolean; onClose: () => void }) {
   const [state, dispatch] = useReducer(liveReducer, initialLiveState)
-  const [textInput, setTextInput] = useState('')
   const clientRef = useRef<HybridVoiceClient | null>(null)
   const controllerRef = useRef(new OrbController())
   const [orbState, setOrbState] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle')
@@ -361,24 +359,12 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     onClose()
   }
 
-  function handleTextSubmit() {
-    const text = textInput.trim()
-    if (!text || state.phase === 'thinking' || state.phase === 'speaking') return
-    dispatch({ type: 'input_transcript_completed', text })
-    dispatch({ type: 'speech_stopped' })
-    clientRef.current?.sendText(text)
-    setTextInput('')
-  }
-
   return (
     <div className="lv-wrap">
-      <button className="lv-close" onClick={handleClose}><X size={18} /></button>
+      <button className="lv-close" onClick={handleClose} aria-label="Back to chat"><ArrowLeft size={18} /></button>
 
-      <LiveOrb
-        size={420}
-        state={orbState}
-        micVolume={micVol}
-        aiVolume={aiVol}
+      <div
+        className="lv-video-wrap"
         onClick={() => {
           if (state.phase === 'listening' || state.phase === 'speaking') {
             clientRef.current?.stop()
@@ -386,7 +372,16 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
             clientRef.current?.start().catch(() => {})
           }
         }}
-      />
+      >
+        <video
+          src="/assets/salaar-live.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="lv-video"
+        />
+      </div>
 
       {state.history.length > 0 && (
         <div className="lv-transcript">
@@ -396,18 +391,6 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
           {state.inputTranscript && <p className="lv-turn lv-turn-user">{state.inputTranscript}</p>}
         </div>
       )}
-
-      <form className="lv-text-form" onSubmit={(e) => { e.preventDefault(); handleTextSubmit() }}>
-        <input
-          className="lv-text-input"
-          placeholder="Type a message…"
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-        />
-        <button type="submit" className="lv-text-send" disabled={!textInput.trim() || state.phase === 'thinking' || state.phase === 'speaking'}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
-      </form>
 
       {state.error && <p className="lv-error">{state.error}</p>}
     </div>
