@@ -12,6 +12,7 @@ import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
 import { ClassicChat } from './components/ClassicChat'
 import ProfileDropdown from './components/ProfileDropdown'
+import { LiveOrb } from './components/LiveOrb'
 import { OrbController } from './live/orb-controller'
 import './theme.css'
 import './styles.css'
@@ -363,8 +364,11 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     <div className="lv-wrap">
       <button className="lv-close" onClick={handleClose} aria-label="Back to chat"><ArrowLeft size={18} /></button>
 
-      <div
-        className="lv-video-wrap"
+      <LiveOrb
+        size={420}
+        state={orbState}
+        micVolume={micVol}
+        aiVolume={aiVol}
         onClick={() => {
           if (state.phase === 'listening' || state.phase === 'speaking') {
             clientRef.current?.stop()
@@ -372,16 +376,7 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
             clientRef.current?.start().catch(() => {})
           }
         }}
-      >
-        <video
-          src="/assets/salaar-live.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="lv-video"
-        />
-      </div>
+      />
 
       {state.history.length > 0 && (
         <div className="lv-transcript">
