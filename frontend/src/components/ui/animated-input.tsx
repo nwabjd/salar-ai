@@ -134,28 +134,27 @@ export function OrbInput({
   const displayPlaceholder = placeholder ?? `${displayedText}${isTyping ? "|" : ""}`
   const hasText = value.trim().length > 0
 
+  const barClass = [
+    "orb-input-bar",
+    isFocused ? "orb-input-bar--focused" : "",
+    disabled ? "orb-input-bar--disabled" : "",
+  ].filter(Boolean).join(" ")
+
   return (
-    <div className={`relative ${className ?? ""}`}>
-      <div
-        className={`flex items-center gap-4 rounded-full border transition-all duration-300 ease-out ${
-          isFocused
-            ? "orb-bar-focused"
-            : "orb-bar"
-        } ${disabled ? "orb-bar-disabled" : ""}`}
-      >
-        <div className="relative flex-shrink-0">
-          <div className={`orb-gif-wrap ${loading ? "orb-gif-loading" : ""}`}>
+    <div className={className ? `orb-input-root ${className}` : "orb-input-root"}>
+      <div className={barClass}>
+        <div className="orb-input-orb-col">
+          <div className={`orb-input-orb ${loading ? "orb-input-orb--loading" : ""}`}>
             <img
               src="https://media.giphy.com/media/26gsuUjoEBmLrNBxC/giphy.gif"
               alt="Animated orb"
-              className="w-full h-full object-cover"
             />
           </div>
         </div>
 
-        <div className="orb-divider" />
+        <div className="orb-input-divider" />
 
-        <div className="flex-1 min-w-0">
+        <div className="orb-input-field">
           <textarea
             ref={textareaRef}
             value={value}
@@ -168,12 +167,12 @@ export function OrbInput({
             rows={1}
             data-testid="orb-input"
             aria-label="Ask a question"
-            className="orb-textarea"
+            className="orb-input-textarea"
           />
         </div>
 
         <button
-          className={`orb-send ${hasText && !disabled ? "orb-send-ready" : ""} ${loading ? "orb-send-loading" : ""}`}
+          className={`orb-input-send${hasText && !disabled ? " orb-input-send--ready" : ""}${loading ? " orb-input-send--loading" : ""}`}
           onClick={loading ? undefined : handleSubmit}
           disabled={!hasText || disabled}
           aria-label={loading ? "Stop" : "Send message"}

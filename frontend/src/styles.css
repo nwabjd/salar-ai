@@ -370,27 +370,92 @@
 @keyframes gPulseBtn{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.1)}50%{box-shadow:0 0 0 6px rgba(255,255,255,0)}}
 
 /* ===== OrbInput — 21st.dev Animated Input ===== */
-
-/* Bar: matches source — bg-black, rounded-full, border-gray-300, p-6, gap-4 */
-.orb-bar{
-  padding:24px;
-  gap:16px;
-  background:#000;
-  border-color:rgba(255,255,255,.15);
-  box-shadow:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.3);
+/* ClassicChat wrapper */
+.cc-wrap{position:relative;width:100%;height:100%;display:flex;flex-direction:column}
+.cc-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.cc-empty{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100%;
+  padding:0 24px;
+  gap:40px;
 }
-.orb-bar-focused{
-  padding:24px;
+.cc-empty-heading{
+  font-size:clamp(24px,4vw,36px);
+  font-weight:300;
+  color:rgba(255,255,255,.65);
+  letter-spacing:-.02em;
+  margin:0;
+  text-align:center;
+}
+.cc-composer-wrap{
+  width:min(1000px,calc(100vw - 48px));
+}
+.cc-messages{
+  max-width:min(1000px,calc(100vw - 48px));
+  margin:0 auto;
+  padding:24px 24px 0;
+}
+.cc-msg{
+  display:flex;
+  margin-bottom:24px;
+}
+.cc-msg-assistant{justify-content:flex-start}
+.cc-msg-user{justify-content:flex-end}
+.cc-msg-body{
+  color:rgba(255,255,255,.85);
+  font-size:15px;
+  line-height:1.7;
+  max-width:85%;
+}
+.cc-msg-text{margin:0;white-space:pre-wrap}
+.cc-msg-idle{color:rgba(255,255,255,.5)}
+.cc-msg-bubble-user{
+  max-width:80%;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:20px 20px 4px 20px;
+  padding:10px 16px;
+  color:rgba(255,255,255,.85);
+  font-size:15px;
+  line-height:1.7;
+}
+.cc-cursor{opacity:.5;animation:aiBlink 1s step-end infinite}
+.cc-tool-activity{color:rgba(201,165,110,.8);font-size:13px;font-style:italic;margin:0}
+
+/* Root wrapper */
+.orb-input-root{position:relative;width:100%;max-width:min(1000px,calc(100vw - 48px));margin:0 auto}
+
+/* Bar — pill-shaped container */
+.orb-input-bar{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
   gap:16px;
+  padding:24px;
   background:#000;
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:9999px;
+  box-shadow:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.3);
+  transition:all .3s ease-out;
+}
+.orb-input-bar--focused{
   border-color:rgba(255,255,255,.4);
   box-shadow:0 20px 25px -5px rgba(0,0,0,.5),0 8px 10px -6px rgba(0,0,0,.4);
   transform:scale(1.02);
 }
-.orb-bar-disabled{opacity:.5;pointer-events:none}
+.orb-input-bar--disabled{opacity:.5;pointer-events:none}
 
-/* Orb GIF — w-16 h-16 rounded-full (source exact) */
-.orb-gif-wrap{
+/* Orb column — flex-shrink-0, contains the GIF */
+.orb-input-orb-col{
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.orb-input-orb{
   width:64px;
   height:64px;
   border-radius:50%;
@@ -398,25 +463,39 @@
   flex-shrink:0;
   transition:all .3s ease;
 }
-.orb-gif-wrap img{width:100%;height:100%;object-fit:cover}
-.orb-gif-loading{
-  animation:orbPulse 2s ease-in-out infinite;
+.orb-input-orb img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
-@keyframes orbPulse{
+.orb-input-orb--loading{
+  animation:orbInputPulse 2s ease-in-out infinite;
+}
+@keyframes orbInputPulse{
   0%,100%{opacity:1;transform:scale(1)}
   50%{opacity:.7;transform:scale(.95)}
 }
 
-/* Divider — w-px h-12 bg-gray-600 */
-.orb-divider{
+/* Divider line */
+.orb-input-divider{
   width:1px;
   height:48px;
   background:rgba(255,255,255,.2);
   flex-shrink:0;
 }
 
-/* Textarea — matches source input: w-full, text-xl, text-white, bg-transparent, border-none, outline-none, font-light */
-.orb-textarea{
+/* Field container — takes remaining space */
+.orb-input-field{
+  flex:1;
+  min-width:0;
+  display:flex;
+  align-items:center;
+}
+
+/* Textarea */
+.orb-input-textarea{
+  display:block;
   width:100%;
   resize:none;
   border:none;
@@ -430,18 +509,18 @@
   min-height:32px;
   max-height:220px;
   overflow-y:auto;
+  font-family:inherit;
   scrollbar-width:thin;
   scrollbar-color:rgba(255,255,255,.15) transparent;
-  font-family:inherit;
 }
-.orb-textarea::placeholder{color:rgba(255,255,255,.4);font-weight:300}
-.orb-textarea:disabled{cursor:not-allowed;opacity:.5}
-.orb-textarea::-webkit-scrollbar{width:4px}
-.orb-textarea::-webkit-scrollbar-track{background:transparent}
-.orb-textarea::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px}
+.orb-input-textarea::placeholder{color:rgba(255,255,255,.4);font-weight:300}
+.orb-input-textarea:disabled{cursor:not-allowed;opacity:.5}
+.orb-input-textarea::-webkit-scrollbar{width:4px}
+.orb-input-textarea::-webkit-scrollbar-track{background:transparent}
+.orb-input-textarea::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px}
 
-/* Send button — inside the bar, right side */
-.orb-send{
+/* Send button */
+.orb-input-send{
   flex-shrink:0;
   width:44px;
   height:44px;
@@ -455,27 +534,27 @@
   justify-content:center;
   transition:all .25s cubic-bezier(.4,0,.2,1);
 }
-.orb-send-ready{
+.orb-input-send--ready{
   background:rgba(255,255,255,.08);
   color:rgba(255,255,255,.7);
   cursor:pointer;
   border-color:rgba(255,255,255,.18);
 }
-.orb-send-ready:hover{
+.orb-input-send--ready:hover{
   background:rgba(255,255,255,.14);
   color:#fff;
   transform:scale(1.08);
 }
-.orb-send-ready:active{transform:scale(.94)}
-.orb-send:focus-visible{outline:2px solid rgba(139,92,246,.5);outline-offset:2px}
-.orb-send-loading{
+.orb-input-send--ready:active{transform:scale(.94)}
+.orb-input-send:focus-visible{outline:2px solid rgba(139,92,246,.5);outline-offset:2px}
+.orb-input-send--loading{
   cursor:pointer;
   background:rgba(255,255,255,.06);
   color:rgba(255,255,255,.5);
   border-color:rgba(255,255,255,.1);
 }
 
-/* Sticky composer */
+/* Sticky composer for active chat */
 .orb-composer-sticky{
   flex-shrink:0;
   padding:0 24px 24px;
@@ -484,8 +563,9 @@
 .orb-composer-inner{
   position:relative;
   width:100%;
-  max-width:1000px;
-  margin-inline:auto;
+  max-width:min(1000px,calc(100vw - 48px));
+  margin-left:auto;
+  margin-right:auto;
 }
 .orb-mic-btn{
   position:absolute;
@@ -507,3 +587,12 @@
 }
 .orb-mic-btn:hover{color:#ef4444;background:rgba(239,68,68,.08)}
 .orb-mic-btn:focus-visible{outline:2px solid rgba(239,68,68,.4);outline-offset:2px}
+
+/* Mobile */
+@media(max-width:640px){
+  .orb-input-bar{padding:16px;gap:12px}
+  .orb-input-orb{width:48px;height:48px}
+  .orb-input-divider{height:36px}
+  .orb-input-textarea{font-size:1rem}
+  .orb-input-send{width:38px;height:38px}
+}
