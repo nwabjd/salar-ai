@@ -439,12 +439,10 @@
   border:1px solid rgba(255,255,255,.15);
   border-radius:9999px;
   box-shadow:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.3);
-  transition:all .3s ease-out;
 }
 .orb-input-bar--focused{
-  border-color:rgba(255,255,255,.4);
-  box-shadow:0 20px 25px -5px rgba(0,0,0,.5),0 8px 10px -6px rgba(0,0,0,.4);
-  transform:scale(1.02);
+  border-color:rgba(255,255,255,.15);
+  box-shadow:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.3);
 }
 .orb-input-bar--disabled{opacity:.5;pointer-events:none}
 
@@ -461,7 +459,11 @@
   border-radius:50%;
   overflow:hidden;
   flex-shrink:0;
-  transition:all .3s ease;
+  transition:transform .3s ease, filter .3s ease;
+}
+.orb-input-bar--focused .orb-input-orb{
+  transform:scale(1.08);
+  filter:brightness(1.15);
 }
 .orb-input-orb img{
   display:block;
