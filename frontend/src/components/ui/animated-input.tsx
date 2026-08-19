@@ -1,18 +1,44 @@
 "use client"
 
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 
-interface OrbInputProps {
-  onSubmit?: (message: string) => void
+export interface OrbInputProps {
+  value?: string
+  defaultValue?: string
   placeholder?: string
+  disabled?: boolean
+  loading?: boolean
+  className?: string
+  onChange?: (value: string) => void
+  onSubmit?: (value: string) => void
 }
 
-export function OrbInput({ onSubmit, placeholder }: OrbInputProps) {
-  const [value, setValue] = useState("")
+export function OrbInput({
+  value: controlledValue,
+  defaultValue = "",
+  placeholder,
+  disabled = false,
+  loading = false,
+  className,
+  onChange,
+  onSubmit,
+}: OrbInputProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue)
   const [isFocused, setIsFocused] = useState(false)
-  const [placeholderIndex, setPlaceholderIndex] = useState(0)
-  const [displayedText, setDisplayedText] = useState("")
-  const [isTyping, setIsTyping] = useState(true)
+  const [placeholderIdx, setPlaceholderIdx] = useState(0)
+  const [typed, setTyped] = useState("")
+  const [typing, setTyping] = useState(true)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const intervalRef = useRef<number | null>(null)
+  const timeoutRef = useRef<number | null>(null)
+
+  const value = controlledValue ?? internalValue
 
   const placeholders = useMemo(
     () => [
@@ -24,117 +50,134 @@ export function OrbInput({ onSubmit, placeholder }: OrbInputProps) {
     []
   )
 
-  const CHAR_DELAY = 75
-  const IDLE_DELAY_AFTER_FINISH = 2200
-
-  const intervalRef = useRef<number | null>(null)
-  const timeoutRef = useRef<number | null>(null)
+  const displayPlaceholder = placeholder ?? `${typed}${typing ? "|" : ""}`
 
   useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
-    }
+    if (placeholder) return
 
-    if (placeholder) {
-      setDisplayedText(placeholder)
-      setIsTyping(false)
-      return
-    }
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
-    const current = placeholders[placeholderIndex]
+    const current = placeholders[placeholderIdx]
     if (!current) {
-      setDisplayedText("")
-      setIsTyping(false)
+      setTyped("")
+      setTyping(false)
       return
     }
 
     const chars = Array.from(current)
-    setDisplayedText("")
-    setIsTyping(true)
-
-    let charIndex = 0
+    setTyped("")
+    setTyping(true)
+    let ci = 0
 
     intervalRef.current = window.setInterval(() => {
-      if (charIndex < chars.length) {
-        const next = chars.slice(0, charIndex + 1).join("")
-        setDisplayedText(next)
-        charIndex += 1
+      if (ci < chars.length) {
+        setTyped(chars.slice(0, ci + 1).join(""))
+        ci++
       } else {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-        setIsTyping(false)
+        if (intervalRef.current) clearInterval(intervalRef.current)
+        setTyping(false)
         timeoutRef.current = window.setTimeout(() => {
-          setPlaceholderIndex((prev) => (prev + 1) % placeholders.length)
-        }, IDLE_DELAY_AFTER_FINISH)
+          setPlaceholderIdx((p) => (p + 1) % placeholders.length)
+        }, 2200)
       }
-    }, CHAR_DELAY)
+    }, 75)
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
-  }, [placeholderIndex, placeholders, placeholder])
+  }, [placeholderIdx, placeholders, placeholder])
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = Math.min(el.scrollHeight, 200) + "px"
+  }, [])
+
+  useEffect(() => {
+    autoResize()
+  }, [value, autoResize])
+
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const v = e.target.value
+    setInternalValue(v)
+    onChange?.(v)
+  }
 
   function handleSubmit() {
     const trimmed = value.trim()
-    if (!trimmed || !onSubmit) return
-    onSubmit(trimmed)
-    setValue("")
+    if (!trimmed || disabled || loading) return
+    onSubmit?.(trimmed)
+    if (controlledValue === undefined) setInternalValue("")
+    if (textareaRef.current) textareaRef.current.style.height = "auto"
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()
     }
   }
 
+  const hasText = value.trim().length > 0
+
   return (
-    <div className="relative">
-      <div
-        className={`flex items-center gap-4 p-4 sm:p-6 bg-black shadow-lg transition-all duration-300 ease-out rounded-full border border-gray-300 ${
-          isFocused ? "shadow-xl scale-[1.02] border-gray-600" : "shadow-lg"
-        }`}
-      >
-        <div className="relative flex-shrink-0">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden transition-all duration-300 scale-100">
-            <img
-              src="https://media.giphy.com/media/26gsuUjoEBmLrNBxC/giphy.gif"
-              alt="Animated orb"
-              className="w-full h-full object-cover"
-            />
+    <div className={`orb-input-root ${className ?? ""}`}>
+      {/* Animated glow backdrop */}
+      <div className={`orb-input-glow ${isFocused ? "orb-input-glow--active" : ""}`} />
+
+      {/* Main container */}
+      <div className={`orb-input-bar ${isFocused ? "orb-input-bar--focused" : ""} ${disabled ? "orb-input-bar--disabled" : ""}`}>
+
+        {/* Orb */}
+        <div className="orb-input-orb-wrap">
+          <div className="orb-input-orb">
+            <div className="orb-input-orb-core" />
+            <div className="orb-input-orb-ring" />
           </div>
         </div>
 
-        <div className="w-px h-10 sm:h-12 bg-gray-600" />
+        {/* Divider */}
+        <div className="orb-input-divider" />
 
-        <div className="flex-1 min-w-0">
-          <input
-            data-testid="orb-input"
-            type="text"
+        {/* Textarea */}
+        <div className="orb-input-field-wrap">
+          <textarea
+            ref={textareaRef}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            onKeyDown={handleKeyDown}
-            placeholder={`${displayedText}${isTyping ? "|" : ""}`}
+            placeholder={displayPlaceholder}
+            disabled={disabled}
+            rows={1}
+            className="orb-input-textarea"
             aria-label="Ask a question"
-            className="w-full text-lg sm:text-xl text-white placeholder-gray-400 bg-transparent border-none outline-none font-light"
           />
         </div>
+
+        {/* Send / Loading indicator */}
+        <button
+          className={`orb-input-send ${hasText && !disabled && !loading ? "orb-input-send--ready" : ""} ${loading ? "orb-input-send--loading" : ""}`}
+          onClick={handleSubmit}
+          disabled={!hasText || disabled || loading}
+          aria-label="Send message"
+          type="button"
+        >
+          {loading ? (
+            <svg className="orb-input-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="orb-input-send-icon">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          )}
+        </button>
       </div>
     </div>
   )
