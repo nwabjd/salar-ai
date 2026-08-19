@@ -369,33 +369,141 @@
 .g-send-stop:hover{background:rgba(255,255,255,.12);color:rgba(255,255,255,.8)}
 @keyframes gPulseBtn{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.1)}50%{box-shadow:0 0 0 6px rgba(255,255,255,0)}}
 
-/* ===== OrbInput - 21st.dev Animated Input ===== */
-.orb-input-root{position:relative;width:100%;max-width:800px;margin-inline:auto}
-.orb-input-glow{position:absolute;inset:-40px;border-radius:50%;background:radial-gradient(ellipse at 30% 50%,rgba(139,92,246,.12) 0%,transparent 60%);opacity:0;transition:opacity .6s ease;pointer-events:none;z-index:0}
-.orb-input-glow--active{opacity:1}
-.orb-input-bar{position:relative;z-index:1;display:flex;align-items:flex-end;gap:0;padding:6px 8px 6px 6px;border-radius:9999px;background:rgba(18,17,22,.85);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(24px);box-shadow:0 4px 24px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.04);transition:all .3s cubic-bezier(.4,0,.2,1)}
-.orb-input-bar--focused{border-color:rgba(139,92,246,.35);box-shadow:0 4px 32px rgba(139,92,246,.12),0 1px 2px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.06)}
-.orb-input-bar--disabled{opacity:.5;pointer-events:none}
-.orb-input-orb-wrap{flex-shrink:0;width:52px;height:52px;display:flex;align-items:center;justify-content:center}
-.orb-input-orb{position:relative;width:40px;height:40px}
-.orb-input-orb-core{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(167,139,250,.6),rgba(139,92,246,.4) 40%,rgba(88,28,135,.3) 70%,transparent);animation:orbSpin 4s linear infinite;box-shadow:0 0 20px rgba(139,92,246,.3),0 0 40px rgba(139,92,246,.15)}
-.orb-input-orb-ring{position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(139,92,246,.2);animation:orbSpin 6s linear infinite reverse;opacity:.6}
-.orb-input-bar--focused .orb-input-orb-core{box-shadow:0 0 24px rgba(139,92,246,.5),0 0 48px rgba(139,92,246,.25)}
-.orb-input-bar--focused .orb-input-orb-ring{border-color:rgba(139,92,246,.4);opacity:1}
-@keyframes orbSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-.orb-input-divider{flex-shrink:0;width:1px;height:28px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center}
-.orb-input-field-wrap{flex:1;min-width:0;display:flex;align-items:center;padding:8px 4px}
-.orb-input-textarea{width:100%;resize:none;border:none;outline:none;background:transparent;color:rgba(255,255,255,.9);font-family:Manrope,"Segoe UI Variable",sans-serif;font-size:15px;line-height:1.5;padding:4px 8px;min-height:24px;max-height:200px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent}
-.orb-input-textarea::placeholder{color:rgba(255,255,255,.3);font-weight:300}
-.orb-input-textarea:disabled{cursor:not-allowed}
-.orb-input-send{flex-shrink:0;width:40px;height:40px;border:none;border-radius:50%;background:rgba(255,255,255,.06);color:rgba(255,255,255,.25);cursor:not-allowed;display:flex;align-items:center;justify-content:center;transition:all .25s cubic-bezier(.4,0,.2,1)}
-.orb-input-send--ready{background:rgba(139,92,246,.2);color:rgba(167,139,250,.9);cursor:pointer}
-.orb-input-send--ready:hover{background:rgba(139,92,246,.35);color:white;transform:scale(1.05)}
-.orb-input-send--ready:active{transform:scale(.95)}
-.orb-input-send--loading{cursor:not-allowed;animation:orbSpin 1.5s linear infinite}
-.orb-input-send-icon{width:18px;height:18px}
-.orb-input-spinner{width:18px;height:18px;animation:orbSpin 1.5s linear infinite}
-.orb-input-send:focus-visible{outline:2px solid rgba(139,92,246,.5);outline-offset:2px}
-.orb-input-textarea::-webkit-scrollbar{width:4px}
-.orb-input-textarea::-webkit-scrollbar-track{background:transparent}
-.orb-input-textarea::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+/* ===== OrbInput — 21st.dev Animated Input ===== */
+
+/* Bar: matches source — bg-black, rounded-full, border-gray-300, p-6, gap-4 */
+.orb-bar{
+  padding:24px;
+  gap:16px;
+  background:#000;
+  border-color:rgba(255,255,255,.15);
+  box-shadow:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.3);
+}
+.orb-bar-focused{
+  padding:24px;
+  gap:16px;
+  background:#000;
+  border-color:rgba(255,255,255,.4);
+  box-shadow:0 20px 25px -5px rgba(0,0,0,.5),0 8px 10px -6px rgba(0,0,0,.4);
+  transform:scale(1.02);
+}
+.orb-bar-disabled{opacity:.5;pointer-events:none}
+
+/* Orb GIF — w-16 h-16 rounded-full (source exact) */
+.orb-gif-wrap{
+  width:64px;
+  height:64px;
+  border-radius:50%;
+  overflow:hidden;
+  flex-shrink:0;
+  transition:all .3s ease;
+}
+.orb-gif-wrap img{width:100%;height:100%;object-fit:cover}
+.orb-gif-loading{
+  animation:orbPulse 2s ease-in-out infinite;
+}
+@keyframes orbPulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.7;transform:scale(.95)}
+}
+
+/* Divider — w-px h-12 bg-gray-600 */
+.orb-divider{
+  width:1px;
+  height:48px;
+  background:rgba(255,255,255,.2);
+  flex-shrink:0;
+}
+
+/* Textarea — matches source input: w-full, text-xl, text-white, bg-transparent, border-none, outline-none, font-light */
+.orb-textarea{
+  width:100%;
+  resize:none;
+  border:none;
+  outline:none;
+  background:transparent;
+  color:#fff;
+  font-size:1.25rem;
+  font-weight:300;
+  line-height:1.5;
+  padding:0;
+  min-height:32px;
+  max-height:220px;
+  overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.15) transparent;
+  font-family:inherit;
+}
+.orb-textarea::placeholder{color:rgba(255,255,255,.4);font-weight:300}
+.orb-textarea:disabled{cursor:not-allowed;opacity:.5}
+.orb-textarea::-webkit-scrollbar{width:4px}
+.orb-textarea::-webkit-scrollbar-track{background:transparent}
+.orb-textarea::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px}
+
+/* Send button — inside the bar, right side */
+.orb-send{
+  flex-shrink:0;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.05);
+  color:rgba(255,255,255,.3);
+  cursor:not-allowed;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+}
+.orb-send-ready{
+  background:rgba(255,255,255,.08);
+  color:rgba(255,255,255,.7);
+  cursor:pointer;
+  border-color:rgba(255,255,255,.18);
+}
+.orb-send-ready:hover{
+  background:rgba(255,255,255,.14);
+  color:#fff;
+  transform:scale(1.08);
+}
+.orb-send-ready:active{transform:scale(.94)}
+.orb-send:focus-visible{outline:2px solid rgba(139,92,246,.5);outline-offset:2px}
+.orb-send-loading{
+  cursor:pointer;
+  background:rgba(255,255,255,.06);
+  color:rgba(255,255,255,.5);
+  border-color:rgba(255,255,255,.1);
+}
+
+/* Sticky composer */
+.orb-composer-sticky{
+  flex-shrink:0;
+  padding:0 24px 24px;
+  background:linear-gradient(to top,rgba(5,5,9,1) 60%,transparent);
+}
+.orb-composer-inner{
+  position:relative;
+  width:100%;
+  max-width:1000px;
+  margin-inline:auto;
+}
+.orb-mic-btn{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.05);
+  color:rgba(239,68,68,.5);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:all .15s;
+  z-index:2;
+}
+.orb-mic-btn:hover{color:#ef4444;background:rgba(239,68,68,.08)}
+.orb-mic-btn:focus-visible{outline:2px solid rgba(239,68,68,.4);outline-offset:2px}

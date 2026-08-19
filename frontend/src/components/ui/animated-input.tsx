@@ -1,12 +1,6 @@
 "use client"
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 export interface OrbInputProps {
   value?: string
@@ -31,9 +25,9 @@ export function OrbInput({
 }: OrbInputProps) {
   const [internalValue, setInternalValue] = useState(defaultValue)
   const [isFocused, setIsFocused] = useState(false)
-  const [placeholderIdx, setPlaceholderIdx] = useState(0)
-  const [typed, setTyped] = useState("")
-  const [typing, setTyping] = useState(true)
+  const [placeholderIndex, setPlaceholderIndex] = useState(0)
+  const [displayedText, setDisplayedText] = useState("")
+  const [isTyping, setIsTyping] = useState(true)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const intervalRef = useRef<number | null>(null)
   const timeoutRef = useRef<number | null>(null)
@@ -50,50 +44,66 @@ export function OrbInput({
     []
   )
 
-  const displayPlaceholder = placeholder ?? `${typed}${typing ? "|" : ""}`
+  const CHAR_DELAY = 75
+  const IDLE_DELAY_AFTER_FINISH = 2200
 
   useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+
     if (placeholder) return
 
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-
-    const current = placeholders[placeholderIdx]
+    const current = placeholders[placeholderIndex]
     if (!current) {
-      setTyped("")
-      setTyping(false)
+      setDisplayedText("")
+      setIsTyping(false)
       return
     }
 
     const chars = Array.from(current)
-    setTyped("")
-    setTyping(true)
-    let ci = 0
+    setDisplayedText("")
+    setIsTyping(true)
+    let charIndex = 0
 
     intervalRef.current = window.setInterval(() => {
-      if (ci < chars.length) {
-        setTyped(chars.slice(0, ci + 1).join(""))
-        ci++
+      if (charIndex < chars.length) {
+        setDisplayedText(chars.slice(0, charIndex + 1).join(""))
+        charIndex += 1
       } else {
-        if (intervalRef.current) clearInterval(intervalRef.current)
-        setTyping(false)
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
+        setIsTyping(false)
         timeoutRef.current = window.setTimeout(() => {
-          setPlaceholderIdx((p) => (p + 1) % placeholders.length)
-        }, 2200)
+          setPlaceholderIndex((prev) => (prev + 1) % placeholders.length)
+        }, IDLE_DELAY_AFTER_FINISH)
       }
-    }, 75)
+    }, CHAR_DELAY)
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
     }
-  }, [placeholderIdx, placeholders, placeholder])
+  }, [placeholderIndex, placeholders, placeholder])
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = "auto"
-    el.style.height = Math.min(el.scrollHeight, 200) + "px"
+    el.style.height = Math.min(el.scrollHeight, 220) + "px"
   }, [])
 
   useEffect(() => {
@@ -121,29 +131,31 @@ export function OrbInput({
     }
   }
 
+  const displayPlaceholder = placeholder ?? `${displayedText}${isTyping ? "|" : ""}`
   const hasText = value.trim().length > 0
 
   return (
-    <div className={`orb-input-root ${className ?? ""}`}>
-      {/* Animated glow backdrop */}
-      <div className={`orb-input-glow ${isFocused ? "orb-input-glow--active" : ""}`} />
-
-      {/* Main container */}
-      <div className={`orb-input-bar ${isFocused ? "orb-input-bar--focused" : ""} ${disabled ? "orb-input-bar--disabled" : ""}`}>
-
-        {/* Orb */}
-        <div className="orb-input-orb-wrap">
-          <div className="orb-input-orb">
-            <div className="orb-input-orb-core" />
-            <div className="orb-input-orb-ring" />
+    <div className={`relative ${className ?? ""}`}>
+      <div
+        className={`flex items-center gap-4 rounded-full border transition-all duration-300 ease-out ${
+          isFocused
+            ? "orb-bar-focused"
+            : "orb-bar"
+        } ${disabled ? "orb-bar-disabled" : ""}`}
+      >
+        <div className="relative flex-shrink-0">
+          <div className={`orb-gif-wrap ${loading ? "orb-gif-loading" : ""}`}>
+            <img
+              src="https://media.giphy.com/media/26gsuUjoEBmLrNBxC/giphy.gif"
+              alt="Animated orb"
+              className="w-full h-full object-cover"
+            />
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="orb-input-divider" />
+        <div className="orb-divider" />
 
-        {/* Textarea */}
-        <div className="orb-input-field-wrap">
+        <div className="flex-1 min-w-0">
           <textarea
             ref={textareaRef}
             value={value}
@@ -152,27 +164,27 @@ export function OrbInput({
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             placeholder={displayPlaceholder}
-            disabled={disabled}
+            disabled={disabled || loading}
             rows={1}
-            className="orb-input-textarea"
+            data-testid="orb-input"
             aria-label="Ask a question"
+            className="orb-textarea"
           />
         </div>
 
-        {/* Send / Loading indicator */}
         <button
-          className={`orb-input-send ${hasText && !disabled && !loading ? "orb-input-send--ready" : ""} ${loading ? "orb-input-send--loading" : ""}`}
-          onClick={handleSubmit}
-          disabled={!hasText || disabled || loading}
-          aria-label="Send message"
+          className={`orb-send ${hasText && !disabled ? "orb-send-ready" : ""} ${loading ? "orb-send-loading" : ""}`}
+          onClick={loading ? undefined : handleSubmit}
+          disabled={!hasText || disabled}
+          aria-label={loading ? "Stop" : "Send message"}
           type="button"
         >
           {loading ? (
-            <svg className="orb-input-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="3" y="3" width="10" height="10" rx="2" />
             </svg>
           ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="orb-input-send-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14" />
               <path d="m12 5 7 7-7 7" />
             </svg>

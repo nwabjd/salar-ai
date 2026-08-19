@@ -91,98 +91,86 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
-        {!hasMessages && (
-          <div className="flex h-full flex-col items-center justify-center px-4">
+        {!hasMessages ? (
+          /* EMPTY STATE: heading + composer centered in viewport */
+          <div className="flex h-full flex-col items-center justify-center px-4" style={{ gap: 40 }}>
             <h1 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 300, color: 'rgba(255,255,255,.65)', letterSpacing: '-.02em', margin: 0 }}>
               How can I help you today?
             </h1>
+            <div style={{ width: 'min(1000px, calc(100vw - 48px))' }}>
+              <OrbInput onSubmit={handleSend} />
+            </div>
           </div>
-        )}
-
-        {hasMessages && (
-          <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
-            {messages.map((msg) => (
-              <div key={msg.id} style={{ marginBottom: 24, display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                {msg.role === 'assistant' ? (
-                  <div style={{ color: 'rgba(255,255,255,.85)', fontSize: 15, lineHeight: 1.7, maxWidth: '100%' }}>
-                    <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
-                    <MessageActions content={msg.content} />
-                  </div>
-                ) : (
-                  <div style={{
-                    maxWidth: '80%',
-                    background: 'rgba(255,255,255,.08)',
-                    border: '1px solid rgba(255,255,255,.08)',
-                    borderRadius: '20px 20px 4px 20px',
-                    padding: '10px 16px',
-                  }}>
-                    <p style={{ margin: 0, color: 'rgba(255,255,255,.85)', fontSize: 15, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-            {streaming && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ color: 'rgba(255,255,255,.85)', fontSize: 15, lineHeight: 1.7 }}>
-                  <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{streaming}<span style={{ opacity: .5, animation: 'aiBlink 1s step-end infinite' }}>|</span></p>
+        ) : (
+          /* ACTIVE STATE: messages + sticky composer at bottom */
+          <>
+            <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 24px 0' }}>
+              {messages.map((msg) => (
+                <div key={msg.id} style={{ marginBottom: 24, display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  {msg.role === 'assistant' ? (
+                    <div style={{ color: 'rgba(255,255,255,.85)', fontSize: 15, lineHeight: 1.7, maxWidth: '85%' }}>
+                      <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                      <MessageActions content={msg.content} />
+                    </div>
+                  ) : (
+                    <div style={{
+                      maxWidth: '80%',
+                      background: 'rgba(255,255,255,.08)',
+                      border: '1px solid rgba(255,255,255,.08)',
+                      borderRadius: '20px 20px 4px 20px',
+                      padding: '10px 16px',
+                    }}>
+                      <p style={{ margin: 0, color: 'rgba(255,255,255,.85)', fontSize: 15, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-            {toolActivity && !streaming && (
-              <div style={{ marginBottom: 24 }}>
-                <p style={{ color: 'rgba(201,165,110,.8)', fontSize: 13, fontStyle: 'italic', margin: 0 }}>{toolActivity}</p>
-              </div>
-            )}
-            {busy && !streaming && !toolActivity && (
-              <div style={{ marginBottom: 24 }}>
-                <p style={{ color: 'rgba(255,255,255,.5)', fontSize: 15, margin: 0 }}>
-                  Reasoning across your private context…<TypingDots />
-                </p>
-              </div>
-            )}
-            <div ref={endRef} />
-          </div>
+              ))}
+              {streaming && (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ color: 'rgba(255,255,255,.85)', fontSize: 15, lineHeight: 1.7 }}>
+                    <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{streaming}<span style={{ opacity: .5, animation: 'aiBlink 1s step-end infinite' }}>|</span></p>
+                  </div>
+                </div>
+              )}
+              {toolActivity && !streaming && (
+                <div style={{ marginBottom: 24 }}>
+                  <p style={{ color: 'rgba(201,165,110,.8)', fontSize: 13, fontStyle: 'italic', margin: 0 }}>{toolActivity}</p>
+                </div>
+              )}
+              {busy && !streaming && !toolActivity && (
+                <div style={{ marginBottom: 24 }}>
+                  <p style={{ color: 'rgba(255,255,255,.5)', fontSize: 15, margin: 0 }}>
+                    Reasoning across your private context…<TypingDots />
+                  </p>
+                </div>
+              )}
+              <div ref={endRef} />
+            </div>
+          </>
         )}
       </div>
 
-      {/* OrbInput composer */}
-      <div style={{ flexShrink: 0, padding: '0 16px 20px', maxWidth: 900, marginInline: 'auto', width: '100%' }}>
-        <div style={{ position: 'relative' }}>
-          <OrbInput
-            onSubmit={handleSend}
-            placeholder={busy ? "Salaar is thinking..." : undefined}
-            disabled={busy}
-            loading={busy}
-          />
-          <button
-            onClick={onLive}
-            title="Live voice"
-            aria-label="Open live voice"
-            style={{
-              position: 'absolute',
-              right: 60,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,.1)',
-              background: 'rgba(255,255,255,.05)',
-              color: 'rgba(239,68,68,.5)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all .15s',
-              zIndex: 2,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,.08)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(239,68,68,.5)'; e.currentTarget.style.background = 'rgba(255,255,255,.05)' }}
-          >
-            <Mic2 size={16} />
-          </button>
+      {/* COMPOSER: sticky at bottom when messages exist, hidden in empty state (it's inside the centered flex above) */}
+      {hasMessages && (
+        <div className="orb-composer-sticky">
+          <div className="orb-composer-inner">
+            <OrbInput
+              onSubmit={handleSend}
+              placeholder={busy ? "Salaar is thinking..." : undefined}
+              disabled={busy}
+              loading={busy}
+            />
+            <button
+              onClick={onLive}
+              title="Live voice"
+              aria-label="Open live voice"
+              className="orb-mic-btn"
+            >
+              <Mic2 size={16} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
