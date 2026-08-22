@@ -66,7 +66,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "write_file",
-                "description": "Write content to a file on the user's PC. Creates the file if it doesn't exist. Use absolute paths like C:\Users\<name>\Desktop\...",
+                "description": "Write content to a file on the user's PC. Creates the file if it doesn't exist. Prefer absolute Windows paths like C:/Users/<name>/Desktop/report.txt.",
                 "parameters": {
                     "type": "object",
                     "properties": {
