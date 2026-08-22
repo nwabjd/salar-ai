@@ -22,3 +22,33 @@ commands.allow = ["clear_token"]
 identifier = "allow-live-metrics"
 description = "Allows reading local system metrics"
 commands.allow = ["live_metrics"]
+
+[[permission]]
+identifier = "allow-open-external"
+description = "Allows opening links in the user's default browser"
+commands.allow = ["open_external"]
+
+[[permission]]
+identifier = "allow-get-launch-mode"
+description = "Allows reading whether this run is a fresh-install setup"
+commands.allow = ["get_launch_mode"]
+
+[[permission]]
+identifier = "allow-install-copy-files"
+description = "Allows copying SALAR into its install directory"
+commands.allow = ["install_copy_files"]
+
+[[permission]]
+identifier = "allow-install-register-protocol"
+description = "Allows registering the salar:// protocol handler"
+commands.allow = ["install_register_protocol"]
+
+[[permission]]
+identifier = "allow-install-create-shortcuts"
+description = "Allows creating Desktop and Start Menu shortcuts"
+commands.allow = ["install_create_shortcuts"]
+
+[[permission]]
+identifier = "allow-install-finish"
+description = "Allows completing setup and launching the installed app"
+commands.allow = ["install_finish"]
