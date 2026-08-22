@@ -336,6 +336,8 @@ def create_app(settings: Settings = None) -> FastAPI:
         return {"status": "ok", "service": "salar-backend", "version": __version__}
 
     app.include_router(auth_router)
+    from .api.auth_relay import router as auth_relay_router
+    app.include_router(auth_relay_router)
     app.include_router(world_router)
     app.include_router(chat_router)
     app.include_router(memory_router)
