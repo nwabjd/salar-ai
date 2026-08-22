@@ -4,7 +4,7 @@ import { Calendar, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, 
 import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
 import Strands from './effects/Strands.jsx'
-import { AccessState, clearSession, saveSession, storedSession } from './access'
+import { AccessState, clearSession, isDesktop, saveSession, storedSession } from './access'
 import { createSessionCoordinator } from './auth/session-coordinator'
 import { cleanAuthFromUrl, supabase } from './lib/supabase'
 import { Conversation, Message, SalarApi, WorldAction, WorldSituation } from './api'
@@ -27,6 +27,7 @@ import { HybridVoiceClient } from './live/hybrid-voice-client'
 import { ModeProvider } from './contexts/ModeContext'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { TermsPage } from './components/TermsPage'
+import { SetupScreen } from './components/SetupScreen'
 
 const api = new SalarApi()
 const LegacyRings = MagicRings
@@ -70,6 +71,44 @@ function App() {
   const [usage, setUsage] = useState<Usage | null>(null)
   const [showPricing, setShowPricing] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
+  const [launchMode, setLaunchMode] = useState<'unknown' | 'setup' | 'update' | 'app'>('unknown')
+
+  useEffect(() => {
+    if (!isDesktop()) { setLaunchMode('app'); return }
+    const internals = (window as unknown as { __TAURI_INTERNALS__?: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }).__TAURI_INTERNALS__
+    internals?.invoke('get_launch_mode')
+      .then(mode => setLaunchMode(mode === 'setup' ? 'setup' : mode === 'update' ? 'update' : 'app'))
+      .catch(() => setLaunchMode('app'))
+  }, [])
+
+  // Desktop sign-in relay (runs before anything else): when the browser lands
+  // back on salaar.cloud carrying ?handshake=… plus OAuth tokens in the hash,
+  // forward those tokens to the backend so the waiting desktop app can
+  // collect them. Must live here — the landing page never renders once the
+  // browser session becomes authenticated.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const handshake = params.get('handshake')
+      if (!handshake || !window.location.hash.includes('access_token')) return
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      const accessToken = hash.get('access_token')
+      const refreshToken = hash.get('refresh_token')
+      if (!accessToken || !refreshToken) return
+      const expiresIn = Number(hash.get('expires_in') ?? '')
+      api.relayAuthStore(handshake, {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : undefined,
+        token_type: hash.get('token_type') ?? 'bearer',
+        provider_token: hash.get('provider_token') ?? undefined,
+        provider_refresh_token: hash.get('provider_refresh_token') ?? undefined,
+      }).then(() => {
+        document.title = 'SALAR — sign-in complete'
+        window.history.replaceState({}, '', window.location.origin + window.location.pathname)
+      }).catch(() => { /* ignore */ })
+    } catch { /* ignore */ }
+  }, [])
 
   const enterApp = useCallback(async (supabaseToken?: string | null) => {
     const result = await sessionCoordinator.connect(supabaseToken)
@@ -150,6 +189,8 @@ function App() {
     setAccess('signed-out')
   }
 
+  if (launchMode === 'unknown') return null
+  if (launchMode === 'setup' || launchMode === 'update') return <SetupScreen variant={launchMode === 'setup' ? 'install' : 'update'}/>
   if (!ready) return <Loader/>
   if (access !== 'connected') return <SalaarLanding onEnterApp={enterApp}/>
 

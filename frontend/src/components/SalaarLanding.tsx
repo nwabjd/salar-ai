@@ -418,19 +418,62 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
     }
 
     setBusy(true);
-    // Tauri desktop webviews cannot relay OAuth popup sessions back to the
-    // opener window. Redirect the main window instead and let Supabase pick
-    // the session out of the callback URL.
+    // Desktop: authenticate in the user's DEFAULT browser (which already has
+    // their provider sessions). The signed-in browser page relays the tokens
+    // to the backend under a one-time handshake code, and we poll for them —
+    // no custom protocol involved.
     if (isDesktop()) {
-      const { data, error: authError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: window.location.origin, skipBrowserRedirect: true },
-      });
-      if (authError) setError(authError.message);
-      if (data?.url) {
-        window.location.href = data.url;
+      const internals = (window as unknown as { __TAURI_INTERNALS__?: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }).__TAURI_INTERNALS__;
+      if (!internals?.invoke) {
+        setError("Desktop runtime unavailable.");
+        setBusy(false);
         return;
       }
+      const handshake = `hs-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}-${Math.random().toString(36).slice(2, 12)}`;
+      // NOTE: window.location.origin inside the Tauri webview is
+      // http://tauri.localhost — never send THAT to the OAuth provider. The
+      // browser must land on the real site so it can relay the tokens.
+      const siteOrigin = "https://salaar.cloud";
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${siteOrigin}/?handshake=${encodeURIComponent(handshake)}`, skipBrowserRedirect: true },
+      });
+      if (authError) {
+        setError(authError.message);
+        setBusy(false);
+        return;
+      }
+      if (!data?.url) {
+        setError("Could not start sign-in.");
+        setBusy(false);
+        return;
+      }
+      try {
+        await internals.invoke("open_external", { url: data.url });
+      } catch (invokeError) {
+        const reason = typeof invokeError === "string" ? ` (${invokeError})` : "";
+        setError(`Could not open your default browser${reason}.`);
+        setBusy(false);
+        return;
+      }
+      setMessage("Finish signing in inside your browser — SALAR will continue automatically.");
+      // Poll the backend relay for the tokens the browser deposits.
+      const deadline = Date.now() + 180000;
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+          const result = await api.relayAuthFetch(handshake);
+          if (result.status === "ok" && result.session?.access_token && result.session.refresh_token) {
+            await supabase.auth.setSession({
+              access_token: result.session.access_token,
+              refresh_token: result.session.refresh_token,
+            });
+            window.location.reload();
+            return;
+          }
+        } catch { /* keep polling */ }
+      }
+      setError("Sign-in didn't complete in your browser. Please try again.");
       setBusy(false);
       return;
     }

@@ -134,6 +134,23 @@ export class SalarApi {
     this.token = data.access_token
     return data
   }
+
+  async relayAuthStore(handshake: string, session: { access_token: string; refresh_token: string; expires_in?: number; token_type?: string; provider_token?: string; provider_refresh_token?: string }) {
+    const response = await fetch(`${this.baseUrl}/api/auth/handshake/${encodeURIComponent(handshake)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(session),
+    })
+    if (!response.ok) throw new Error(`Relay failed (${response.status})`)
+    return response.json()
+  }
+
+  async relayAuthFetch(handshake: string): Promise<{ status: string; session?: { access_token: string; refresh_token: string; expires_in?: number; token_type?: string; provider_token?: string; provider_refresh_token?: string } }> {
+    const response = await fetch(`${this.baseUrl}/api/auth/handshake/${encodeURIComponent(handshake)}`)
+    if (!response.ok) throw new Error(`Relay failed (${response.status})`)
+    return response.json()
+  }
+
   validateSession() { return this.request<{id:string;email:string;is_admin:boolean}>('/api/auth/session') }
   async usage() {
     return this.request<{ plan: string; limit: number | null; used: number; reset_at: string; exempt: boolean }>('/api/billing/usage')
