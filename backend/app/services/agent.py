@@ -102,13 +102,13 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "device_command",
-                "description": "Send a command to execute on the user's connected device (phone or desktop). Can open URLs, apps, or reveal file paths on the device.",
+                "description": "Send a command to execute on the user's connected desktop/phone. Prefer this for creating folders, writing files, or running shell commands ON THE USER'S COMPUTER (not on the server).",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "device_id": {"type": "string", "description": "Device ID to send command to (omit for first available device)"},
-                        "kind": {"type": "string", "enum": ["open_url", "open_app", "reveal_path"], "description": "Type of command"},
-                        "payload": {"type": "object", "description": "Command payload. For open_url: {'url': '...'}. For open_app: {'app_name': '...'}. For reveal_path: {'path': '...'}.", "properties": {}},
+                        "kind": {"type": "string", "enum": ["open_url", "open_app", "reveal_path", "create_directory", "write_file", "run_command"], "description": "Type of command"},
+                        "payload": {"type": "object", "description": "Command payload. open_url: {'url'}. open_app: {'app'}. reveal_path/create_directory/write_file/run_command: {'path'} / {'path','content'} / {'command'}.", "properties": {}},
                         "requires_confirmation": {"type": "boolean", "description": "Whether the device should ask user confirmation before executing"}
                     },
                     "required": ["kind", "payload"]
@@ -890,13 +890,13 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         if name == "open_app":
             return await _open_app(args.get("app_name", ""))
         elif name == "run_command":
-            return await _run_command(args.get("command", ""), args.get("cwd"))
+            return await _run_command(args.get("command", ""), args.get("cwd"), user_id, db_session)
         elif name == "list_files":
             return await _list_files(args.get("path", str(Path.home())), args.get("pattern"))
         elif name == "read_file":
             return await _read_file(args.get("path", ""))
         elif name == "write_file":
-            return await _write_file(args.get("path", ""), args.get("content", ""), user_id)
+            return await _write_file(args.get("path", ""), args.get("content", ""), user_id, db_session)
         elif name == "open_url":
             return await _open_url(args.get("url", ""), user_id, db_session, base_url, jwt_secret)
         elif name == "send_notification":
@@ -1127,9 +1127,15 @@ async def _open_app(app_name: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _run_command(command: str, cwd: str = None) -> Dict[str, Any]:
+async def _run_command(command: str, cwd: str = None, user_id: str = "", db_session=None) -> Dict[str, Any]:
     if not command:
         return {"error": "No command provided"}
+    # 1. Prefer running on the user's own computer via their connected desktop app
+    if user_id and db_session:
+        result = await _route_to_local_device("run_command", {"command": command}, user_id, db_session)
+        if result is not None:
+            return {**result, "note": "Ran on your computer."}
+    # 2. Fall back to this host (works when the backend runs on the user's machine)
     try:
         kwargs = {"stdout": asyncio.subprocess.PIPE, "stderr": asyncio.subprocess.PIPE}
         if cwd:
@@ -1192,9 +1198,15 @@ async def _read_file(path: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _write_file(path: str, content: str, user_id: str = "") -> Dict[str, Any]:
+async def _write_file(path: str, content: str, user_id: str = "", db_session=None) -> Dict[str, Any]:
     if not path:
         return {"error": "No path provided"}
+    # 1. Prefer writing on the user's own computer via their connected desktop app
+    if user_id and db_session:
+        result = await _route_to_local_device("write_file", {"path": path, "content": content}, user_id, db_session)
+        if result is not None:
+            return {**result, "note": "Written to your computer."}
+    # 2. Fall back to the server-side sandbox
     try:
         p = Path(path)
         if not p.is_absolute() and user_id:
@@ -1302,7 +1314,48 @@ async def _send_notification(title: str, body: str, device_id: str, user_id: str
     return {"status": "queued", "devices": created, "title": title, "body": body}
 
 
-CONFIRMATION_KINDS = {"reveal_path", "create_directory"}
+CONFIRMATION_KINDS = {"reveal_path"}
+
+
+async def _route_to_local_device(kind: str, payload: dict, user_id: str, db_session=None, wait_seconds: int = 25) -> Optional[Dict[str, Any]]:
+    """Try to execute a file/shell operation on the user's own computer via their
+    connected desktop app. Returns the device result dict, or None when no device
+    is available (caller should fall back to server-side execution)."""
+    if not db_session:
+        return None
+    from ..models import Device
+    from sqlalchemy import select
+    device = db_session.scalar(select(Device).where(Device.user_id == user_id))
+    if device is None:
+        return None
+    result = await _device_command(None, kind, payload, False, user_id, db_session)
+    status_value = result.get("status")
+    if status_value not in ("queued", "awaiting_approval"):
+        return None
+    command_id = result.get("command_id")
+    if not command_id:
+        return {**result, "note": "Queued on your computer."}
+    # Poll for the desktop app to pick up and complete the command.
+    from ..models import Command
+    import time as _time
+    deadline = _time.monotonic() + wait_seconds
+    while _time.monotonic() < deadline:
+        await asyncio.sleep(1)
+        db_session.expire_all()
+        cmd = db_session.get(Command, command_id)
+        if cmd is None:
+            return None
+        if cmd.status == "completed":
+            try:
+                payload_result = json.loads(cmd.result_json) if cmd.result_json else {}
+            except Exception:
+                payload_result = {}
+            inner = payload_result.get("result") or payload_result
+            return {"status": "completed_on_device", "device": result.get("device"), **(inner if isinstance(inner, dict) else {})}
+        if cmd.status == "failed":
+            return {"error": "Your computer reported a failure running this command.", "detail": cmd.result_json}
+    return {"status": "queued", "device": result.get("device"), "command_id": command_id,
+            "note": "Sent to your computer — it will run when your SALAR desktop app is online."}
 
 
 async def _device_command(device_id: str, kind: str, payload: dict, requires_confirmation: bool, user_id: str, db_session=None) -> Dict[str, Any]:

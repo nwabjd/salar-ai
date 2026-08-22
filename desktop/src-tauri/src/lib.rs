@@ -58,9 +58,51 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
         "create_directory" => {
             let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
             let path = std::path::PathBuf::from(raw);
-            if !path.is_absolute() { return Err("An absolute path is required".into()); }
+            let path = if path.is_absolute() { path } else {
+                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
+                home.join(path)
+            };
             fs::create_dir_all(&path).map_err(|e| e.to_string())?;
             Ok(json!({"created": path}))
+        }
+        "write_file" => {
+            let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
+            let content = payload.get("content").and_then(Value::as_str).ok_or("Missing content")?;
+            let path = std::path::PathBuf::from(raw);
+            let path = if path.is_absolute() { path } else {
+                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
+                home.join(path)
+            };
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            let size = content.len();
+            fs::write(&path, content).map_err(|e| e.to_string())?;
+            Ok(json!({"written": path, "size": size}))
+        }
+        "run_command" => {
+            let raw = payload.get("command").and_then(Value::as_str).ok_or("Missing command")?;
+            if raw.len() > 2000 { return Err("Command too long".into()); }
+            #[cfg(target_os = "windows")]
+            let mut cmd = {
+                let mut c = Command::new("cmd");
+                // Translate POSIX-style mkdir flags for cmd.exe
+                let sanitized = if raw.to_lowercase().starts_with("mkdir -p ") { raw.replacen(" -p ", " ", 1) } else { raw.to_string() };
+                c.arg("/c").arg(sanitized);
+                c
+            };
+            #[cfg(not(target_os = "windows"))]
+            let mut cmd = {
+                let mut c = Command::new("sh");
+                c.arg("-c").arg(raw);
+                c
+            };
+            let output = cmd.output().map_err(|e| e.to_string())?;
+            Ok(json!({
+                "exit_code": output.status.code(),
+                "stdout": String::from_utf8_lossy(&output.stdout).chars().take(5000).collect::<String>(),
+                "stderr": String::from_utf8_lossy(&output.stderr).chars().take(2000).collect::<String>(),
+            }))
         }
         "system_info" => {
             let mut system = System::new_all(); system.refresh_all();
