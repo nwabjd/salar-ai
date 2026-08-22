@@ -15,7 +15,7 @@ from ..security import get_current_user
 
 
 router = APIRouter(tags=["devices"])
-ALLOWED_COMMANDS = {"open_url", "open_app", "reveal_path", "create_directory", "write_file", "run_command", "system_info", "notification"}
+ALLOWED_COMMANDS = {"open_url", "open_app", "reveal_path", "create_directory", "write_file", "run_command", "list_files", "read_file", "system_info", "notification"}
 CONFIRMATION_REQUIRED = {"reveal_path"}
 
 

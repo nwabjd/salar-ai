@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import hashlib
 import hmac
 import json
@@ -44,7 +44,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "list_files",
-                "description": "List files and directories at a given path.",
+                "description": "List files and directories at a given path on the user's PC.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -55,7 +55,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "read_file",
-                "description": "Read the contents of a text file.",
+                "description": "Read the contents of a text file on the user's PC.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -66,7 +66,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "write_file",
-                "description": "Write content to a file. Creates the file if it doesn't exist.",
+                "description": "Write content to a file on the user's PC. Creates the file if it doesn't exist. Use absolute paths like C:\Users\<name>\Desktop\...",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -727,7 +727,7 @@ TOOL_DEFINITIONS = [
                     "type": "object",
                     "properties": {
                         "name": {"type": "string", "description": "Workspace name"},
-                        "icon": {"type": "string", "description": "Emoji icon (default 📁)"}
+                        "icon": {"type": "string", "description": "Emoji icon (default ðŸ“)"}
                     },
                     "required": ["name"]
                 }
@@ -892,9 +892,9 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         elif name == "run_command":
             return await _run_command(args.get("command", ""), args.get("cwd"), user_id, db_session)
         elif name == "list_files":
-            return await _list_files(args.get("path", str(Path.home())), args.get("pattern"))
+            return await _list_files(args.get("path", str(Path.home())), args.get("pattern"), user_id, db_session)
         elif name == "read_file":
-            return await _read_file(args.get("path", ""))
+            return await _read_file(args.get("path", ""), user_id, db_session)
         elif name == "write_file":
             return await _write_file(args.get("path", ""), args.get("content", ""), user_id, db_session)
         elif name == "open_url":
@@ -1041,7 +1041,7 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
                 return {"error": "Alert rules require admin privileges"}
             return await _list_triggered_alerts(args.get("limit", 20))
         elif name == "create_workspace":
-            return await _create_workspace(args.get("name", ""), args.get("icon", "📁"), user_id)
+            return await _create_workspace(args.get("name", ""), args.get("icon", "ðŸ“"), user_id)
         elif name == "list_workspaces":
             return await _list_workspaces(user_id)
         elif name == "update_task":
@@ -1079,7 +1079,7 @@ async def _world_simulate(changes: List[Dict[str, Any]], user_id: str, db_sessio
     if db_session is None:
         return {"error": "No database session available for simulation"}
     if not changes:
-        return {"error": "No changes provided — pass at least one change to simulate"}
+        return {"error": "No changes provided â€” pass at least one change to simulate"}
     try:
         graph = WorldGraph(db_session)
         engine = SituationEngine(graph)
@@ -1158,7 +1158,20 @@ async def _run_command(command: str, cwd: str = None, user_id: str = "", db_sess
         return {"error": str(e)}
 
 
-async def _list_files(path: str, pattern: str = None) -> Dict[str, Any]:
+async def _list_files(path: str, pattern: str = None, user_id: str = "", db_session=None) -> Dict[str, Any]:
+    if not path:
+        path = str(Path.home())
+    # 1. Prefer listing on the user's own computer via their connected desktop app
+    if user_id and db_session:
+        payload: Dict[str, Any] = {"path": path}
+        if pattern:
+            payload["pattern"] = pattern
+        result = await _route_to_local_device("list_files", payload, user_id, db_session)
+        if result is not None and result.get("status") != "queued":
+            return result
+        if result is not None:
+            return {**result, "note": "Waiting for your computer â€” listing queued."}
+    # 2. Fall back to this host
     try:
         p = Path(path)
         if not p.exists():
@@ -1183,9 +1196,17 @@ async def _list_files(path: str, pattern: str = None) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-async def _read_file(path: str) -> Dict[str, Any]:
+async def _read_file(path: str, user_id: str = "", db_session=None) -> Dict[str, Any]:
     if not path:
         return {"error": "No path provided"}
+    # 1. Prefer reading on the user's own computer via their connected desktop app
+    if user_id and db_session:
+        result = await _route_to_local_device("read_file", {"path": path}, user_id, db_session)
+        if result is not None and result.get("status") != "queued":
+            return result
+        if result is not None:
+            return {**result, "note": "Waiting for your computer â€” read queued."}
+    # 2. Fall back to this host
     try:
         p = Path(path)
         if not p.exists():
@@ -1225,7 +1246,7 @@ async def _open_url(url: str, user_id: str = "", db_session=None, base_url: str 
     raw = url.strip()
     if raw.startswith("file://"):
         raw = raw[len("file://"):]
-    # 1. If it's a local file path that exists in the user's sandbox → serve it over HTTP
+    # 1. If it's a local file path that exists in the user's sandbox â†’ serve it over HTTP
     served = None
     if not raw.startswith(("http://", "https://")):
         served = _serve_local_file(raw, user_id, base_url, jwt_secret)
@@ -1238,7 +1259,7 @@ async def _open_url(url: str, user_id: str = "", db_session=None, base_url: str 
         result = await _device_command(None, "open_url", {"url": url}, False, user_id, db_session)
         if result.get("status") in ("queued", "awaiting_approval"):
             return {**result, "url": url, "note": "Opening in your browser on your connected device."}
-        # no_device → fall through to local open attempt
+        # no_device â†’ fall through to local open attempt
     # 3. Try opening on this host (works when the backend runs on the user's own machine)
     try:
         system = platform.system().lower()
@@ -1355,7 +1376,7 @@ async def _route_to_local_device(kind: str, payload: dict, user_id: str, db_sess
         if cmd.status == "failed":
             return {"error": "Your computer reported a failure running this command.", "detail": cmd.result_json}
     return {"status": "queued", "device": result.get("device"), "command_id": command_id,
-            "note": "Sent to your computer — it will run when your SALAR desktop app is online."}
+            "note": "Sent to your computer â€” it will run when your SALAR desktop app is online."}
 
 
 async def _device_command(device_id: str, kind: str, payload: dict, requires_confirmation: bool, user_id: str, db_session=None) -> Dict[str, Any]:
