@@ -1,0 +1,143 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SALAAR Preview - Option B (Single-Screen State Transitions)</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#000;--surface:rgba(255,255,255,.04);--glass:rgba(255,255,255,.025);--glass-border:rgba(255,255,255,.06);--blue:#5a93d6;--blue-bright:#8fb9e8;--blue-glow:rgba(90,147,214,.35);--text:#f9fbfc;--subtext:#707070;--input-text:rgba(255,255,255,.45);--input-placeholder:rgba(255,255,255,.28);--user-bubble:#494949;--bot-text:#747981;--bot-bold:#b5bdc3;--card-bg:rgba(255,255,255,.02);--card-border:rgba(255,255,255,.04)}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+.app{width:100%;height:100vh;max-width:430px;margin:0 auto;position:relative;background:var(--bg);overflow:hidden}
+.ambient{position:absolute;bottom:0;left:0;right:0;height:420px;pointer-events:none;z-index:1}
+.ambient::before{content:'';position:absolute;bottom:-100px;left:50%;transform:translateX(-50%);width:500px;height:400px;background:radial-gradient(ellipse 60% 45% at 50% 100%,rgba(80,140,220,.45) 0%,rgba(50,100,180,.2) 35%,transparent 70%)}
+.ambient::after{content:'';position:absolute;bottom:-40px;left:50%;transform:translateX(-50%);width:400px;height:240px;background:radial-gradient(ellipse 55% 40% at 50% 100%,rgba(110,165,230,.3) 0%,transparent 55%)}
+.home-bar{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:135px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;z-index:100}
+.orb-wrap{position:absolute;top:70px;left:50%;transform:translateX(-50%);width:320px;height:320px;z-index:2;transition:all .8s cubic-bezier(.4,0,.2,1)}
+.orb-wrap.searching{top:40px;transform:translateX(-50%) scale(.42);opacity:.3}
+.orb-wrap.result{top:32px;transform:translateX(-50%) scale(.36);opacity:.22}
+.orb-wrap.chat{top:30px;transform:translateX(-50%) scale(.34);opacity:.15}
+.orb-wrap video{width:100%;height:100%;object-fit:contain;border-radius:50%}
+.idle{position:absolute;top:400px;left:0;right:0;text-align:center;z-index:10;transition:opacity .5s ease,transform .5s ease}
+.idle.hidden{opacity:0;transform:translateY(-12px);pointer-events:none}
+.idle .sub{color:var(--subtext);font-size:13px;font-weight:400;margin-bottom:12px;letter-spacing:.01em}
+.idle .headline{color:var(--text);font-size:32px;font-weight:500;line-height:1.12;letter-spacing:-.025em}
+.input-wrap{position:absolute;bottom:48px;left:28px;right:28px;z-index:20;transition:opacity .4s ease,transform .4s ease}
+.input-wrap.hidden{opacity:0;transform:translateY(12px);pointer-events:none}
+.input-pill{height:56px;border-radius:28px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(24px) saturate(1.2);display:flex;align-items:center;padding:0 22px;gap:14px;position:relative;overflow:hidden}
+.input-pill::before{content:'';position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,rgba(90,147,214,.1),transparent);pointer-events:none}
+.input-pill input{flex:1;background:transparent;border:none;outline:none;color:var(--input-text);font-size:15px;font-family:inherit;position:relative;z-index:2}
+.input-pill input::placeholder{color:var(--input-placeholder)}
+.input-pill .mic{width:20px;height:20px;position:relative;z-index:2;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;gap:2.5px}
+.input-pill .mic i{width:2.5px;background:rgba(255,255,255,.45);border-radius:1.5px;display:block;transition:all .2s ease}
+.input-pill .mic i:nth-child(1){height:5px}
+.input-pill .mic i:nth-child(2){height:9px}
+.input-pill .mic i:nth-child(3){height:13px}
+.input-pill .mic i:nth-child(4){height:9px}
+.input-pill .mic i:nth-child(5){height:5px}
+.input-pill .mic:hover i{background:rgba(255,255,255,.8)}
+.searching{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:300px;opacity:0;pointer-events:none;transition:opacity .5s ease;z-index:15}
+.searching.active{opacity:1;pointer-events:auto}
+.search-pill{height:44px;border-radius:22px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);backdrop-filter:blur(20px);display:flex;align-items:center;padding:0 20px;gap:10px;position:relative}
+.search-pill::before{content:'';position:absolute;inset:0;border-radius:22px;background:linear-gradient(180deg,rgba(78,129,188,.06) 0%,transparent 60%);pointer-events:none}
+.dots{display:flex;gap:4px}
+.dot{width:4px;height:4px;background:rgba(255,255,255,.4);border-radius:50%;animation:dotBounce 1.4s infinite ease-in-out both}
+.search-label{color:rgba(255,255,255,.55);font-size:14px}
+@keyframes dotBounce{0%,80%,100%{transform:scale(.3);opacity:.25}40%{transform:scale(1);opacity:1}}
+.result{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:300px;opacity:0;pointer-events:none;transition:opacity .5s ease;z-index:15}
+.result.active{opacity:1;pointer-events:auto}
+.result h2{color:var(--text);font-size:28px;font-weight:500;line-height:1.2;text-align:center;letter-spacing:-.02em}
+.result-input{position:absolute;bottom:48px;left:28px;right:28px;z-index:20;opacity:0;pointer-events:none;transition:opacity .5s}
+.result-input.visible{opacity:.5;pointer-events:auto}
+.chat{position:absolute;inset:0;padding:55px 20px 100px;overflow-y:auto;opacity:0;pointer-events:none;transition:opacity .5s ease;z-index:15}
+.chat.active{opacity:1;pointer-events:auto}
+.chat::-webkit-scrollbar{display:none}
+.chat-flow{display:flex;flex-direction:column;gap:12px}
+.msg-user{align-self:flex-end;background:var(--user-bubble);color:var(--text);padding:10px 16px;border-radius:18px 18px 4px 18px;font-size:14px;line-height:1.4;max-width:88%}
+.msg-bot{color:var(--bot-text);font-size:14px;line-height:1.65;max-width:100%}
+.msg-bot strong{color:var(--bot-bold);font-weight:500}
+.msg-bot p{margin-bottom:12px}
+.msg-bot p:last-child{margin-bottom:0}
+.card-scroll{display:flex;gap:10px;overflow-x:auto;padding:6px 0 8px;scrollbar-width:none}
+.card-scroll::-webkit-scrollbar{display:none}
+.card{flex:0 0 auto;width:128px;border-radius:12px;overflow:hidden;background:var(--card-bg);border:1px solid var(--card-border)}
+.card-img{width:100%;height:84px;background:linear-gradient(145deg,#1a3a5c 0%,#0c1e33 50%,#061220 100%);display:flex;align-items:center;justify-content:center;font-size:26px;position:relative}
+.card-img::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.4) 100%)}
+.card-title{padding:8px 10px 2px;font-size:12px;color:var(--text);font-weight:500}
+.card-desc{padding:0 10px 10px;font-size:11px;color:rgba(255,255,255,.4);line-height:1.35}
+.back-btn{position:absolute;top:50px;left:18px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.05);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .3s;z-index:30;backdrop-filter:blur(8px)}
+.back-btn.visible{opacity:1;pointer-events:auto}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="ambient"></div>
+  <div class="home-bar"></div>
+  <div class="orb-wrap" id="orbWrap">
+    <video id="orbVideo" autoplay loop muted playsinline preload="auto">
+      <source src="ui-preview-assets/orb.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div class="idle" id="idleState">
+    <div class="sub">Hello Robin</div>
+    <div class="headline">How can I help<br>you today?</div>
+  </div>
+  <div class="input-wrap" id="inputWrap">
+    <div class="input-pill">
+      <input type="text" id="queryInput" placeholder="Ask anything..." autocomplete="off">
+      <div class="mic" id="micBtn"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div>
+  <div class="searching" id="searchingState">
+    <div class="search-pill">
+      <div class="dots"><span class="dot" style="animation-delay:-.32s"></span><span class="dot" style="animation-delay:-.16s"></span><span class="dot"></span></div>
+      <span class="search-label">Searching</span>
+    </div>
+  </div>
+  <div class="result" id="resultState">
+    <h2>Great!<br>Here is what<br>I found</h2>
+  </div>
+  <div class="result-input" id="resultInput">
+    <div class="input-pill">
+      <input disabled placeholder="" style="opacity:0">
+      <div class="mic" style="opacity:0"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div>
+  <div class="chat" id="chatState">
+    <div class="chat-flow">
+      <div class="msg-user" id="userMsg">What to visit in Rome?</div>
+      <div class="msg-bot" id="botMsg">
+        <p>Rome is one of the <strong>most iconic</strong> and layered cities in the world.</p>
+        <p><strong>Colosseum</strong><br>Symbol of Imperial Rome.</p>
+        <p><strong>Pantheon</strong><br>Ancient Roman temple turned church.</p>
+        <div class="card-scroll">
+          <div class="card"><div class="card-img">🏛️</div><div class="card-title">Colosseum</div><div class="card-desc">Symbol of Imperial Rome</div></div>
+          <div class="card"><div class="card-img">🏛️</div><div class="card-title">Pantheon</div><div class="card-desc">Ancient Roman temple</div></div>
+          <div class="card"><div class="card-img">⛲</div><div class="card-title">Trevi Fountain</div><div class="card-desc">Baroque masterpiece</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button class="back-btn" id="backBtn">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+</div>
+<script>
+(function(){
+  var orbWrap=document.getElementById('orbWrap'),idleState=document.getElementById('idleState'),inputWrap=document.getElementById('inputWrap'),searchingState=document.getElementById('searchingState'),resultState=document.getElementById('resultState'),resultInput=document.getElementById('resultInput'),chatState=document.getElementById('chatState'),backBtn=document.getElementById('backBtn'),input=document.getElementById('queryInput'),userMsg=document.getElementById('userMsg'),micBtn=document.getElementById('micBtn');
+  function setState(s){
+    orbWrap.className='orb-wrap';idleState.classList.remove('hidden');inputWrap.classList.remove('hidden');searchingState.classList.remove('active');resultState.classList.remove('active');resultInput.classList.remove('visible');chatState.classList.remove('active');backBtn.classList.remove('visible');
+    if(s==='searching'){orbWrap.classList.add('searching');idleState.classList.add('hidden');inputWrap.classList.add('hidden');searchingState.classList.add('active')}
+    else if(s==='result'){orbWrap.classList.add('result');idleState.classList.add('hidden');inputWrap.classList.add('hidden');resultState.classList.add('active');resultInput.classList.add('visible')}
+    else if(s==='chat'){orbWrap.classList.add('chat');idleState.classList.add('hidden');inputWrap.classList.add('hidden');chatState.classList.add('active');backBtn.classList.add('visible')}
+  }
+  function sendQuery(q){if(!q.trim())return;userMsg.textContent=q.trim();setState('searching');setTimeout(function(){setState('result');setTimeout(function(){setState('chat')},2200)},2800)}
+  input.addEventListener('keydown',function(e){if(e.key==='Enter')sendQuery(input.value)});
+  micBtn.addEventListener('click',function(){sendQuery(input.value)});
+  backBtn.addEventListener('click',function(){setState('idle');input.value=''});
+  setTimeout(function(){var text='What to visit in Rome?',i=0;input.focus();var iv=setInterval(function(){input.value+=text[i];i++;if(i>=text.length){clearInterval(iv);setTimeout(function(){sendQuery(text)},600)}},45)},1500);
+  var video=document.getElementById('orbVideo');video.play().catch(function(){document.addEventListener('click',function(){video.play()},{once:true})});
+})();
+</script>
+</body>
+</html>

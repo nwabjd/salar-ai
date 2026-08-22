@@ -345,8 +345,8 @@
 #salar-landing .footer-links a, #salar-landing .footer-links button { border:0; padding:0; background:none; cursor:pointer; color:#766f82; font-size:11px; }
 #salar-landing .copyright { color:#aca6b5; font-size:10px; grid-column:2/4; }
 
-#salar-landing .modal-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:20px; background:rgba(26,18,50,.38); backdrop-filter:blur(18px); animation:sl-fade-in .25s ease; }
-#salar-landing .auth-modal { width:min(620px,100%); max-height:calc(100vh - 40px); overflow-y:auto; position:relative; padding:35px 52px 43px; border:1px solid rgba(255,255,255,.85); border-radius:32px; background:rgba(253,252,255,.94); box-shadow:0 45px 120px rgba(34,20,75,.35); animation:sl-modal-in .45s cubic-bezier(.2,.8,.2,1); scrollbar-width:thin; }
+#salar-landing .modal-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:20px; background:rgba(26,18,50,.38); backdrop-filter:blur(18px); animation:sl-fade-in .25s ease; overflow:visible; }
+#salar-landing .auth-modal { width:min(420px,100%); overflow:visible; position:relative; padding:0; border:1px solid rgba(255,255,255,.08); border-radius:24px; background:rgba(18,18,28,.85); backdrop-filter:blur(40px) saturate(1.2); box-shadow:0 24px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05); animation:sl-modal-in .45s cubic-bezier(.2,.8,.2,1); scrollbar-width:thin; }
 #salar-landing .modal-progress { position:absolute; top:0; left:30px; right:30px; height:3px; overflow:hidden; border-radius:0 0 5px 5px; background:#ebe7f2; }
 #salar-landing .modal-progress span { display:block; height:100%; border-radius:5px; transition:width .5s ease; background:linear-gradient(90deg,#6546df,#ac8df8,#57dbe8); }
 #salar-landing .modal-close { position:absolute; top:24px; right:24px; width:38px; height:38px; border:1px solid var(--line); border-radius:13px; display:grid; place-items:center; cursor:pointer; color:#7b7487; background:white; }
@@ -475,7 +475,7 @@
   #salar-landing .conversation-panel { min-height:540px; padding:17px; }
   #salar-landing .composer { left:17px;right:17px;bottom:17px; }
   #salar-landing .privacy-visual { transform:scale(.72); margin-inline:-80px; min-height:370px; }
-  #salar-landing .auth-modal { max-height:calc(100vh - 20px); }
+  #salar-landing .auth-modal { padding:32px 24px 35px; border-radius:25px; }
   #salar-landing .auth-view h2 { font-size:34px; }
   #salar-landing .two-fields { grid-template-columns:1fr; }
   #salar-landing .otp-row { gap:5px; }
@@ -554,4 +554,326 @@
   #salar-landing .pricing-grid{grid-template-columns:1fr;}
   #salar-landing .pricing h2{font-size:36px;}
   #salar-landing .pricing{padding:70px 16px;}
+}
+
+/* ---- Husky Auth Modal ---- */
+#salar-landing .husky-auth-modal {
+  width: min(420px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  position: relative;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 24px;
+  background: rgba(18,18,28,.85);
+  backdrop-filter: blur(40px) saturate(1.2);
+  box-shadow: 0 24px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05);
+  animation: sl-modal-in .45s cubic-bezier(.2,.8,.2,1);
+}
+#salar-landing .husky-auth-modal .modal-close {
+  position: absolute; top: 16px; right: 16px; z-index: 10;
+  width: 32px; height: 32px; border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px; display: grid; place-items: center;
+  cursor: pointer; color: rgba(255,255,255,.4); background: rgba(255,255,255,.04);
+  transition: all .2s;
+}
+#salar-landing .husky-auth-modal .modal-close:hover { color: #fff; background: rgba(255,255,255,.08); }
+#salar-landing .husky-auth-modal .modal-progress { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 24px 24px 0 0; background: rgba(255,255,255,.06); overflow: hidden; }
+#salar-landing .husky-auth-modal .modal-progress span { display: block; height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); transition: width .4s ease; }
+
+/* Husky mascot */
+#salar-landing .husky-mascot {
+  position: relative; width: 130px; height: 130px;
+  margin: -65px auto 0; z-index: 10;
+}
+#salar-landing .husky-mascot svg {
+  width: 100%; height: 100%;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,.4));
+}
+#salar-landing .husky-pupil { transition: transform .08s ease-out; }
+
+/* Husky card */
+#salar-landing .husky-card {
+  padding: 24px 32px 32px;
+}
+#salar-landing .husky-title {
+  text-align: center; font-size: 28px; font-weight: 700;
+  color: #fff; margin: 8px 0 4px;
+}
+#salar-landing .husky-subtitle {
+  text-align: center; font-size: 13px;
+  color: rgba(255,255,255,.4); margin: 0 0 24px;
+}
+
+/* OAuth buttons */
+#salar-landing .husky-social-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+#salar-landing .husky-oauth-btn {
+  height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid rgba(255,255,255,.1); border-radius: 12px;
+  background: rgba(255,255,255,.04); color: rgba(255,255,255,.7);
+  font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer;
+  transition: all .2s;
+}
+#salar-landing .husky-oauth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #fff; }
+#salar-landing .husky-oauth-btn:disabled { opacity: .5; cursor: wait; }
+#salar-landing .husky-oauth-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* Divider */
+#salar-landing .husky-divider {
+  display: flex; align-items: center; gap: 16px; margin: 20px 0;
+}
+#salar-landing .husky-divider::before, #salar-landing .husky-divider::after {
+  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.08);
+}
+#salar-landing .husky-divider span { font-size: 12px; color: rgba(255,255,255,.35); white-space: nowrap; }
+
+/* Email button */
+#salar-landing .husky-email-btn {
+  width: 100%; height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid rgba(59,130,246,.3); border-radius: 12px;
+  background: rgba(59,130,246,.08); color: #60a5fa;
+  font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer;
+  transition: all .2s;
+}
+#salar-landing .husky-email-btn:hover { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.5); }
+
+/* Back button */
+#salar-landing .husky-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: none; background: transparent; color: rgba(255,255,255,.4);
+  font-size: 13px; font-family: inherit; cursor: pointer; padding: 0; margin-bottom: 12px;
+  transition: color .2s;
+}
+#salar-landing .husky-back:hover { color: rgba(255,255,255,.8); }
+
+/* Inputs */
+#salar-landing .husky-field-label {
+  display: block; font-size: 12px; font-weight: 500;
+  color: rgba(255,255,255,.5); margin-bottom: 6px;
+}
+#salar-landing .husky-input {
+  width: 100%; height: 48px; padding: 0 16px;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px; color: #fff; font-size: 14px; font-family: inherit;
+  outline: none; transition: border-color .2s, box-shadow .2s;
+}
+#salar-landing .husky-input::placeholder { color: rgba(255,255,255,.25); }
+#salar-landing .husky-input:focus { border-color: rgba(59,130,246,.5); box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+
+/* Submit button */
+#salar-landing .husky-submit {
+  width: 100%; height: 48px; margin-top: 20px;
+  border: none; border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff; font-size: 14px; font-weight: 600; font-family: inherit;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform .15s, box-shadow .2s;
+}
+#salar-landing .husky-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,99,235,.35); }
+#salar-landing .husky-submit:disabled { opacity: .6; cursor: wait; transform: none; }
+
+/* OTP row */
+#salar-landing .husky-otp-row {
+  display: grid; grid-template-columns: repeat(6,1fr); gap: 8px; margin: 20px 0;
+}
+#salar-landing .husky-otp-row input {
+  width: 100%; aspect-ratio: 1;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px; color: #fff; font-size: 20px; font-weight: 700;
+  text-align: center; outline: none; font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+#salar-landing .husky-otp-row input:focus { border-color: rgba(59,130,246,.5); box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+
+/* Resend */
+#salar-landing .husky-resend {
+  display: block; margin: 14px auto 0; border: none; background: transparent;
+  color: rgba(255,255,255,.4); font-size: 13px; font-family: inherit;
+  cursor: pointer; transition: color .2s;
+}
+#salar-landing .husky-resend:hover { color: #60a5fa; }
+
+/* Error / message */
+#salar-landing .husky-error { color: #ef4444; font-size: 13px; text-align: center; margin-top: 12px; }
+#salar-landing .husky-message { color: #60a5fa; font-size: 13px; text-align: center; margin-top: 8px; }
+
+/* Legal */
+#salar-landing .husky-legal { text-align: center; font-size: 11px; color: rgba(255,255,255,.3); margin-top: 16px; line-height: 1.5; }
+
+/* Profile two fields */
+#salar-landing .husky-two-fields {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;
+}
+#salar-landing .husky-two-fields label { display: flex; flex-direction: column; gap: 4px; }
+#salar-landing .husky-two-fields label span { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.5); }
+#salar-landing .husky-two-fields input {
+  height: 44px; padding: 0 14px; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 12px;
+  color: #fff; font-size: 14px; font-family: inherit; outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+#salar-landing .husky-two-fields input:focus { border-color: rgba(59,130,246,.5); box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+
+/* Select */
+#salar-landing .husky-select-label {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;
+}
+#salar-landing .husky-select-label span { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.5); }
+#salar-landing .husky-select-label select {
+  height: 44px; padding: 0 14px; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 12px;
+  color: #fff; font-size: 14px; font-family: inherit; outline: none;
+  appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6'%3E%3Cpath d='M0 0l6 6 6-6z' fill='%23666'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
+#salar-landing .husky-select-label select option { background: #1a1a2e; color: #fff; }
+
+/* Companion options */
+#salar-landing .husky-companion-options { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+#salar-landing .husky-companion {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 14px; border: 1px solid rgba(255,255,255,.08); border-radius: 14px;
+  background: rgba(255,255,255,.03); cursor: pointer; text-align: left;
+  color: rgba(255,255,255,.7); font-family: inherit; transition: all .2s;
+}
+#salar-landing .husky-companion:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.15); }
+#salar-landing .husky-companion.selected { background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.3); }
+#salar-landing .husky-companion-dot {
+  width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255,255,255,.2);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: all .2s;
+}
+#salar-landing .husky-companion.selected .husky-companion-dot { border-color: #3b82f6; }
+#salar-landing .husky-companion-dot i { width: 10px; height: 10px; border-radius: 50%; background: #3b82f6; opacity: 0; transition: opacity .2s; }
+#salar-landing .husky-companion.selected .husky-companion-dot i { opacity: 1; }
+#salar-landing .husky-companion-info { flex: 1; min-width: 0; }
+#salar-landing .husky-companion-info small { display: block; font-size: 11px; color: rgba(255,255,255,.35); margin-bottom: 2px; }
+#salar-landing .husky-companion-info strong { display: block; font-size: 14px; color: rgba(255,255,255,.9); margin-bottom: 4px; }
+#salar-landing .husky-companion-info p { font-size: 12px; color: rgba(255,255,255,.4); margin: 0; line-height: 1.5; }
+
+/* Complete / success */
+#salar-landing .husky-complete-card { text-align: center; }
+#salar-landing .husky-success-core {
+  width: 64px; height: 64px; margin: 0 auto 16px;
+  border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #6366f1);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+#salar-landing .husky-success-core span { font-size: 24px; font-weight: 700; color: #fff; }
+#salar-landing .husky-success-core i { position: absolute; inset: -4px; border-radius: 50%; border: 2px solid rgba(59,130,246,.3); animation: husky-pulse-ring 2s ease-out infinite; }
+#salar-landing .husky-success-core i:nth-child(3) { inset: -10px; animation-delay: .5s; }
+@keyframes husky-pulse-ring { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.3); } }
+
+#salar-landing .husky-ready-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border: 1px solid rgba(255,255,255,.08); border-radius: 12px;
+  background: rgba(255,255,255,.04); margin: 16px 0 20px;
+}
+#salar-landing .husky-ready-card .status-orb { width: 8px; height: 8px; border-radius: 50%; background: #70e5aa; box-shadow: 0 0 8px rgba(112,229,170,.6); flex-shrink: 0; }
+#salar-landing .husky-ready-card div { flex: 1; text-align: left; }
+#salar-landing .husky-ready-card small { display: block; font-size: 11px; color: rgba(255,255,255,.4); }
+#salar-landing .husky-ready-card strong { font-size: 14px; color: rgba(255,255,255,.9); }
+#salar-landing .husky-ready-card svg { color: #70e5aa; flex-shrink: 0; }
+
+/* Demo badge */
+#salar-landing .demo-badge {
+  display: inline-block; margin-top: 12px; padding: 4px 12px;
+  border-radius: 8px; font-size: 11px; font-weight: 600;
+  background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.2);
+  text-align: center; width: 100%;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  #salar-landing .husky-auth-modal { border-radius: 20px; margin: 10px; }
+  #salar-landing .husky-card { padding: 20px 20px 24px; }
+  #salar-landing .husky-title { font-size: 24px; }
+  #salar-landing .husky-social-grid { grid-template-columns: 1fr; }
+  #salar-landing .husky-two-fields { grid-template-columns: 1fr; }
+  #salar-landing .husky-otp-row input { font-size: 16px; }
+}
+
+/* ===== Portal'd auth modal (rendered in document.body) ===== */
+.sal-modal-backdrop { position:fixed!important; inset:0!important; z-index:100000!important; display:grid; place-items:center; padding:20px; background:rgba(26,18,50,.55); backdrop-filter:blur(18px); animation:sl-fade-in .25s ease; overflow:visible; }
+.sal-modal { width:min(420px,100%); overflow-y:auto; max-height:calc(100vh - 40px); position:relative; padding-top:70px; border:1px solid rgba(255,255,255,.08); border-radius:24px; background:rgba(18,18,28,.92); backdrop-filter:blur(40px) saturate(1.2); box-shadow:0 24px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05); animation:sl-modal-in .45s cubic-bezier(.2,.8,.2,1); scrollbar-width:thin; color:#fff; font-family:Manrope,"Segoe UI Variable",sans-serif; }
+.sal-modal-progress { position:absolute; top:0; left:30px; right:30px; height:3px; overflow:hidden; border-radius:0 0 5px 5px; background:rgba(255,255,255,.06); }
+.sal-modal-progress span { display:block; height:100%; border-radius:5px; transition:width .5s ease; background:linear-gradient(90deg,#3b82f6,#6366f1); }
+.sal-modal-close { position:absolute; top:16px; right:16px; width:32px; height:32px; border:1px solid rgba(255,255,255,.1); border-radius:10px; display:grid; place-items:center; cursor:pointer; color:rgba(255,255,255,.4); background:rgba(255,255,255,.04); z-index:10; transition:all .2s; }
+.sal-modal-close:hover { color:#fff; background:rgba(255,255,255,.08); }
+.sal-modal .husky-mascot { position:relative; width:130px; height:130px; margin:-65px auto 0; z-index:10; }
+.sal-modal .husky-mascot svg { width:100%; height:100%; filter:drop-shadow(0 8px 24px rgba(0,0,0,.4)); }
+.sal-modal .husky-pupil { transition:transform .08s ease-out; }
+.sal-modal .husky-card { padding:24px 32px 32px; }
+.sal-modal .husky-title { text-align:center; font-size:28px; font-weight:700; color:#fff; margin:8px 0 4px; }
+.sal-modal .husky-subtitle { text-align:center; font-size:13px; color:rgba(255,255,255,.4); margin:0 0 24px; }
+.sal-modal .husky-social-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.sal-modal .husky-oauth-btn { height:44px; display:flex; align-items:center; justify-content:center; gap:8px; border:1px solid rgba(255,255,255,.1); border-radius:12px; background:rgba(255,255,255,.04); color:rgba(255,255,255,.7); font-size:13px; font-weight:500; font-family:inherit; cursor:pointer; transition:all .2s; }
+.sal-modal .husky-oauth-btn:hover { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.18); color:#fff; }
+.sal-modal .husky-oauth-btn:disabled { opacity:.5; cursor:wait; }
+.sal-modal .husky-oauth-btn svg { width:18px; height:18px; flex-shrink:0; }
+.sal-modal .husky-divider { display:flex; align-items:center; gap:16px; margin:20px 0; }
+.sal-modal .husky-divider::before,.sal-modal .husky-divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
+.sal-modal .husky-divider span { font-size:12px; color:rgba(255,255,255,.35); white-space:nowrap; }
+.sal-modal .husky-email-btn { width:100%; height:48px; display:flex; align-items:center; justify-content:center; gap:8px; border:1px solid rgba(59,130,246,.3); border-radius:12px; background:rgba(59,130,246,.08); color:#60a5fa; font-size:14px; font-weight:500; font-family:inherit; cursor:pointer; transition:all .2s; }
+.sal-modal .husky-email-btn:hover { background:rgba(59,130,246,.15); border-color:rgba(59,130,246,.5); }
+.sal-modal .husky-back { display:inline-flex; align-items:center; gap:6px; border:none; background:transparent; color:rgba(255,255,255,.4); font-size:13px; font-family:inherit; cursor:pointer; padding:0; margin-bottom:12px; transition:color .2s; }
+.sal-modal .husky-back:hover { color:rgba(255,255,255,.8); }
+.sal-modal .husky-field-label { display:block; font-size:12px; font-weight:500; color:rgba(255,255,255,.5); margin-bottom:6px; }
+.sal-modal .husky-input { width:100%; height:48px; padding:0 16px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:12px; color:#fff; font-size:14px; font-family:inherit; outline:none; transition:border-color .2s,box-shadow .2s; }
+.sal-modal .husky-input::placeholder { color:rgba(255,255,255,.25); }
+.sal-modal .husky-input:focus { border-color:rgba(59,130,246,.5); box-shadow:0 0 0 3px rgba(59,130,246,.1); }
+.sal-modal .husky-submit { width:100%; height:48px; margin-top:20px; border:none; border-radius:12px; background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#fff; font-size:14px; font-weight:600; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:transform .15s,box-shadow .2s; }
+.sal-modal .husky-submit:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(37,99,235,.35); }
+.sal-modal .husky-submit:disabled { opacity:.6; cursor:wait; transform:none; }
+.sal-modal .husky-otp-row { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin:20px 0; }
+.sal-modal .husky-otp-row input { width:100%; aspect-ratio:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:12px; color:#fff; font-size:20px; font-weight:700; text-align:center; outline:none; font-family:inherit; transition:border-color .2s,box-shadow .2s; }
+.sal-modal .husky-otp-row input:focus { border-color:rgba(59,130,246,.5); box-shadow:0 0 0 3px rgba(59,130,246,.1); }
+.sal-modal .husky-resend { display:block; margin:14px auto 0; border:none; background:transparent; color:rgba(255,255,255,.4); font-size:13px; font-family:inherit; cursor:pointer; transition:color .2s; }
+.sal-modal .husky-resend:hover { color:#60a5fa; }
+.sal-modal .husky-error { color:#ef4444; font-size:13px; text-align:center; margin-top:12px; }
+.sal-modal .husky-message { color:#60a5fa; font-size:13px; text-align:center; margin-top:8px; }
+.sal-modal .husky-legal { text-align:center; font-size:11px; color:rgba(255,255,255,.3); margin-top:16px; line-height:1.5; }
+.sal-modal .husky-two-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.sal-modal .husky-two-fields label { display:flex; flex-direction:column; gap:4px; }
+.sal-modal .husky-two-fields label span { font-size:12px; font-weight:500; color:rgba(255,255,255,.5); }
+.sal-modal .husky-two-fields input { height:44px; padding:0 14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:12px; color:#fff; font-size:14px; font-family:inherit; outline:none; transition:border-color .2s,box-shadow .2s; }
+.sal-modal .husky-two-fields input:focus { border-color:rgba(59,130,246,.5); box-shadow:0 0 0 3px rgba(59,130,246,.1); }
+.sal-modal .husky-select-label { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.sal-modal .husky-select-label span { font-size:12px; font-weight:500; color:rgba(255,255,255,.5); }
+.sal-modal .husky-select-label select { height:44px; padding:0 14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:12px; color:#fff; font-size:14px; font-family:inherit; outline:none; appearance:none; cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6'%3E%3Cpath d='M0 0l6 6 6-6z' fill='%23666'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; }
+.sal-modal .husky-select-label select option { background:#1a1a2e; color:#fff; }
+.sal-modal .husky-companion-options { display:flex; flex-direction:column; gap:8px; margin:16px 0; }
+.sal-modal .husky-companion { display:flex; align-items:center; gap:12px; width:100%; padding:14px; border:1px solid rgba(255,255,255,.08); border-radius:14px; background:rgba(255,255,255,.03); cursor:pointer; text-align:left; color:rgba(255,255,255,.7); font-family:inherit; transition:all .2s; }
+.sal-modal .husky-companion:hover { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.15); }
+.sal-modal .husky-companion.selected { background:rgba(59,130,246,.08); border-color:rgba(59,130,246,.3); }
+.sal-modal .husky-companion-dot { width:20px; height:20px; border-radius:50%; border:2px solid rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .2s; }
+.sal-modal .husky-companion.selected .husky-companion-dot { border-color:#3b82f6; }
+.sal-modal .husky-companion-dot i { width:10px; height:10px; border-radius:50%; background:#3b82f6; opacity:0; transition:opacity .2s; }
+.sal-modal .husky-companion.selected .husky-companion-dot i { opacity:1; }
+.sal-modal .husky-companion-info { flex:1; min-width:0; }
+.sal-modal .husky-companion-info small { display:block; font-size:11px; color:rgba(255,255,255,.35); margin-bottom:2px; }
+.sal-modal .husky-companion-info strong { display:block; font-size:14px; color:rgba(255,255,255,.9); margin-bottom:4px; }
+.sal-modal .husky-companion-info p { font-size:12px; color:rgba(255,255,255,.4); margin:0; line-height:1.5; }
+.sal-modal .husky-complete-card { text-align:center; }
+.sal-modal .husky-success-core { width:64px; height:64px; margin:0 auto 16px; border-radius:50%; background:linear-gradient(135deg,#3b82f6,#6366f1); display:flex; align-items:center; justify-content:center; position:relative; }
+.sal-modal .husky-success-core span { font-size:24px; font-weight:700; color:#fff; }
+.sal-modal .husky-success-core i { position:absolute; inset:-4px; border-radius:50%; border:2px solid rgba(59,130,246,.3); animation:husky-pulse-ring 2s ease-out infinite; }
+.sal-modal .husky-success-core i:nth-child(3) { inset:-10px; animation-delay:.5s; }
+.sal-modal .husky-ready-card { display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:rgba(255,255,255,.04); margin:16px 0 20px; }
+.sal-modal .husky-ready-card .status-orb { width:8px; height:8px; border-radius:50%; background:#70e5aa; box-shadow:0 0 8px rgba(112,229,170,.6); flex-shrink:0; }
+.sal-modal .husky-ready-card div { flex:1; text-align:left; }
+.sal-modal .husky-ready-card small { display:block; font-size:11px; color:rgba(255,255,255,.4); }
+.sal-modal .husky-ready-card strong { font-size:14px; color:rgba(255,255,255,.9); }
+.sal-modal .husky-ready-card svg { color:#70e5aa; flex-shrink:0; }
+.sal-modal .demo-badge { display:inline-block; margin-top:12px; padding:4px 12px; border-radius:8px; font-size:11px; font-weight:600; background:rgba(251,191,36,.12); color:#fbbf24; border:1px solid rgba(251,191,36,.2); text-align:center; width:100%; }
+@media (max-width:480px) {
+  .sal-modal { border-radius:20px; margin:10px; }
+  .sal-modal .husky-card { padding:20px 20px 24px; }
+  .sal-modal .husky-title { font-size:24px; }
+  .sal-modal .husky-social-grid { grid-template-columns:1fr; }
+  .sal-modal .husky-two-fields { grid-template-columns:1fr; }
+  .sal-modal .husky-otp-row input { font-size:16px; }
 }

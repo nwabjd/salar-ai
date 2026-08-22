@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SALAAR Preview — Option A (3-Screen + Video Orb)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#000000;
+    --surface:rgba(255,255,255,.04);
+    --surface-hover:rgba(255,255,255,.07);
+    --glass:rgba(255,255,255,.04);
+    --glass-border:rgba(255,255,255,.06);
+    --blue:#5a93d6;
+    --blue-bright:#8fb9e8;
+    --blue-glow:rgba(90,147,214,.35);
+    --text:#f9fbfc;
+    --text-dim:rgba(255,255,255,.5);
+    --text-muted:rgba(255,255,255,.28);
+    --subtext:#707070;
+    --user-bubble:#494949;
+    --bot-text:#747981;
+    --bot-bold:#b5bdc3;
+  }
+  html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+
+  .phone-frame{position:relative;width:100%;height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflow:hidden}
+
+  .ambient{position:absolute;bottom:0;left:0;right:0;height:420px;pointer-events:none;z-index:1}
+  .ambient::before{content:'';position:absolute;bottom:-100px;left:50%;transform:translateX(-50%);width:500px;height:400px;background:radial-gradient(ellipse 60% 45% at 50% 100%,rgba(80,140,220,.45) 0%,rgba(50,100,180,.2) 35%,transparent 70%)}
+  .ambient::after{content:'';position:absolute;bottom:-40px;left:50%;transform:translateX(-50%);width:400px;height:240px;background:radial-gradient(ellipse 55% 40% at 50% 100%,rgba(110,165,230,.3) 0%,transparent 55%)}
+
+  .home-bar{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:135px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;z-index:100}
+
+  .screen{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;transition:transform .4s cubic-bezier(.4,0,.2,1),opacity .3s}
+  .screen.hidden{transform:translateX(100%);opacity:0;pointer-events:none}
+  .screen.active{transform:translateX(0);opacity:1}
+
+  .status-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px 8px;font-size:12px;font-weight:600;flex-shrink:0}
+  .status-bar-right{display:flex;align-items:center;gap:5px}
+  .status-bar-right svg{width:14px;height:14px}
+
+  .home-header{display:flex;justify-content:space-between;align-items:center;padding:8px 24px 0;flex-shrink:0}
+  .home-brand{display:flex;align-items:center;gap:10px}
+  .home-logo{width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04)}
+  .home-logo svg{width:18px;height:18px;color:var(--text)}
+  .home-brand-text{display:flex;flex-direction:column}
+  .home-brand-name{font-size:12px;font-weight:600;color:var(--text);letter-spacing:.01em}
+  .home-brand-sub{font-size:11px;color:var(--subtext)}
+  .home-actions{display:flex;gap:8px}
+  .home-action-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--glass-border);background:var(--glass);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;backdrop-filter:blur(10px)}
+
+  .home-greeting{padding:48px 24px 0;flex-shrink:0}
+  .home-greeting h1{font-size:32px;font-weight:500;line-height:1.12;letter-spacing:-.025em;color:var(--text)}
+
+  .home-cards{display:flex;gap:10px;padding:28px 24px 0;overflow-x:auto;flex-shrink:0;-webkit-overflow-scrolling:touch}
+  .home-cards::-webkit-scrollbar{display:none}
+  .home-card{min-width:130px;padding:16px;border-radius:16px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(20px);cursor:pointer;transition:all .2s;flex-shrink:0}
+  .home-card:hover{background:var(--surface-hover);border-color:rgba(255,255,255,.1)}
+  .home-card-icon{width:28px;height:28px;border-radius:8px;background:rgba(90,147,214,.12);display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+  .home-card-icon svg{width:14px;height:14px;color:var(--blue)}
+  .home-card p{font-size:12px;font-weight:500;color:var(--text);line-height:1.4}
+
+  .composer{margin:auto 24px 24px;padding:14px 16px;border-radius:28px;border:1px solid var(--glass-border);background:var(--glass);backdrop-filter:blur(24px) saturate(1.2);display:flex;align-items:center;gap:10px;flex-shrink:0;position:relative;overflow:hidden}
+  .composer::before{content:'';position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,rgba(90,147,214,.1),transparent);pointer-events:none}
+  .composer-plus{width:32px;height:32px;border-radius:50%;border:1px solid var(--glass-border);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;flex-shrink:0}
+  .composer-input{flex:1;background:none;border:none;outline:none;color:var(--text-dim);font-family:inherit;font-size:15px;min-width:0}
+  .composer-input::placeholder{color:var(--text-muted)}
+  .composer-select{display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--glass-border);font-size:11px;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .composer-mic{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-bright));display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;flex-shrink:0;box-shadow:0 2px 12px var(--blue-glow);transition:all .2s}
+  .composer-mic:hover{transform:scale(1.05);box-shadow:0 4px 20px var(--blue-glow)}
+  .composer-mic:active{transform:scale(.95)}
+
+  .live-header{display:flex;justify-content:center;padding:12px 24px 0;flex-shrink:0}
+  .live-close{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--text-dim);font-size:12px;font-weight:600;cursor:pointer;backdrop-filter:blur(10px)}
+  .live-close svg{width:12px;height:12px}
+
+  .live-orb-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:60px;position:relative}
+
+  .orb-wrap{position:relative;width:320px;height:320px;z-index:2;transition:all .8s cubic-bezier(.4,0,.2,1)}
+  .orb-wrap video{width:100%;height:100%;object-fit:contain;mix-blend-mode:screen;-webkit-mask-image:radial-gradient(circle,white 55%,transparent 72%);mask-image:radial-gradient(circle,white 55%,transparent 72%)}
+
+  .live-status{font-size:13px;color:var(--subtext);margin-top:16px;text-align:center;font-weight:400}
+  .live-status.active{color:var(--blue);font-weight:500}
+
+  .live-transcript{padding:0 24px;margin-top:16px;max-height:180px;overflow-y:auto;text-align:center}
+  .live-transcript::-webkit-scrollbar{display:none}
+  .live-transcript-text{font-size:18px;font-weight:500;line-height:1.4;letter-spacing:-.02em}
+
+  .live-controls{display:flex;justify-content:center;gap:20px;padding:24px;flex-shrink:0}
+  .live-ctrl{width:48px;height:48px;border-radius:50%;border:1px solid var(--glass-border);background:var(--glass);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;transition:all .2s}
+  .live-ctrl:hover{background:var(--surface-hover);color:var(--text)}
+  .live-ctrl.mic-active{background:linear-gradient(135deg,var(--blue),var(--blue-bright));border-color:transparent;color:#fff;box-shadow:0 4px 20px var(--blue-glow)}
+  .live-ctrl.send{background:linear-gradient(135deg,var(--blue),var(--blue-bright));border-color:transparent;color:#fff}
+
+  .chat-header{display:flex;justify-content:center;padding:12px 24px 0;flex-shrink:0}
+  .chat-messages{flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:12px}
+  .chat-messages::-webkit-scrollbar{display:none}
+  .chat-msg{max-width:85%;animation:fadeUp .3s ease-out}
+  .chat-msg.user{align-self:flex-end}
+  .chat-msg.ai{align-self:flex-start}
+  .chat-bubble{padding:12px 16px;border-radius:18px;font-size:14px;line-height:1.55;font-weight:400}
+  .chat-msg.user .chat-bubble{background:var(--user-bubble);color:var(--text);border-bottom-right-radius:4px}
+  .chat-msg.ai .chat-bubble{background:var(--glass);border:1px solid var(--glass-border);color:var(--bot-text);border-bottom-left-radius:4px;backdrop-filter:blur(10px)}
+  .chat-msg.ai .chat-orb{width:24px;height:24px;overflow:hidden;flex-shrink:0;margin-top:2px;position:relative}
+  .chat-msg.ai .chat-orb video{width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;-webkit-mask-image:radial-gradient(circle,white 50%,transparent 70%);mask-image:radial-gradient(circle,white 50%,transparent 70%)}
+  .chat-msg.ai{display:flex;gap:8px}
+  .chat-typing{font-size:11px;color:var(--text-muted);padding:0 4px;margin-top:4px}
+
+  .chat-cards{display:flex;gap:10px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .chat-cards::-webkit-scrollbar{display:none}
+  .chat-card{min-width:128px;height:90px;border-radius:12px;overflow:hidden;flex-shrink:0;position:relative;background:var(--glass);border:1px solid var(--glass-border)}
+  .chat-card-img{width:100%;height:84px;background:linear-gradient(145deg,#1a3a5c 0%,#0c1e33 50%,#061220 100%);display:flex;align-items:center;justify-content:center;font-size:26px;position:relative}
+  .chat-card-img::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.4) 100%)}
+  .chat-card-label{position:absolute;bottom:8px;left:10px;font-size:11px;font-weight:500;color:var(--text);z-index:1}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  .chat-input{margin:0 24px 24px;padding:14px 16px;border-radius:28px;border:1px solid var(--glass-border);background:var(--glass);backdrop-filter:blur(24px) saturate(1.2);display:flex;align-items:center;gap:10px;flex-shrink:0;position:relative;overflow:hidden}
+  .chat-input::before{content:'';position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,rgba(90,147,214,.1),transparent);pointer-events:none}
+  .chat-input-field{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:inherit;font-size:15px}
+  .chat-input-field::placeholder{color:var(--text-muted)}
+  .chat-input-btn{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:none}
+  .chat-input-attach{background:var(--surface);border:1px solid var(--glass-border);color:var(--text-dim)}
+  .chat-input-mic{background:linear-gradient(135deg,var(--blue),var(--blue-bright));color:#fff;box-shadow:0 2px 8px var(--blue-glow)}
+
+  .nav-dots{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:50}
+  .nav-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);cursor:pointer;transition:all .2s}
+  .nav-dot.active{background:var(--blue);width:24px;border-radius:4px}
+
+  .searching-pill{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:22px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02);backdrop-filter:blur(20px);margin-top:20px}
+  .searching-dots{display:flex;gap:4px}
+  .searching-dots span{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.4);animation:dotPulse 1.4s ease-in-out infinite}
+  .searching-dots span:nth-child(2){animation-delay:.16s}
+  .searching-dots span:nth-child(3){animation-delay:.32s}
+  @keyframes dotPulse{0%,80%,100%{transform:scale(.3);opacity:.25}40%{transform:scale(1);opacity:1}}
+  .searching-text{font-size:14px;color:rgba(255,255,255,.55)}
+
+  .orb-wrap{transition:all .8s cubic-bezier(.4,0,.2,1)}
+  .orb-wrap.dim-low{opacity:.35}
+  .orb-wrap.dim-mid{opacity:.6}
+  .orb-wrap.dim-full{opacity:1}
+
+  .live-result-overlay{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;padding-top:160px;opacity:0;pointer-events:none;transition:opacity .5s ease}
+  .live-result-overlay.active{opacity:1;pointer-events:auto}
+  .live-result-overlay h2{color:var(--text);font-size:24px;font-weight:500;line-height:1.3;text-align:center;letter-spacing:-.02em}
+  .live-result-overlay .live-transcript{margin-top:20px}
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="ambient"></div>
+
+  <div class="screen active" id="screenHome">
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+      </div>
+    </div>
+
+    <div class="home-header">
+      <div class="home-brand">
+        <div class="home-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 12a4 4 0 0 1 8 0"/></svg>
+        </div>
+        <div class="home-brand-text">
+          <span class="home-brand-name">SALAAR AI</span>
+          <span class="home-brand-sub">Welcome back</span>
+        </div>
+      </div>
+      <div class="home-actions">
+        <div class="home-action-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <div class="home-action-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-greeting">
+      <h1>What can I<br>help you with?</h1>
+    </div>
+
+    <div class="home-cards">
+      <div class="home-card" onclick="showScreen('screenLive')">
+        <div class="home-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <p>Deploy autonomous agent</p>
+      </div>
+      <div class="home-card">
+        <div class="home-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <p>Optimize gas for ZK-proofs</p>
+      </div>
+      <div class="home-card">
+        <div class="home-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <p>Audit protocol security</p>
+      </div>
+    </div>
+
+    <div class="composer" onclick="showScreen('screenLive')">
+      <div class="composer-plus">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+      <input class="composer-input" placeholder="Ask AI a question or describe your idea" readonly>
+      <div class="composer-select">
+        Opus 4.8
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="composer-mic">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="screenLive">
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+      </div>
+    </div>
+
+    <div class="live-header">
+      <div class="live-close" onclick="showScreen('screenChat')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Close chat
+      </div>
+    </div>
+
+    <div class="live-orb-area" id="liveOrbArea">
+      <div class="orb-wrap" id="orbWrap">
+        <video id="orbVideo" autoplay loop muted playsinline preload="auto">
+          <source src="ui-preview-assets/orb.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div class="live-result-overlay" id="liveResultOverlay">
+        <h2>Great!<br>Here is what<br>I found</h2>
+        <div class="live-transcript">
+          <div class="live-transcript-text">What to visit in Rome?</div>
+        </div>
+      </div>
+      <div class="live-status" id="liveStatus">Aira is listening...</div>
+      <div class="live-transcript" id="liveTranscriptArea">
+        <div class="live-transcript-text">What to visit in Rome?</div>
+      </div>
+      <div class="searching-pill" id="searchingPill" style="display:none">
+        <div class="searching-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <span class="searching-text">Searching...</span>
+      </div>
+    </div>
+
+    <div class="live-controls">
+      <div class="live-ctrl">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div class="live-ctrl mic-active" id="liveMic" onclick="toggleMic()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+      </div>
+      <div class="live-ctrl send" onclick="showScreen('screenChat')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="screenChat">
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+      </div>
+    </div>
+
+    <div class="chat-header">
+      <div class="live-close" onclick="showScreen('screenHome')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Close chat
+      </div>
+    </div>
+
+    <div class="chat-messages">
+      <div class="chat-msg user">
+        <div class="chat-bubble">What to visit in Rome?</div>
+      </div>
+      <div class="chat-msg ai">
+        <div class="chat-orb">
+          <video autoplay loop muted playsinline preload="auto">
+            <source src="ui-preview-assets/orb.mp4" type="video/mp4">
+          </video>
+        </div>
+        <div>
+          <div class="chat-bubble">Rome is one of the most iconic and layered cities in the world — a mix of ancient ruins, Renaissance beauty, and vibrant street life. Here's a curated guide based on what kind of experience you're after:<br><br><strong>Colosseum</strong><br>Symbol of Imperial Rome. Book a tour with underground and arena access if possible.<br><br><strong>Pantheon</strong><br>Ancient Roman temple turned church. The dome is still the largest unreinforced concrete dome in the world.</div>
+          <div class="chat-cards">
+            <div class="chat-card">
+              <div class="chat-card-img">🏛️</div>
+              <span class="chat-card-label">Colosseum</span>
+            </div>
+            <div class="chat-card">
+              <div class="chat-card-img">🏛️</div>
+              <span class="chat-card-label">Pantheon</span>
+            </div>
+            <div class="chat-card">
+              <div class="chat-card-img">⛲</div>
+              <span class="chat-card-label">Trevi Fountain</span>
+            </div>
+          </div>
+          <div class="chat-typing">Aira is working...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-input">
+      <div class="chat-input-btn chat-input-attach">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </div>
+      <input class="chat-input-field" placeholder="Ask AI a question">
+      <div class="chat-input-btn chat-input-mic">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="nav-dots">
+  <div class="nav-dot active" onclick="showScreen('screenHome')"></div>
+  <div class="nav-dot" onclick="showScreen('screenLive')"></div>
+  <div class="nav-dot" onclick="showScreen('screenChat')"></div>
+</div>
+
+<div class="home-bar"></div>
+
+<script>
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.classList.add('hidden')});
+  document.getElementById(id).classList.remove('hidden');
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-dot').forEach(d=>d.classList.remove('active'));
+  const screens=['screenHome','screenLive','screenChat'];
+  document.querySelectorAll('.nav-dot')[screens.indexOf(id)].classList.add('active');
+}
+
+let orbState = 'idle';
+const orbWrap = document.getElementById('orbWrap');
+const liveStatus = document.getElementById('liveStatus');
+const searchingPill = document.getElementById('searchingPill');
+const liveResultOverlay = document.getElementById('liveResultOverlay');
+const liveTranscriptArea = document.getElementById('liveTranscriptArea');
+
+function setOrbState(state) {
+  orbState = state;
+  orbWrap.className = 'orb-wrap';
+  liveResultOverlay.classList.remove('active');
+  liveTranscriptArea.style.display = 'block';
+  
+  switch(state) {
+    case 'idle':
+      orbWrap.classList.add('dim-full');
+      liveStatus.textContent = 'Aira is listening...';
+      liveStatus.classList.remove('active');
+      searchingPill.style.display = 'none';
+      break;
+    case 'listening':
+      orbWrap.classList.add('dim-full');
+      liveStatus.textContent = 'Listening...';
+      liveStatus.classList.add('active');
+      searchingPill.style.display = 'none';
+      break;
+    case 'thinking':
+      orbWrap.classList.add('dim-low');
+      liveStatus.textContent = 'Thinking...';
+      liveStatus.classList.add('active');
+      searchingPill.style.display = 'flex';
+      break;
+    case 'speaking':
+      orbWrap.classList.add('dim-mid');
+      liveStatus.textContent = 'Speaking...';
+      liveStatus.classList.add('active');
+      searchingPill.style.display = 'none';
+      liveResultOverlay.classList.add('active');
+      liveTranscriptArea.style.display = 'none';
+      break;
+  }
+}
+
+let micActive = true;
+function toggleMic() {
+  micActive = !micActive;
+  const mic = document.getElementById('liveMic');
+  if (micActive) {
+    mic.classList.add('mic-active');
+    setOrbState('listening');
+  } else {
+    mic.classList.remove('mic-active');
+    setOrbState('idle');
+  }
+}
+
+// Auto-demo: cycle through states
+let demoTimer;
+function startDemo() {
+  let step = 0;
+  const states = ['idle', 'listening', 'thinking', 'speaking'];
+  demoTimer = setInterval(() => {
+    setOrbState(states[step % states.length]);
+    step++;
+  }, 3000);
+}
+startDemo();
+</script>
+</body>
+</html>

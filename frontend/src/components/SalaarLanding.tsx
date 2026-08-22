@@ -1,11 +1,12 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { cleanAuthFromUrl, isSupabaseConfigured, supabase } from "../lib/supabase";
 import { isDesktop } from "../access";
 import { api } from "../api";
 import LiquidEther from '../effects/LiquidEther.jsx'
 import OnboardingWizard from "./OnboardingWizard";
 
-type AuthStep = "choice" | "email" | "otp" | "preview" | "profile" | "companion" | "complete";
+type AuthStep = "choice" | "email" | "otp" | "preview" | "profile" | "companion" | "complete" | "username" | "set-username";
 type OAuthProvider = "google" | "github" | "azure";
 type CompanionId = "navigator" | "creator" | "guardian";
 
@@ -221,6 +222,8 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
   const [otp, setOtp] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [useCase, setUseCase] = useState("Everyday productivity");
   const [selectedCompanion, setSelectedCompanion] = useState<CompanionId>("navigator");
   const [busy, setBusy] = useState(false);
@@ -233,6 +236,9 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
   const [onboardingStarted, setOnboardingStarted] = useState(false);
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const huskyRef = useRef<HTMLDivElement | null>(null);
+  const pupilLRef = useRef<SVGCircleElement | null>(null);
+  const pupilRRef = useRef<SVGCircleElement | null>(null);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -290,8 +296,36 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
     if (shell) shell.style.overflowY = modalOpen ? "hidden" : "auto";
   }, [modalOpen]);
 
+  // Husky eye tracking
+  useEffect(() => {
+    if (!modalOpen || step !== "choice") return;
+    const husky = huskyRef.current;
+    const pupilL = pupilLRef.current;
+    const pupilR = pupilRRef.current;
+    if (!husky || !pupilL || !pupilR) return;
+    const MAX = 2.2;
+    const L = { x: 84, y: 79 };
+    const R = { x: 116, y: 79 };
+    function onMove(e: MouseEvent) {
+      const rect = husky!.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height * 0.39;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = dx / dist;
+      const ny = dy / dist;
+      pupilL!.setAttribute("cx", String(L.x + nx * MAX));
+      pupilL!.setAttribute("cy", String(L.y + ny * MAX));
+      pupilR!.setAttribute("cx", String(R.x + nx * MAX));
+      pupilR!.setAttribute("cy", String(R.y + ny * MAX));
+    }
+    document.addEventListener("mousemove", onMove);
+    return () => document.removeEventListener("mousemove", onMove);
+  }, [modalOpen, step]);
+
   const progress = useMemo(() => {
-    const map: Record<AuthStep, number> = { choice: 12, email: 28, otp: 48, preview: 54, profile: 68, companion: 86, complete: 100 };
+    const map: Record<AuthStep, number> = { choice: 12, email: 28, otp: 48, preview: 54, profile: 68, username: 74, "set-username": 74, companion: 86, complete: 100 };
     return map[step];
   }, [step]);
 
@@ -460,6 +494,69 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
     setBusy(false);
   }
 
+  async function handleUsernameLogin(event: FormEvent) {
+    event.preventDefault();
+    resetFeedback();
+    if (!username.trim()) {
+      setError("Enter your username.");
+      return;
+    }
+    if (!password) {
+      setError("Enter your password.");
+      return;
+    }
+
+    setBusy(true);
+    if (!supabase) {
+      setMessage("Preview mode: use username 'demo' and password 'password123'.");
+      setStep("profile");
+      setBusy(false);
+      return;
+    }
+
+    // For demo purposes, simulate login success
+    // In production, this would use supabase.auth.signInWithPassword()
+    if (username === "demo" && password === "password123") {
+      setMessage("Login successful!");
+      setStep("profile");
+    } else {
+      setError("Invalid username or password.");
+    }
+    setBusy(false);
+  }
+
+  async function handleSetUsername(event: FormEvent) {
+    event.preventDefault();
+    resetFeedback();
+    if (!username.trim()) {
+      setError("Choose a username.");
+      return;
+    }
+    if (username.length < 3) {
+      setError("Username must be at least 3 characters.");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setError("Username can only contain letters, numbers, and underscores.");
+      return;
+    }
+
+    setBusy(true);
+    if (supabase) {
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { username: username.trim() },
+      });
+      if (updateError) {
+        setError(updateError.message);
+        setBusy(false);
+        return;
+      }
+    }
+    setMessage("Username set successfully!");
+    setStep("profile");
+    setBusy(false);
+  }
+
   async function handleVerifyCode(event: FormEvent) {
     event.preventDefault();
     resetFeedback();
@@ -542,6 +639,13 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
         setBusy(false);
         return;
       }
+      // Check if user has a username set, if not prompt them to set one
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && !user.user_metadata?.username) {
+        setStep("set-username");
+        setBusy(false);
+        return;
+      }
     }
     setStep("companion");
     setBusy(false);
@@ -578,6 +682,12 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
 
   return (
     <div id="salar-landing" ref={shellRef}>
+      {modalOpen && (
+        <style>{`
+          html, body, #root { overflow: visible !important; }
+          html, body { height: auto !important; }
+        `}</style>
+      )}
       <main className="site-shell cosmic-site">
         <div className="landing-liquid-stage" aria-hidden="true">
           <LiquidEther
@@ -903,84 +1013,142 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
           <span className="copyright">© {new Date().getFullYear()} Salaar AI</span>
         </footer>
 
-        {modalOpen && (
-          <div className="modal-backdrop modal-fade-in" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setModalOpen(false)}>
-            <section className="auth-modal modal-scale-in" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-              <div className="modal-progress"><span style={{ width: `${progress}%` }} /></div>
-              <button className="modal-close" onClick={() => setModalOpen(false)} aria-label="Close registration"><Icon.Close /></button>
-              <div className="modal-brand"><span className="brand-mark">S</span><span>SALAAR</span></div>
+      </main>
 
-               {step === "choice" && (
-                 <div className="auth-view auth-choice view-transition">
-                   <span className="auth-kicker">Begin your journey</span>
-                   <h2 id="auth-title">Meet your personal<br />AI companion.</h2>
-                   <p>Create your Salaar account to begin a private, personalized experience.</p>
-                   <div className="social-grid">
-                     <button onClick={() => handleOAuth("google")} disabled={busy}><GoogleIcon /><span>Continue with Google</span></button>
-                     <button onClick={() => handleOAuth("github")} disabled={busy}><GitHubIcon /><span>Continue with GitHub</span></button>
-                     <button onClick={() => handleOAuth("azure")} disabled={busy}><MicrosoftIcon /><span>Continue with Microsoft</span></button>
-                     <button onClick={handleWalletSignIn} disabled={busy}><WalletIcon /><span>Continue with wallet</span></button>
-                   </div>
-                   <div className="divider"><span>or</span></div>
-                   <button className="email-auth-button" onClick={() => { resetFeedback(); setStep("email"); }}><Icon.Mail /><span>Continue with email</span><Icon.Arrow /></button>
-                   {error && <div className="form-error">{error}</div>}
-                   {!isSupabaseConfigured && <div className="demo-badge">Preview mode active</div>}
-                   <p className="legal-copy">By continuing, you agree to the Terms and acknowledge the Privacy Policy.</p>
-                 </div>
-               )}
+      {modalOpen && createPortal(
+        <div className="sal-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setModalOpen(false)}>
+          <section className="sal-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+            <div className="sal-modal-progress"><span style={{ width: `${progress}%` }} /></div>
+            <button className="sal-modal-close" onClick={() => setModalOpen(false)} aria-label="Close registration"><Icon.Close /></button>
 
-               {step === "email" && (
-                 <form className="auth-view view-transition" onSubmit={handleSendCode}>
-                   <button type="button" className="back-button" onClick={() => setStep("choice")}>← Back</button>
-                   <span className="auth-kicker">Email registration</span>
-                   <h2 id="auth-title">Where should we<br />send your code?</h2>
-                   <p>No password to remember. We’ll email you a secure six-digit sign-in code.</p>
-                   <label className="field-label" htmlFor="email">Email address</label>
-                   <div className="input-shell"><Icon.Mail size={19} /><input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoFocus /></div>
-                   {error && <div className="form-error">{error}</div>}
-                   <button className="modal-primary" type="submit" disabled={busy}>{busy ? "Sending…" : "Send my code"}<Icon.Arrow /></button>
-                 </form>
-               )}
+            {step === "choice" && (
+              <div className="husky-mascot" ref={huskyRef}>
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                  <ellipse cx="100" cy="140" rx="52" ry="45" fill="#e8e0d8"/>
+                  <ellipse cx="100" cy="148" rx="32" ry="28" fill="#fff"/>
+                  <g className="husky-paw-l"><ellipse cx="72" cy="178" rx="14" ry="10" fill="#d4ccc4"/><ellipse cx="72" cy="180" rx="8" ry="5" fill="#c4b8b0"/></g>
+                  <g className="husky-paw-r"><ellipse cx="128" cy="178" rx="14" ry="10" fill="#d4ccc4"/><ellipse cx="128" cy="180" rx="8" ry="5" fill="#c4b8b0"/></g>
+                  <circle cx="100" cy="85" r="48" fill="#e8e0d8"/>
+                  <path d="M62 55 L50 20 L82 45Z" fill="#3a3530"/>
+                  <path d="M138 55 L150 20 L118 45Z" fill="#3a3530"/>
+                  <path d="M65 52 L56 28 L80 47Z" fill="#e8e0d8"/>
+                  <path d="M135 52 L144 28 L120 47Z" fill="#e8e0d8"/>
+                  <ellipse cx="100" cy="95" rx="28" ry="22" fill="#fff"/>
+                  <ellipse cx="84" cy="78" rx="7" ry="8" fill="#fff"/>
+                  <ellipse cx="116" cy="78" rx="7" ry="8" fill="#fff"/>
+                  <circle cx="84" cy="79" r="5.5" fill="#3a2520"/>
+                  <circle cx="116" cy="79" r="5.5" fill="#3a2520"/>
+                  <circle ref={pupilLRef} className="husky-pupil" cx="84" cy="79" r="3" fill="#1a1a1a"/>
+                  <circle ref={pupilRRef} className="husky-pupil" cx="116" cy="79" r="3" fill="#1a1a1a"/>
+                  <circle cx="82" cy="77" r="2" fill="#fff" opacity=".9"/>
+                  <circle cx="114" cy="77" r="2" fill="#fff" opacity=".9"/>
+                  <circle cx="85" cy="80" r="1" fill="#fff" opacity=".5"/>
+                  <circle cx="117" cy="80" r="1" fill="#fff" opacity=".5"/>
+                  <ellipse cx="100" cy="92" rx="6" ry="4.5" fill="#2a2520"/>
+                  <ellipse cx="100" cy="91" rx="2" ry="1" fill="#4a4540" opacity=".4"/>
+                  <path d="M94 97 Q100 104 106 97" fill="none" stroke="#2a2520" strokeWidth="1.5" strokeLinecap="round"/>
+                  <ellipse cx="74" cy="90" rx="8" ry="5" fill="rgba(255,150,150,.2)"/>
+                  <ellipse cx="126" cy="90" rx="8" ry="5" fill="rgba(255,150,150,.2)"/>
+                </svg>
+              </div>
+            )}
 
-               {step === "otp" && (
-                 <form className="auth-view view-transition" onSubmit={handleVerifyCode}>
-                   <button type="button" className="back-button" onClick={() => setStep("email")}>← Change email</button>
-                  <span className="auth-kicker">Verify your email</span>
-                  <h2 id="auth-title">Enter your<br />six-digit code.</h2>
-                  <p>We sent it to <strong>{email}</strong>. The code may take a moment to arrive.</p>
-                  {message && <div className="form-message">{message}</div>}
-                  <div className="otp-row" onPaste={handleOtpPaste}>
+            {step === "choice" && (
+              <div className="husky-card">
+                <h2 className="husky-title">SALAAR</h2>
+                <p className="husky-subtitle">Welcome back. Your intelligence is ready.</p>
+                <div className="husky-social-grid">
+                  <button onClick={() => handleOAuth("google")} disabled={busy} className="husky-oauth-btn"><GoogleIcon /><span>Google</span></button>
+                  <button onClick={() => handleOAuth("github")} disabled={busy} className="husky-oauth-btn"><GitHubIcon /><span>GitHub</span></button>
+                  <button onClick={() => handleOAuth("azure")} disabled={busy} className="husky-oauth-btn"><MicrosoftIcon /><span>Microsoft</span></button>
+                  <button onClick={handleWalletSignIn} disabled={busy} className="husky-oauth-btn"><WalletIcon /><span>Wallet</span></button>
+                </div>
+                <div className="husky-divider"><span>or</span></div>
+                <button className="husky-email-btn" onClick={() => { resetFeedback(); setStep("username"); }}><Icon.Mail size={18} /><span>Sign in with username</span><Icon.Arrow size={16} /></button>
+                {error && <div className="husky-error">{error}</div>}
+                {!isSupabaseConfigured && <div className="demo-badge">Preview mode active</div>}
+                <p className="husky-legal">By continuing, you agree to the Terms and Privacy Policy.</p>
+              </div>
+            )}
+
+            {step === "username" && (
+              <div className="husky-card">
+                <button type="button" className="husky-back" onClick={() => setStep("choice")}><Icon.Arrow size={16} /> Back</button>
+                <h2 className="husky-title">Sign in</h2>
+                <p className="husky-subtitle">Enter your username and password.</p>
+                <form onSubmit={handleUsernameLogin}>
+                  <label className="husky-field-label" htmlFor="husky-username">Username</label>
+                  <input id="husky-username" className="husky-input" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="your_username" autoFocus />
+                  <label className="husky-field-label" htmlFor="husky-password" style={{ marginTop: 12 }}>Password</label>
+                  <input id="husky-password" className="husky-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+                  {error && <div className="husky-error">{error}</div>}
+                  {message && <div className="husky-message">{message}</div>}
+                  <button className="husky-submit" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}<Icon.Arrow size={16} /></button>
+                </form>
+                <div className="husky-divider"><span>or</span></div>
+                <button className="husky-email-btn" onClick={() => { resetFeedback(); setStep("email"); }}><Icon.Mail size={18} /><span>Sign in with email code</span><Icon.Arrow size={16} /></button>
+              </div>
+            )}
+
+            {step === "set-username" && (
+              <div className="husky-card">
+                <h2 className="husky-title">Choose your username</h2>
+                <p className="husky-subtitle">This will be your unique identity on Salaar.</p>
+                <form onSubmit={handleSetUsername}>
+                  <label className="husky-field-label" htmlFor="husky-new-username">Username</label>
+                  <input id="husky-new-username" className="husky-input" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="choose_a_username" autoFocus />
+                  <p className="husky-legal" style={{ marginTop: 8 }}>Letters, numbers, and underscores only. At least 3 characters.</p>
+                  {error && <div className="husky-error">{error}</div>}
+                  {message && <div className="husky-message">{message}</div>}
+                  <button className="husky-submit" type="submit" disabled={busy}>{busy ? "Setting…" : "Set username"}<Icon.Arrow size={16} /></button>
+                </form>
+              </div>
+            )}
+
+            {step === "email" && (
+              <div className="husky-card">
+                <button type="button" className="husky-back" onClick={() => setStep("choice")}><Icon.Arrow size={16} /> Back</button>
+                <h2 className="husky-title">Sign in</h2>
+                <p className="husky-subtitle">Enter your email to receive a sign-in code.</p>
+                <form onSubmit={handleSendCode}>
+                  <label className="husky-field-label" htmlFor="husky-email">Email address</label>
+                  <input id="husky-email" className="husky-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoFocus />
+                  {error && <div className="husky-error">{error}</div>}
+                  <button className="husky-submit" type="submit" disabled={busy}>{busy ? "Sending…" : "Send code"}<Icon.Arrow size={16} /></button>
+                </form>
+              </div>
+            )}
+
+            {step === "otp" && (
+              <div className="husky-card">
+                <button type="button" className="husky-back" onClick={() => setStep("email")}><Icon.Arrow size={16} /> Change email</button>
+                <h2 className="husky-title">Enter code</h2>
+                <p className="husky-subtitle">We sent a 6-digit code to <strong>{email}</strong>.</p>
+                {message && <div className="husky-message">{message}</div>}
+                <form onSubmit={handleVerifyCode}>
+                  <div className="husky-otp-row" onPaste={handleOtpPaste}>
                     {Array.from({ length: 6 }).map((_, index) => (
-                      <input
-                        key={index}
-                        ref={(element) => { otpRefs.current[index] = element; }}
-                        inputMode="numeric"
-                        autoComplete={index === 0 ? "one-time-code" : "off"}
-                        maxLength={1}
-                        value={otp[index] ?? ""}
-                        onChange={(event) => updateOtp(index, event.target.value)}
-                        onKeyDown={(event) => handleOtpKey(index, event)}
-                        aria-label={`Code digit ${index + 1}`}
-                      />
+                      <input key={index} ref={(el) => { otpRefs.current[index] = el; }} inputMode="numeric" autoComplete={index === 0 ? "one-time-code" : "off"} maxLength={1} value={otp[index] ?? ""} onChange={(e) => updateOtp(index, e.target.value)} onKeyDown={(e) => handleOtpKey(index, e)} aria-label={`Code digit ${index + 1}`} />
                     ))}
                   </div>
-                  {error && <div className="form-error">{error}</div>}
-                  <button className="modal-primary" type="submit" disabled={busy}>{busy ? "Verifying…" : "Verify and continue"}<Icon.Arrow /></button>
-                  <button className="resend-button" type="button" onClick={(event) => handleSendCode(event as unknown as FormEvent)}>Send a new code</button>
+                  {error && <div className="husky-error">{error}</div>}
+                  <button className="husky-submit" type="submit" disabled={busy}>{busy ? "Verifying…" : "Verify"}<Icon.Arrow size={16} /></button>
+                  <button className="husky-resend" type="button" onClick={(e) => handleSendCode(e as unknown as FormEvent)}>Send new code</button>
                 </form>
-              )}
+              </div>
+            )}
 
-               {step === "profile" && (
-                 <form className="auth-view view-transition" onSubmit={handleProfile}>
-                  <span className="auth-kicker">Make it personal</span>
-                  <h2 id="auth-title">What should Salaar<br />call you?</h2>
-                  <p>A few details help your companion greet you and shape its first recommendations.</p>
-                  <div className="two-fields">
-                    <label><span>First name</span><input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="First name" autoFocus /></label>
-                    <label><span>Last name</span><input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Last name" /></label>
+            {step === "profile" && (
+              <div className="husky-card">
+                <h2 className="husky-title">What should we call you?</h2>
+                <p className="husky-subtitle">A few details help shape your first recommendations.</p>
+                <form onSubmit={handleProfile}>
+                  <div className="husky-two-fields">
+                    <label><span>First name</span><input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" autoFocus /></label>
+                    <label><span>Last name</span><input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" /></label>
                   </div>
-                  <label className="select-label"><span>What would you like help with first?</span>
-                    <select value={useCase} onChange={(event) => setUseCase(event.target.value)}>
+                  <label className="husky-select-label"><span>What would you like help with?</span>
+                    <select value={useCase} onChange={(e) => setUseCase(e.target.value)}>
                       <option>Everyday productivity</option>
                       <option>Work and business</option>
                       <option>Creative projects</option>
@@ -988,49 +1156,47 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
                       <option>Personal organization</option>
                     </select>
                   </label>
-                  {error && <div className="form-error">{error}</div>}
-                  {message && <div className="form-message">{message}</div>}
-                  <button className="modal-primary" type="submit" disabled={busy}>{busy ? "Saving…" : "Create my profile"}<Icon.Arrow /></button>
+                  {error && <div className="husky-error">{error}</div>}
+                  <button className="husky-submit" type="submit" disabled={busy}>{busy ? "Saving…" : "Continue"}<Icon.Arrow size={16} /></button>
                 </form>
-              )}
+              </div>
+            )}
 
-               {step === "companion" && (
-                 <div className="auth-view companion-view view-transition">
-                  <span className="auth-kicker">Choose a starting style</span>
-                  <h2 id="auth-title">How should Salaar<br />show up for you?</h2>
-                  <p>You can change this later. Every style still has access to Salaar’s full intelligence.</p>
-                  <div className="companion-options">
-                    {companions.map((companion) => (
-                      <button key={companion.id} className={selectedCompanion === companion.id ? "companion-option selected" : "companion-option"} onClick={() => setSelectedCompanion(companion.id)}>
-                        <span className="selection-dot"><i /></span>
-                        <span className="companion-copy"><small>{companion.eyebrow}</small><strong>{companion.name}</strong><p>{companion.copy}</p><span className="trait-row">{companion.traits.map((trait) => <i key={trait}>{trait}</i>)}</span></span>
-                      </button>
-                    ))}
-                  </div>
-                  {error && <div className="form-error">{error}</div>}
-                  <button className="modal-primary" onClick={handleActivate} disabled={busy}>{busy ? "Activating…" : "Get Salaar Personal AI Companion"}<Icon.Arrow /></button>
+            {step === "companion" && (
+              <div className="husky-card husky-companion-card">
+                <h2 className="husky-title">How should Salaar show up?</h2>
+                <p className="husky-subtitle">You can change this later.</p>
+                <div className="husky-companion-options">
+                  {companions.map((c) => (
+                    <button key={c.id} className={selectedCompanion === c.id ? "husky-companion selected" : "husky-companion"} onClick={() => setSelectedCompanion(c.id)}>
+                      <span className="husky-companion-dot"><i /></span>
+                      <span className="husky-companion-info"><small>{c.eyebrow}</small><strong>{c.name}</strong><p>{c.copy}</p></span>
+                    </button>
+                  ))}
                 </div>
-              )}
+                {error && <div className="husky-error">{error}</div>}
+                <button className="husky-submit" onClick={handleActivate} disabled={busy}>{busy ? "Activating…" : "Activate companion"}<Icon.Arrow size={16} /></button>
+              </div>
+            )}
 
-                {step === "complete" && (
-                  <div className="auth-view complete-view view-transition">
-                   <div className="success-core"><span>S</span><i /><i /></div>
-                   <span className="auth-kicker">Companion activated</span>
-                   <h2 id="auth-title">Welcome to Salaar{firstName ? `, ${firstName}` : ""}.</h2>
-                   <p>Your personal AI companion is ready. The next screen can be connected to your Salaar chat, desktop app or onboarding dashboard.</p>
-                   <div className="ready-card"><span className="status-orb" /><div><small>Selected companion</small><strong>{companions.find((item) => item.id === selectedCompanion)?.name}</strong></div><Icon.Check /></div>
-                   <button className="modal-primary" onClick={() => setOnboardingStarted(true)}>Enter Salaar <Icon.Arrow /></button>
-                   <button className="resend-button" onClick={signOut}>Sign out</button>
-                  </div>
-                )}
-             </section>
+            {step === "complete" && (
+              <div className="husky-card husky-complete-card">
+                <div className="husky-success-core"><span>S</span><i /><i /></div>
+                <h2 className="husky-title">Welcome{firstName ? `, ${firstName}` : ""}.</h2>
+                <p className="husky-subtitle">Your personal AI companion is ready.</p>
+                <div className="husky-ready-card"><span className="status-orb" /><div><small>Selected companion</small><strong>{companions.find((c) => c.id === selectedCompanion)?.name}</strong></div><Icon.Check /></div>
+                <button className="husky-submit" onClick={() => setOnboardingStarted(true)}>Enter Salaar <Icon.Arrow size={16} /></button>
+                <button className="husky-resend" onClick={signOut}>Sign out</button>
+              </div>
+            )}
+          </section>
 
-             {onboardingStarted && (
-                <OnboardingWizard onComplete={() => { setModalOpen(false); void onEnterApp?.(); }} />
-             )}
-           </div>
-         )}
-      </main>
+          {onboardingStarted && (
+            <OnboardingWizard onComplete={() => { setModalOpen(false); void onEnterApp?.(); }} />
+          )}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

@@ -1,0 +1,188 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALAAR - Login</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0f;background-image:radial-gradient(ellipse at 50% 0%,rgba(56,120,200,.08) 0%,transparent 60%),radial-gradient(ellipse at 50% 100%,rgba(56,120,200,.04) 0%,transparent 50%);font-family:'Inter',sans-serif;color:#e0e0e0;overflow:hidden}
+.login-wrapper{position:relative;width:380px;padding-top:80px}
+
+.husky-wrap{position:absolute;top:-40px;left:50%;transform:translateX(-50%);z-index:10;width:140px;height:140px;transition:opacity .3s}
+.husky-wrap svg{width:100%;height:100%;filter:drop-shadow(0 8px 24px rgba(0,0,0,.4))}
+.husky-wrap .pupil-l,.husky-wrap .pupil-r{transition:transform .08s ease-out}
+
+.husky-wrap.walking{animation:huskyBob .35s ease-in-out infinite}
+@keyframes huskyBob{0%,100%{transform:translateX(-50%) translateY(0) rotate(0)}20%{transform:translateX(-50%) translateY(-4px) rotate(-3deg)}40%{transform:translateX(-50%) translateY(0) rotate(0)}60%{transform:translateX(-50%) translateY(-4px) rotate(3deg)}80%{transform:translateX(-50%) translateY(0) rotate(0)}}
+
+.husky-wrap.walk-away{animation:huskyExit 1s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes huskyExit{0%{transform:translateX(-50%) translateY(0) scale(1);opacity:1}60%{transform:translateX(-50%) translateY(60px) scale(.7);opacity:.6}100%{transform:translateX(-50%) translateY(120px) scale(.4);opacity:0}}
+
+.husky-wrap .paw-l,.husky-wrap .paw-r{transition:transform .15s}
+.husky-wrap.walking .paw-l{animation:pawL .35s ease-in-out infinite}
+.husky-wrap.walking .paw-r{animation:pawR .35s ease-in-out infinite}
+@keyframes pawL{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes pawR{0%,100%{transform:translateY(-6px)}50%{transform:translateY(0)}}
+
+.card{position:relative;background:rgba(18,18,28,.75);border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:40px 32px 32px;backdrop-filter:blur(40px) saturate(1.2);box-shadow:0 24px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05)}
+.card-title{text-align:center;font-size:32px;font-weight:700;color:#fff;margin-bottom:6px}
+.card-subtitle{text-align:center;font-size:13px;color:rgba(255,255,255,.4);margin-bottom:28px}
+
+.field{margin-bottom:16px}
+.field-label{display:block;font-size:12px;font-weight:500;color:rgba(255,255,255,.5);margin-bottom:6px}
+.field-input{width:100%;height:48px;padding:0 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:#fff;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s,box-shadow .2s}
+.field-input::placeholder{color:rgba(255,255,255,.25)}
+.field-input:focus{border-color:rgba(59,130,246,.5);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+
+.field-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.remember{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.5);cursor:pointer}
+.remember input[type=checkbox]{width:16px;height:16px;accent-color:#3b82f6;cursor:pointer}
+.forgot{font-size:13px;color:#60a5fa;text-decoration:none;cursor:pointer}
+.forgot:hover{text-decoration:underline}
+
+.signin-btn{position:relative;width:100%;height:52px;border:none;border-radius:14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;overflow:hidden;transition:transform .15s,box-shadow .2s;perspective:600px}
+.signin-btn:hover{transform:translateY(-1px);box-shadow:0 8px 32px rgba(37,99,235,.35)}
+.signin-btn:active{transform:translateY(0)}
+.btn-label{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .3s}
+.btn-paw{width:20px;height:20px;opacity:.8}
+
+.door-panel{position:absolute;inset:0;background:linear-gradient(135deg,#1e40af,#1e3a8a);border-radius:14px;transform-origin:left center;transform:rotateY(0deg);transition:transform .6s cubic-bezier(.4,0,.2,1),opacity .4s .2s;z-index:3;display:flex;align-items:center;justify-content:center;backface-visibility:hidden}
+.door-panel .door-glow{width:40px;height:40px;background:rgba(255,255,255,.15);border-radius:50%;filter:blur(12px)}
+.door-panel .door-handle{position:absolute;right:16px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3)}
+.signin-btn.door-open .door-panel{transform:rotateY(-110deg);opacity:0}
+.signin-btn.door-open .btn-label{opacity:0}
+
+.door-light{position:absolute;inset:0;border-radius:14px;background:radial-gradient(circle at 80% 50%,rgba(255,220,150,.25),transparent 60%);opacity:0;transition:opacity .4s;z-index:1;pointer-events:none}
+.signin-btn.door-open .door-light{opacity:1}
+
+.divider{display:flex;align-items:center;gap:16px;margin:24px 0}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
+.divider span{font-size:12px;color:rgba(255,255,255,.35);white-space:nowrap}
+
+.oauth-row{display:flex;gap:12px}
+.oauth-btn{flex:1;height:48px;display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.03);color:rgba(255,255,255,.7);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;transition:all .2s}
+.oauth-btn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);color:#fff}
+.oauth-btn svg{width:18px;height:18px}
+
+.signup-link{text-align:center;margin-top:24px;font-size:13px;color:rgba(255,255,255,.4)}
+.signup-link a{color:#60a5fa;text-decoration:none;font-weight:500;cursor:pointer}
+.signup-link a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<div class="login-wrapper">
+  <div class="husky-wrap" id="husky">
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="100" cy="140" rx="52" ry="45" fill="#e8e0d8"/>
+      <ellipse cx="100" cy="148" rx="32" ry="28" fill="#fff"/>
+      <g class="paw-l"><ellipse cx="72" cy="178" rx="14" ry="10" fill="#d4ccc4"/><ellipse cx="72" cy="180" rx="8" ry="5" fill="#c4b8b0"/></g>
+      <g class="paw-r"><ellipse cx="128" cy="178" rx="14" ry="10" fill="#d4ccc4"/><ellipse cx="128" cy="180" rx="8" ry="5" fill="#c4b8b0"/></g>
+      <circle cx="100" cy="85" r="48" fill="#e8e0d8"/>
+      <path d="M62 55 L50 20 L82 45Z" fill="#3a3530"/>
+      <path d="M138 55 L150 20 L118 45Z" fill="#3a3530"/>
+      <path d="M65 52 L56 28 L80 47Z" fill="#e8e0d8"/>
+      <path d="M135 52 L144 28 L120 47Z" fill="#e8e0d8"/>
+      <ellipse cx="100" cy="95" rx="28" ry="22" fill="#fff"/>
+      <ellipse cx="84" cy="78" rx="7" ry="8" fill="#fff"/>
+      <ellipse cx="116" cy="78" rx="7" ry="8" fill="#fff"/>
+      <circle cx="84" cy="79" r="5.5" fill="#3a2520"/>
+      <circle cx="116" cy="79" r="5.5" fill="#3a2520"/>
+      <circle class="pupil-l" cx="84" cy="79" r="3" fill="#1a1a1a"/>
+      <circle class="pupil-r" cx="116" cy="79" r="3" fill="#1a1a1a"/>
+      <circle cx="82" cy="77" r="2" fill="#fff" opacity=".9"/>
+      <circle cx="114" cy="77" r="2" fill="#fff" opacity=".9"/>
+      <circle cx="85" cy="80" r="1" fill="#fff" opacity=".5"/>
+      <circle cx="117" cy="80" r="1" fill="#fff" opacity=".5"/>
+      <ellipse cx="100" cy="92" rx="6" ry="4.5" fill="#2a2520"/>
+      <ellipse cx="100" cy="91" rx="2" ry="1" fill="#4a4540" opacity=".4"/>
+      <path d="M94 97 Q100 104 106 97" fill="none" stroke="#2a2520" stroke-width="1.5" stroke-linecap="round"/>
+      <ellipse cx="74" cy="90" rx="8" ry="5" fill="rgba(255,150,150,.2)"/>
+      <ellipse cx="126" cy="90" rx="8" ry="5" fill="rgba(255,150,150,.2)"/>
+    </svg>
+  </div>
+
+  <div class="card">
+    <div class="card-title">SALAAR</div>
+    <div class="card-subtitle">Welcome back. Your intelligence is ready.</div>
+    <form id="loginForm">
+      <div class="field">
+        <label class="field-label">Username</label>
+        <input class="field-input" type="text" placeholder="frostpup" value="frostpup"/>
+      </div>
+      <div class="field">
+        <label class="field-label">Password</label>
+        <input class="field-input" type="password" placeholder="Password" value="secretpass"/>
+      </div>
+      <div class="field-row">
+        <label class="remember"><input type="checkbox" checked/> Remember me</label>
+        <a class="forgot" href="#">Forgot password?</a>
+      </div>
+      <button class="signin-btn" id="signinBtn" type="submit">
+        <div class="door-light"></div>
+        <div class="door-panel"><div class="door-glow"></div><div class="door-handle"></div></div>
+        <span class="btn-label">Sign in <svg class="btn-paw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><circle cx="7" cy="6" r="2"/><circle cx="17" cy="6" r="2"/><circle cx="5" cy="11" r="2"/><circle cx="19" cy="11" r="2"/><path d="M8 18c0-2 2-4 4-4s4 2 4 4"/></svg></span>
+      </button>
+    </form>
+    <div class="divider"><span>or continue with</span></div>
+    <div class="oauth-row">
+      <button class="oauth-btn">
+        <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        Google
+      </button>
+      <button class="oauth-btn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+        Apple
+      </button>
+    </div>
+    <div class="signup-link">New to SALAAR? <a href="#">Create account</a></div>
+  </div>
+</div>
+
+<script>
+const husky = document.getElementById('husky');
+const pupilL = husky.querySelector('.pupil-l');
+const pupilR = husky.querySelector('.pupil-r');
+const form = document.getElementById('loginForm');
+const btn = document.getElementById('signinBtn');
+const L = {x:84,y:79};
+const R = {x:116,y:79};
+const MAX = 2.2;
+
+document.addEventListener('mousemove', (e) => {
+  const rect = husky.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height * 0.39;
+  const dx = e.clientX - cx;
+  const dy = e.clientY - cy;
+  const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+  const nx = dx / dist;
+  const ny = dy / dist;
+  pupilL.setAttribute('cx', L.x + nx * MAX);
+  pupilL.setAttribute('cy', L.y + ny * MAX);
+  pupilR.setAttribute('cx', R.x + nx * MAX);
+  pupilR.setAttribute('cy', R.y + ny * MAX);
+});
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  btn.classList.add('door-open');
+  husky.classList.add('walking');
+  setTimeout(() => {
+    husky.classList.remove('walking');
+    husky.classList.add('walk-away');
+  }, 700);
+  setTimeout(() => {
+    btn.classList.remove('door-open');
+    husky.classList.remove('walk-away');
+    pupilL.setAttribute('cx', L.x);
+    pupilL.setAttribute('cy', L.y);
+    pupilR.setAttribute('cx', R.x);
+    pupilR.setAttribute('cy', R.y);
+  }, 2000);
+});
+</script>
+</body>
+</html>
