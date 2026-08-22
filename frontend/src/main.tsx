@@ -24,6 +24,9 @@ import { initialLiveState, liveReducer } from './live/realtime-state'
 import { GeminiLiveClient } from './live/gemini-live-client'
 import { FallbackVoiceClient } from './live/fallback-voice-client'
 import { HybridVoiceClient } from './live/hybrid-voice-client'
+import { ModeProvider } from './contexts/ModeContext'
+import { SettingsProvider } from './contexts/SettingsContext'
+import { TermsPage } from './components/TermsPage'
 
 const api = new SalarApi()
 const LegacyRings = MagicRings
@@ -66,6 +69,7 @@ function App() {
   const [live, setLive] = useState(false)
   const [usage, setUsage] = useState<Usage | null>(null)
   const [showPricing, setShowPricing] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
 
   const enterApp = useCallback(async (supabaseToken?: string | null) => {
     const result = await sessionCoordinator.connect(supabaseToken)
@@ -157,7 +161,7 @@ function App() {
         {usage && <button className="usage-chip" onClick={() => setShowPricing(true)} title="Plan & billing"><Sparkles size={12}/><b>{usage.used.toLocaleString()}</b> / {usage.limit === null ? 'unlimited' : usage.limit.toLocaleString()} <small>{usage.exempt ? 'ADMIN' : usage.plan.toUpperCase()}</small></button>}
       </nav>
       <div className="topbar-actions">
-        <ProfileDropdown onSignOut={handleSignOut} onShowPricing={() => setShowPricing(true)} />
+        <ProfileDropdown onSignOut={handleSignOut} onShowPricing={() => setShowPricing(true)} onShowTerms={() => setShowTerms(true)} />
       </div>
     </header>
     <section className="workspace chat-workspace">
@@ -166,6 +170,7 @@ function App() {
       </div>
       <StatusRail/>
       {showPricing && <div className="pricing-overlay"><button className="pricing-close" onClick={() => setShowPricing(false)} aria-label="Close plan & billing"><X/></button><PricingPage connected onClose={() => setShowPricing(false)}/></div>}
+      {showTerms && <TermsPage onClose={() => setShowTerms(false)} />}
     </section>
   </main>{live && <Live connected onClose={() => setLive(false)}/>}</>
 }
@@ -296,6 +301,27 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
   const [orbState, setOrbState] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle')
   const [micVol, setMicVol] = useState(0)
   const [aiVol, setAiVol] = useState(0)
+
+  // Keep screen awake while in Live Mode
+  useEffect(() => {
+    let wakeLock: WakeLockSentinel | null = null
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen')
+        }
+      } catch {}
+    }
+    requestWakeLock()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') requestWakeLock()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      wakeLock?.release()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
 
   useEffect(() => {
     if (!connected) return
@@ -929,4 +955,4 @@ function StatusRail() {
   </aside>
 }
 
-createRoot(document.getElementById('root')!).render(<App/>)
+createRoot(document.getElementById('root')!).render(<ModeProvider><SettingsProvider><App/></SettingsProvider></ModeProvider>)

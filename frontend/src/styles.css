@@ -183,13 +183,12 @@
 .lv-error{font-size:12px;color:#ef4444;text-align:center}
 
 /* ===== Orb ===== */
-.orb-container{position:relative;width:200px;height:200px;display:flex;justify-content:center;align-items:center;overflow:hidden;border-radius:50%;rotate:90deg;cursor:pointer;filter:drop-shadow(0 0 6px #1cffa0de) drop-shadow(0 0 6px #ff1c4de8);transition:all .3s ease}
-.orb{position:absolute;width:200px;aspect-ratio:1;border-radius:50%;background:#060606;filter:blur(24px);transition:all .3s ease}
-.orb-container:hover .orb{width:220px;animation:orbRotate 6s infinite}
-.orb-inner{position:absolute;left:-120%;top:-25%;width:160%;aspect-ratio:1;border-radius:50%;background:#1cffa8;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation:orbRotate 6s linear infinite;transition:all .3s ease}
-.orb-inner-blue{left:auto!important;right:-120%;top:auto;bottom:-25%;background:#ff1c73;animation-duration:8s!important;clip-path:polygon(20% 0%,0% 20%,30% 50%,0% 80%,20% 100%,50% 70%,80% 100%,100% 80%,70% 50%,100% 20%,80% 0%,50% 30%)}
-.orb-container:hover .orb .orb-inner{width:170%}
-@keyframes orbRotate{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.orb-container{position:relative;display:flex;justify-content:center;align-items:center;cursor:pointer;transition:all .3s ease}
+.orb-wrap{width:100%;height:100%;transition:all .8s cubic-bezier(.4,0,.2,1)}
+.orb-wrap video{width:100%;height:100%;object-fit:contain;mix-blend-mode:screen;-webkit-mask-image:radial-gradient(circle,white 55%,transparent 72%);mask-image:radial-gradient(circle,white 55%,transparent 72%)}
+.orb-wrap.dim-full{opacity:1}
+.orb-wrap.dim-mid{opacity:.6}
+.orb-wrap.dim-low{opacity:.35}
 
 /* ===== Profile Dropdown ===== */
 .pd-wrap{position:relative}
@@ -225,6 +224,49 @@
 
 .pd-logout{color:rgba(239,68,68,.7)!important;gap:10px}
 .pd-logout:hover{background:rgba(239,68,68,.1)!important;color:#ef4444!important;border-color:rgba(239,68,68,.2)!important}
+
+.pd-panel-header{display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:13px;font-weight:600;color:rgba(255,255,255,.9)}
+.pd-back{width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.pd-back:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9)}
+
+.pd-profile-card{display:flex;flex-direction:column;align-items:center;padding:16px 12px 12px}
+.pd-profile-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.pd-profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pd-profile-avatar span{font-size:22px;font-weight:700;color:#fff}
+.pd-profile-name{font-size:14px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:2px}
+.pd-profile-email{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:8px}
+.pd-profile-badge{padding:4px 12px;border-radius:8px;font-size:10px;font-weight:600;letter-spacing:.04em;background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.15)}
+
+.pd-mode-list{padding:4px 8px 8px;display:flex;flex-direction:column;gap:4px}
+.pd-mode-card{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:none;border-radius:12px;background:transparent;cursor:pointer;transition:all .15s;text-align:left;color:rgba(255,255,255,.7)}
+.pd-mode-card:hover{background:rgba(255,255,255,.06)}
+.pd-mode-active{background:rgba(59,130,246,.1)!important;border:1px solid rgba(59,130,246,.2)!important}
+.pd-mode-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.pd-mode-active .pd-mode-icon{background:rgba(59,130,246,.15)}
+.pd-mode-info{flex:1;min-width:0}
+.pd-mode-label{font-size:13px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:1px}
+.pd-mode-desc{font-size:10px;color:rgba(255,255,255,.4)}
+.pd-mode-check{color:#60a5fa;flex-shrink:0}
+
+.pd-settings-list{padding:4px 8px 8px;display:flex;flex-direction:column;gap:2px}
+.pd-setting-row{display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:12px;transition:background .15s}
+.pd-setting-row:hover{background:rgba(255,255,255,.04)}
+.pd-setting-label{font-size:13px;font-weight:500;color:rgba(255,255,255,.7)}
+.pd-toggle{width:40px;height:22px;border-radius:11px;background:rgba(255,255,255,.1);cursor:pointer;position:relative;transition:background .2s}
+.pd-toggle.on{background:rgba(59,130,246,.5)}
+.pd-toggle-knob{width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.pd-toggle.on .pd-toggle-knob{transform:translateX(18px)}
+
+.terms-overlay{position:fixed;inset:0;z-index:12;background:rgba(5,3,8,.92);backdrop-filter:blur(30px);overflow-y:auto}
+.terms-content{max-width:640px;margin:80px auto;padding:0 24px 80px}
+.terms-content .eyebrow{display:block;margin-bottom:16px}
+.terms-content h1{font-size:32px;font-weight:500;letter-spacing:-.02em;color:rgba(255,255,255,.9);margin:0 0 6px}
+.terms-subtitle{font-size:13px;color:rgba(255,255,255,.4);margin:0 0 40px}
+.terms-section{margin-bottom:28px}
+.terms-section h2{font-size:15px;font-weight:600;color:rgba(255,255,255,.85);margin:0 0 8px}
+.terms-section p{font-size:13px;line-height:1.7;color:rgba(255,255,255,.55);margin:0}
+.terms-close{margin-top:40px;padding:10px 28px;border:1px solid rgba(255,255,255,.15);border-radius:12px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.8);font-size:13px;cursor:pointer;transition:all .2s}
+.terms-close:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25)}
 .ai-chat-wrap{position:relative;width:100%;height:100%;overflow:hidden}
 .ai-chat-orbs{position:absolute;inset:0;pointer-events:none}
 .ai-orb{position:absolute;border-radius:50%;filter:blur(128px);opacity:.1;animation:aiPulse 4s ease-in-out infinite}

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
 import { OrbInput } from './ui/animated-input'
 import { Conversation, Message, SalarApi } from '../api'
+import { useMode, MODE_INFO } from '../contexts/ModeContext'
+import { useSettings } from '../contexts/SettingsContext'
 
 function TypingDots() {
   return (
@@ -41,6 +43,8 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const [toolActivity, setToolActivity] = useState('')
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
+  const { mode } = useMode()
+  const { settings } = useSettings()
 
   useEffect(() => {
     api.conversations().then(async (list) => {
@@ -59,14 +63,31 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
 
   function handleSend(content: string) {
     if (!content.trim() || !conversation || busy) return
+    const modePrompt = MODE_INFO[mode].prompt
+    const fullContent = modePrompt ? `${modePrompt}\n\n${content}` : content
     setBusy(true); setStreaming(''); setToolActivity(''); streamBuf.current = ''
     const userMsg: Message = { id: 'tmp-' + Date.now(), role: 'user', content, created_at: new Date().toISOString() }
     setMessages((prev) => [...prev, userMsg])
     let done = false
     const finish = () => { if (done) return; done = true; setStreaming(''); streamBuf.current = ''; setToolActivity(''); setBusy(false) }
+
+    if (!settings.streaming) {
+      api.chat(conversation.id, fullContent, mode)
+        .then((res) => {
+          setMessages((prev) => [...prev.slice(0, -1), userMsg, res.assistant_message])
+          finish()
+        })
+        .catch((err) => {
+          console.error('Chat failed:', err)
+          setMessages((prev) => [...prev.slice(0, -1), userMsg, { id: 'err-' + Date.now(), role: 'assistant', content: 'Failed to get response.', created_at: new Date().toISOString() }])
+          finish()
+        })
+      return
+    }
+
     api.chatStream(
       conversation.id,
-      content,
+      fullContent,
       (token) => { streamBuf.current += token; setStreaming(streamBuf.current); setToolActivity('') },
       (messageId, createdAt) => {
         const reply = streamBuf.current
@@ -83,6 +104,8 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
       },
       (toolName) => { setToolActivity(`Using ${toolName}…`) },
       () => { setToolActivity('') },
+      false,
+      mode,
     )
   }
 

@@ -141,7 +141,7 @@ export class SalarApi {
   conversations() { return this.request<Conversation[]>('/api/conversations') }
   conversation(id: string) { return this.request<Conversation>(`/api/conversations/${id}`) }
   createConversation(title='New conversation') { return this.request<Conversation>('/api/conversations', {method:'POST', body:JSON.stringify({title})}) }
-  chat(conversation_id:string, content:string) { return this.request<{user_message:Message;assistant_message:Message}>('/api/chat', {method:'POST',body:JSON.stringify({conversation_id,content})}) }
+  chat(conversation_id:string, content:string, mode?:string) { return this.request<{user_message:Message;assistant_message:Message}>('/api/chat', {method:'POST',body:JSON.stringify({conversation_id,content, ...(mode ? {mode} : {})})}) }
 
   chatStream(
     conversation_id: string,
@@ -152,13 +152,14 @@ export class SalarApi {
     onTool?: (toolName: string, args: Record<string, unknown>) => void,
     onToolResult?: (toolName: string, result: Record<string, unknown>) => void,
     fast = false,
+    mode?: string,
   ) {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT)
 
-    fetch(`${this.baseUrl}/api/chat/stream`, { method: 'POST', headers, body: JSON.stringify({ conversation_id, content, fast }), signal: controller.signal })
+    fetch(`${this.baseUrl}/api/chat/stream`, { method: 'POST', headers, body: JSON.stringify({ conversation_id, content, fast, ...(mode ? {mode} : {}) }), signal: controller.signal })
       .then(async response => {
         clearTimeout(timer)
         if (!response.ok) {
