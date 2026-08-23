@@ -32,7 +32,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "run_command",
-                "description": "Run a shell command on the user's PC. Use with caution.",
+                "description": "Run a shell command on the user's PC. Runs in the user's home directory — relative paths resolve there. Prefer relative paths like Desktop/moon_link instead of guessing C:\\Users\\<name>. Use with caution.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -44,7 +44,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "list_files",
-                "description": "List files and directories at a given path on the user's PC.",
+                "description": "List files and directories at a given path on the user's PC. Relative paths resolve against the user's home folder (e.g. 'Desktop' or 'Documents/reports').",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -55,7 +55,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "read_file",
-                "description": "Read the contents of a text file on the user's PC.",
+                "description": "Read the contents of a text file on the user's PC. Relative paths resolve against the user's home folder.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -66,7 +66,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "write_file",
-                "description": "Write content to a file on the user's PC. Creates the file if it doesn't exist. Prefer absolute Windows paths like C:/Users/<name>/Desktop/report.txt.",
+                "description": "Write content to a file on the user's PC. Creates the file if it doesn't exist. Relative paths resolve against the user's home folder (e.g. 'Desktop/report.txt').",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -959,6 +959,11 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
             now = datetime.now()
             return {"datetime": now.isoformat(), "time": now.strftime("%I:%M %p"), "date": now.strftime("%A, %B %d, %Y")}
         elif name == "get_system_info":
+            # When a desktop device is connected, get info from the user's PC
+            if user_id and db_session:
+                result = await _route_to_local_device("system_info", {}, user_id, db_session)
+                if result is not None and result.get("status") != "queued":
+                    return result
             return await _get_system_info()
         elif name == "screenshot":
             try:

@@ -234,6 +234,40 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
             fs::write(&path, content).map_err(|e| e.to_string())?;
             Ok(json!({"written": path, "size": size}))
         }
+        "list_files" => {
+            let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
+            let path = std::path::PathBuf::from(raw);
+            let path = if path.is_absolute() { path } else {
+                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
+                home.join(path)
+            };
+            if !path.is_dir() { return Err(format!("Not a directory: {}", path.display())); }
+            let mut entries = Vec::new();
+            for entry in fs::read_dir(&path).map_err(|e| e.to_string())?.take(100) {
+                let entry = entry.map_err(|e| e.to_string())?;
+                let meta = entry.metadata().map_err(|e| e.to_string())?;
+                entries.push(json!({
+                    "name": entry.file_name().to_string_lossy(),
+                    "type": if meta.is_dir() { "dir" } else { "file" },
+                    "size": meta.len(),
+                }));
+            }
+            Ok(json!({"path": path, "entries": entries, "count": entries.len()}))
+        }
+        "read_file" => {
+            let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
+            let path = std::path::PathBuf::from(raw);
+            let path = if path.is_absolute() { path } else {
+                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
+                home.join(path)
+            };
+            let meta = fs::metadata(&path).map_err(|e| e.to_string())?;
+            if meta.len() > 1_000_000 { return Err("File too large (>1MB)".into()); }
+            let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+            let size = meta.len();
+            let preview: String = content.chars().take(10000).collect();
+            Ok(json!({"path": path, "size": size, "content": preview}))
+        }
         "run_command" => {
             let raw = payload.get("command").and_then(Value::as_str).ok_or("Missing command")?;
             if raw.len() > 2000 { return Err("Command too long".into()); }
@@ -251,6 +285,10 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
                 c.arg("-c").arg(raw);
                 c
             };
+            // Relative paths in commands must land in the user's home, not the app's install dir.
+            if let Some(home) = dirs::home_dir() {
+                cmd.current_dir(home);
+            }
             let output = cmd.output().map_err(|e| e.to_string())?;
             Ok(json!({
                 "exit_code": output.status.code(),
@@ -260,7 +298,14 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
         }
         "system_info" => {
             let mut system = System::new_all(); system.refresh_all();
-            Ok(json!({"os": System::name(), "memory_total": system.total_memory(), "memory_used": system.used_memory(), "cpu_count": system.cpus().len()}))
+            Ok(json!({
+                "os": System::name(),
+                "memory_total": system.total_memory(),
+                "memory_used": system.used_memory(),
+                "cpu_count": system.cpus().len(),
+                "home_dir": dirs::home_dir().map(|p| p.display().to_string()).unwrap_or_default(),
+                "desktop_dir": dirs::desktop_dir().map(|p| p.display().to_string()).unwrap_or_default(),
+            }))
         }
         _ => Err("Command is not allowed".into()),
     }
