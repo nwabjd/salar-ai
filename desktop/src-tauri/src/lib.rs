@@ -296,6 +296,47 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
                 "stderr": String::from_utf8_lossy(&output.stderr).chars().take(2000).collect::<String>(),
             }))
         }
+        "set_volume" => {
+            let level = payload.get("level").and_then(Value::as_u64).ok_or("Missing level (0-100)")? as u32;
+            let level = level.min(100);
+            #[cfg(target_os = "windows")]
+            {
+                // Use Windows Audio API via PowerShell to set volume
+                let best_ps = format!(
+                    r#"
+                    $code = @'
+                    using System;
+                    using System.Runtime.InteropServices;
+                    public class Vol {{
+                        [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+                        public static void SetVol(int target) {{
+                            // Mute first (vol down 50 times)
+                            for(int i=0;i<50;i++){{ keybd_event(0xAE,0,0,UIntPtr.Zero); keybd_event(0xAE,0,2,UIntPtr.Zero); }}
+                            // Then vol up to target
+                            for(int i=0;i<target/2;i++){{ keybd_event(0xAF,0,0,UIntPtr.Zero); keybd_event(0xAF,0,2,UIntPtr.Zero); }}
+                        }}
+                    }}
+'@
+                    Add-Type -TypeDefinition $code
+                    [Vol]::SetVol({})
+                    "#,
+                    level
+                );
+                Command::new("powershell")
+                    .args(["-NoProfile", "-NonInteractive", "-Command", &best_ps])
+                    .output()
+                    .map_err(|e| e.to_string())?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                // Linux/macOS: use amixer or osascript
+                let _ = Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("amixer -D pulse sset Master {}% 2>/dev/null || osascript -e 'set volume output volume {}'", level, level))
+                    .output();
+            }
+            Ok(json!({"volume_set": level}))
+        }
         "system_info" => {
             let mut system = System::new_all(); system.refresh_all();
             Ok(json!({

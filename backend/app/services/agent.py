@@ -107,7 +107,7 @@ TOOL_DEFINITIONS = [
                     "type": "object",
                     "properties": {
                         "device_id": {"type": "string", "description": "Device ID to send command to (omit for first available device)"},
-                        "kind": {"type": "string", "enum": ["open_url", "open_app", "reveal_path", "create_directory", "write_file", "run_command"], "description": "Type of command"},
+                        "kind": {"type": "string", "enum": ["open_url", "open_app", "reveal_path", "create_directory", "write_file", "run_command", "set_volume"], "description": "Type of command"},
                         "payload": {"type": "object", "description": "Command payload. open_url: {'url'}. open_app: {'app'}. reveal_path/create_directory/write_file/run_command: {'path'} / {'path','content'} / {'command'}.", "properties": {}},
                         "requires_confirmation": {"type": "boolean", "description": "Whether the device should ask user confirmation before executing"}
                     },
@@ -120,6 +120,17 @@ TOOL_DEFINITIONS = [
                 "parameters": {
                     "type": "object",
                     "properties": {}
+                }
+            },
+            {
+                "name": "set_volume",
+                "description": "Set the system volume on the user's PC (0-100).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "level": {"type": "integer", "description": "Volume level 0-100", "minimum": 0, "maximum": 100}
+                    },
+                    "required": ["level"]
                 }
             },
             {
@@ -905,6 +916,8 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
             return await _device_command(args.get("device_id"), args.get("kind", ""), args.get("payload", {}), args.get("requires_confirmation", False), user_id, db_session)
         elif name == "list_devices":
             return await _list_devices(user_id, db_session)
+        elif name == "set_volume":
+            return await _route_to_local_device("set_volume", {"level": args.get("level", 50)}, user_id, db_session)
         elif name == "whatsapp_send":
             return await _whatsapp_send(args.get("to"), args.get("phone"), args.get("text", ""), user_id, db_session)
         elif name == "whatsapp_read":

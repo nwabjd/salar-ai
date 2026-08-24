@@ -97,6 +97,17 @@ _LIVE_TOOLS = [
                 "name": "list_devices",
                 "description": "List registered and connected devices for the user.",
                 "parameters": {"type": "object", "properties": {}}
+            },
+            {
+                "name": "set_volume",
+                "description": "Set the system volume on the user's PC (0-100).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "level": {"type": "integer", "description": "Volume level 0-100", "minimum": 0, "maximum": 100}
+                    },
+                    "required": ["level"]
+                }
             }
         ]
     }
