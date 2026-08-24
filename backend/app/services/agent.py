@@ -1353,11 +1353,11 @@ async def _route_to_local_device(kind: str, payload: dict, user_id: str, db_sess
     from sqlalchemy import select
     device = db_session.scalar(select(Device).where(Device.user_id == user_id))
     if device is None:
-        logger.info("[local-exec] no device registered for user %s — falling back to server", user_id)
+        log.info("[local-exec] no device registered for user %s — falling back to server", user_id)
         return None
-    logger.info("[local-exec] routing %s to device %s (%s)", kind, device.name, device.id)
+    log.info("[local-exec] routing %s to device %s (%s)", kind, device.name, device.id)
     result = await _device_command(None, kind, payload, False, user_id, db_session)
-    logger.info("[local-exec] enqueue result: %s", json.dumps(result)[:300])
+    log.info("[local-exec] enqueue result: %s", json.dumps(result)[:300])
     status_value = result.get("status")
     if status_value not in ("queued", "awaiting_approval"):
         return None
