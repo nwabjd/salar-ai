@@ -32,7 +32,7 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "run_command",
-                "description": "Run a shell command on the user's PC. Runs in the user's home directory — relative paths resolve there. Prefer relative paths like Desktop/moon_link instead of guessing C:\\Users\\<name>. Use with caution.",
+                "description": "Run a shell command on the user's PC. Runs in the user's home directory. Use with caution. For creating files inside folders, prefer write_file with full path (it auto-creates parent dirs) — avoids quoting issues with spaces in folder names.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -66,11 +66,11 @@ TOOL_DEFINITIONS = [
             },
             {
                 "name": "write_file",
-                "description": "Write content to a file on the user's PC. Creates the file if it doesn't exist. Relative paths resolve against the user's home folder (e.g. 'Desktop/report.txt').",
+                "description": "Write content to a file on the user's PC. Auto-creates parent directories. Use full path like 'Desktop/My Project/index.html' to create files inside new folders without needing mkdir first.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "path": {"type": "string", "description": "Full path to the file"},
+                        "path": {"type": "string", "description": "Full relative path to the file (parent dirs auto-created)"},
                         "content": {"type": "string", "description": "Content to write"}
                     },
                     "required": ["path", "content"]
