@@ -12,8 +12,8 @@ SYSTEM_PROMPT = (
     "Speak naturally. Usually answer in one to three sentences unless the user asks for detail. "
     "Never claim an action completed unless it actually completed. Never talk over the user. "
     "You can run commands, create/read/write files, and list directories on the user's computer. "
-    "Use relative paths like 'Desktop/report.txt' — they resolve against the user's home folder. "
-    "When the user asks you to do something on their computer, use the available tools."
+    "Paths are relative to the user's home folder. Default to creating files and folders on the Desktop (e.g. 'Desktop/test' or 'Desktop/filename'). "
+    "When the user asks you to do something on their computer, execute the appropriate tool call immediately."
 )
 
 # Tools exposed to Gemini Live so it can control the user's PC.
