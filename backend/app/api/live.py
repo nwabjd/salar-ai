@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from ..models import User
 from ..security import decode_backend_token
+from ..services.agent import execute_tool
 from ..services.gemini_live import (
     build_audio_input,
     build_setup,
@@ -71,6 +72,9 @@ async def _proxy_gemini(
     upstream,
     model: str,
     resume_handle: str = "",
+    user_id: str = "",
+    db_session=None,
+    is_admin: bool = False,
 ) -> str:
     await upstream.send(json.dumps(build_setup(model, "Kore", resume_handle)))
     latest_handle = resume_handle
@@ -109,6 +113,30 @@ async def _proxy_gemini(
                         error.get("status", "unknown"),
                     )
                     raise _GeminiReconnect(latest_handle)
+                # Handle function calls from Gemini — execute on user's PC
+                if event_type == "function_call":
+                    tool_name = event.get("name", "")
+                    tool_args = event.get("args", {})
+                    log.info("Live function_call: %s(%s)", tool_name, json.dumps(tool_args)[:200])
+                    try:
+                        result = await execute_tool(
+                            tool_name, tool_args, user_id,
+                            db_session,
+                            is_admin=is_admin,
+                        )
+                    except Exception as exc:
+                        result = {"error": str(exc)}
+                    # Send the result back to Gemini so it can continue speaking
+                    response_payload = {
+                        "toolResponse": {
+                            "functionResponses": [{
+                                "response": {"result": json.dumps(result)[:4000]},
+                                "id": event.get("id", ""),
+                            }]
+                        }
+                    }
+                    await upstream.send(json.dumps(response_payload))
+                    continue
                 if event_type == "input_transcript_delta":
                     input_transcript += event.get("text", "")
                 elif event_type == "output_transcript_delta":
@@ -174,33 +202,36 @@ async def live_ws(websocket: WebSocket):
     try:
         import websockets
 
-        for attempt in range(2):
-            try:
-                url = gemini_live_url(settings.gemini_api_key)
-                async with websockets.connect(url, max_size=2**22) as upstream:
-                    resume_handle = await _proxy_gemini(
-                        websocket,
-                        upstream,
-                        settings.gemini_live_model,
-                        resume_handle,
-                    )
-                return
-            except _GeminiReconnect as exc:
-                resume_handle = exc.handle or resume_handle
-                if attempt == 0:
-                    await websocket.send_json(RETRYING)
+        with settings.SessionLocal() as db:
+            for attempt in range(2):
+                try:
+                    url = gemini_live_url(settings.gemini_api_key)
+                    async with websockets.connect(url, max_size=2**22) as upstream:
+                        resume_handle = await _proxy_gemini(
+                            websocket,
+                            upstream,
+                            settings.gemini_live_model,
+                            resume_handle,
+                            user_id=user.id,
+                            db_session=db,
+                            is_admin=getattr(user, "is_admin", False),
+                        )
+                    return
+                except _GeminiReconnect as exc:
+                    resume_handle = exc.handle or resume_handle
+                    if attempt == 0:
+                        await websocket.send_json(RETRYING)
                     continue
-                await websocket.send_json(FALLBACK)
-                return
-            except WebSocketDisconnect:
-                return
-            except Exception as exc:
-                log.warning("Gemini Live connection attempt %d failed: %s", attempt + 1, type(exc).__name__)
-                if attempt == 0:
-                    await websocket.send_json(RETRYING)
-                    continue
-                await websocket.send_json(FALLBACK)
-                return
+                except WebSocketDisconnect:
+                    return
+                except Exception as exc:
+                    log.warning("Gemini Live connection attempt %d failed: %s", attempt + 1, type(exc).__name__)
+                    if attempt == 0:
+                        await websocket.send_json(RETRYING)
+                        continue
+                    await websocket.send_json(FALLBACK)
+                    return
+            await websocket.send_json(FALLBACK)
     finally:
         with suppress(Exception):
             await websocket.close()

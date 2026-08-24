@@ -10,8 +10,68 @@ GEMINI_LIVE_ENDPOINT = (
 SYSTEM_PROMPT = (
     "You are SALAR, a warm, concise personal AI companion in a live voice conversation. "
     "Speak naturally. Usually answer in one to three sentences unless the user asks for detail. "
-    "Never claim an action completed unless it actually completed. Never talk over the user."
+    "Never claim an action completed unless it actually completed. Never talk over the user. "
+    "You can run commands, create/read/write files, and list directories on the user's computer. "
+    "Use relative paths like 'Desktop/report.txt' — they resolve against the user's home folder. "
+    "When the user asks you to do something on their computer, use the available tools."
 )
+
+# Tools exposed to Gemini Live so it can control the user's PC.
+_LIVE_TOOLS = [
+    {
+        "function_declarations": [
+            {
+                "name": "run_command",
+                "description": "Run a shell command on the user's PC. Runs in the user's home directory — relative paths resolve there. Example: mkdir 'Desktop/test_folder'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "command": {"type": "string", "description": "Shell command to run"}
+                    },
+                    "required": ["command"]
+                }
+            },
+            {
+                "name": "list_files",
+                "description": "List files and directories at a given path on the user's PC. Relative paths resolve against home (e.g. 'Desktop' lists the Desktop).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Directory path to list (defaults to home)"}
+                    }
+                }
+            },
+            {
+                "name": "read_file",
+                "description": "Read the contents of a text file on the user's PC. Relative paths resolve against home.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "File path to read"}
+                    },
+                    "required": ["path"]
+                }
+            },
+            {
+                "name": "write_file",
+                "description": "Write content to a file on the user's PC. Creates it if it doesn't exist. Relative paths resolve against home (e.g. 'Desktop/note.txt').",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "File path to write"},
+                        "content": {"type": "string", "description": "Content to write"}
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            {
+                "name": "get_system_info",
+                "description": "Get the user's computer info including home and desktop paths.",
+                "parameters": {"type": "object", "properties": {}}
+            }
+        ]
+    }
+]
 
 
 def gemini_live_url(api_key: str) -> str:
@@ -22,6 +82,7 @@ def build_setup(model: str, voice: str = "Kore", handle: str = "") -> Dict:
     setup = {
         "model": f"models/{model}",
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "tools": _LIVE_TOOLS,
         "inputAudioTranscription": {},
         "outputAudioTranscription": {},
         "generationConfig": {
@@ -65,6 +126,15 @@ def translate_server_message(message: Dict) -> List[Dict]:
         inline = part.get("inlineData") or {}
         if inline.get("data"):
             events.append({"type": "audio", "data": inline["data"]})
+        # Detect function calls from Gemini
+        fc = part.get("functionCall")
+        if fc:
+            events.append({
+                "type": "function_call",
+                "name": fc.get("name", ""),
+                "args": fc.get("args", {}),
+                "id": fc.get("id", ""),
+            })
     if (content.get("inputTranscription") or {}).get("text"):
         events.append({
             "type": "input_transcript_delta",
