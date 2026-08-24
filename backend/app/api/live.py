@@ -202,7 +202,7 @@ async def live_ws(websocket: WebSocket):
     try:
         import websockets
 
-        with settings.SessionLocal() as db:
+        with websocket.app.state.SessionLocal() as db:
             for attempt in range(2):
                 try:
                     url = gemini_live_url(settings.gemini_api_key)
