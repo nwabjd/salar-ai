@@ -22,7 +22,7 @@ _LIVE_TOOLS = [
         "function_declarations": [
             {
                 "name": "run_command",
-                "description": "Run a shell command on the user's PC. Runs in the user's home directory — relative paths resolve there. Example: mkdir 'Desktop/test_folder'.",
+                "description": "Run a shell command on the user's PC. Relative paths resolve against home (e.g. 'Desktop/test'). Example: start https://facebook.com",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -32,18 +32,40 @@ _LIVE_TOOLS = [
                 }
             },
             {
-                "name": "list_files",
-                "description": "List files and directories at a given path on the user's PC. Relative paths resolve against home (e.g. 'Desktop' lists the Desktop).",
+                "name": "open_url",
+                "description": "Open a website URL in the default web browser on the user's PC. Example: 'https://facebook.com'.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "path": {"type": "string", "description": "Directory path to list (defaults to home)"}
+                        "url": {"type": "string", "description": "URL or domain to open"}
+                    },
+                    "required": ["url"]
+                }
+            },
+            {
+                "name": "open_app",
+                "description": "Open an application or program on the user's PC (e.g. 'chrome', 'notepad', 'spotify', 'calc').",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "app_name": {"type": "string", "description": "Name or executable of the application"}
+                    },
+                    "required": ["app_name"]
+                }
+            },
+            {
+                "name": "list_files",
+                "description": "List files and directories at a given path on the user's PC.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Directory path to list"}
                     }
                 }
             },
             {
                 "name": "read_file",
-                "description": "Read the contents of a text file on the user's PC. Relative paths resolve against home.",
+                "description": "Read the contents of a text file on the user's PC.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -54,7 +76,7 @@ _LIVE_TOOLS = [
             },
             {
                 "name": "write_file",
-                "description": "Write content to a file on the user's PC. Creates it if it doesn't exist. Relative paths resolve against home (e.g. 'Desktop/note.txt').",
+                "description": "Write content to a file on the user's PC. Defaults to Desktop.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -66,7 +88,12 @@ _LIVE_TOOLS = [
             },
             {
                 "name": "get_system_info",
-                "description": "Get the user's computer info including home and desktop paths.",
+                "description": "Get system telemetry and paths from the user's PC.",
+                "parameters": {"type": "object", "properties": {}}
+            },
+            {
+                "name": "list_devices",
+                "description": "List registered and connected devices for the user.",
                 "parameters": {"type": "object", "properties": {}}
             }
         ]

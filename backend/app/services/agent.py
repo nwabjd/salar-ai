@@ -888,7 +888,7 @@ TOOL_DEFINITIONS = [
 async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session=None, is_admin: bool = False, base_url: str = "", jwt_secret: str = "") -> Dict[str, Any]:
     try:
         if name == "open_app":
-            return await _open_app(args.get("app_name", ""))
+            return await _open_app(args.get("app_name", ""), user_id, db_session)
         elif name == "run_command":
             return await _run_command(args.get("command", ""), args.get("cwd"), user_id, db_session)
         elif name == "list_files":
@@ -1095,9 +1095,15 @@ async def _world_simulate(changes: List[Dict[str, Any]], user_id: str, db_sessio
         return {"error": f"Simulation failed: {exc}"}
 
 
-async def _open_app(app_name: str) -> Dict[str, Any]:
+async def _open_app(app_name: str, user_id: str = "", db_session=None) -> Dict[str, Any]:
     if not app_name:
         return {"error": "No app name provided"}
+
+    if user_id and db_session:
+        cmd_str = f'start "" "{app_name}"' if ("\\" in app_name or "/" in app_name) else f'start {app_name}'
+        result = await _route_to_local_device("run_command", {"command": cmd_str}, user_id, db_session)
+        if result is not None:
+            return {**result, "app": app_name, "note": "Opened on your computer."}
 
     system = platform.system().lower()
     try:
@@ -1261,10 +1267,9 @@ async def _open_url(url: str, user_id: str = "", db_session=None, base_url: str 
         url = "https://" + raw
     # 2. Prefer routing through the user's connected device so it opens in THEIR browser
     if user_id and db_session:
-        result = await _device_command(None, "open_url", {"url": url}, False, user_id, db_session)
-        if result.get("status") in ("queued", "awaiting_approval"):
-            return {**result, "url": url, "note": "Opening in your browser on your connected device."}
-        # no_device â†’ fall through to local open attempt
+        result = await _route_to_local_device("run_command", {"command": f"start {url}"}, user_id, db_session)
+        if result is not None:
+            return {**result, "url": url, "note": "Opened in your browser on your computer."}
     # 3. Try opening on this host (works when the backend runs on the user's own machine)
     try:
         system = platform.system().lower()
