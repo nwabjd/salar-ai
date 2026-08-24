@@ -90,7 +90,6 @@ def build_setup(model: str, voice: str = "Kore", handle: str = "") -> Dict:
             "speechConfig": {
                 "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}
             },
-            "thinkingConfig": {"thinkingLevel": "minimal"},
         },
         "realtimeInputConfig": {
             "automaticActivityDetection": {
@@ -121,12 +120,21 @@ def build_text_input(text: str) -> Dict:
 
 def translate_server_message(message: Dict) -> List[Dict]:
     events: List[Dict] = []
+    # 1. Top-level toolCall from Gemini Multimodal Live API
+    tool_call = message.get("toolCall") or {}
+    for fc in tool_call.get("functionCalls") or []:
+        events.append({
+            "type": "function_call",
+            "name": fc.get("name", ""),
+            "args": fc.get("args", {}),
+            "id": fc.get("id", ""),
+        })
+    # 2. Server content
     content = message.get("serverContent") or {}
     for part in (content.get("modelTurn") or {}).get("parts") or []:
         inline = part.get("inlineData") or {}
         if inline.get("data"):
             events.append({"type": "audio", "data": inline["data"]})
-        # Detect function calls from Gemini
         fc = part.get("functionCall")
         if fc:
             events.append({

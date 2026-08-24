@@ -117,21 +117,23 @@ async def _proxy_gemini(
                 if event_type == "function_call":
                     tool_name = event.get("name", "")
                     tool_args = event.get("args", {})
-                    log.info("Live function_call: %s(%s)", tool_name, json.dumps(tool_args)[:200])
+                    call_id = event.get("id", "")
+                    log.info("Live function_call: %s(%s) id=%s", tool_name, json.dumps(tool_args)[:200], call_id)
                     try:
-                        result = await execute_tool(
+                        res = await execute_tool(
                             tool_name, tool_args, user_id,
                             db_session,
                             is_admin=is_admin,
                         )
+                        output_data = res if isinstance(res, dict) else {"result": str(res)}
                     except Exception as exc:
-                        result = {"error": str(exc)}
+                        output_data = {"error": str(exc)}
                     # Send the result back to Gemini so it can continue speaking
                     response_payload = {
                         "toolResponse": {
                             "functionResponses": [{
-                                "response": {"result": json.dumps(result)[:4000]},
-                                "id": event.get("id", ""),
+                                "response": {"output": output_data},
+                                "id": call_id,
                             }]
                         }
                     }
