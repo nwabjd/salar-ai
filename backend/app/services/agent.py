@@ -123,17 +123,6 @@ TOOL_DEFINITIONS = [
                 }
             },
             {
-                "name": "set_volume",
-                "description": "Set the system volume on the user's PC (0-100).",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "level": {"type": "integer", "description": "Volume level 0-100", "minimum": 0, "maximum": 100}
-                    },
-                    "required": ["level"]
-                }
-            },
-            {
                 "name": "whatsapp_send",
                 "description": "Send a WhatsApp message to a contact. Provide either a JID or phone number.",
                 "parameters": {
@@ -917,7 +906,16 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         elif name == "list_devices":
             return await _list_devices(user_id, db_session)
         elif name == "set_volume":
-            return await _route_to_local_device("set_volume", {"level": args.get("level", 50)}, user_id, db_session)
+            action = args.get("action", "set")
+            if action == "mute":
+                level = 0
+            elif action == "up":
+                level = min(100, int(args.get("level") or 60))
+            elif action == "down":
+                level = max(0, int(args.get("level") or 30))
+            else:
+                level = int(args.get("level") or 50)
+            return await _route_to_local_device("set_volume", {"level": level}, user_id, db_session)
         elif name == "whatsapp_send":
             return await _whatsapp_send(args.get("to"), args.get("phone"), args.get("text", ""), user_id, db_session)
         elif name == "whatsapp_read":
