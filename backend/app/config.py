@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     public_api_url: str = "https://api.salar.example.com"
     bridge_url: str = "http://127.0.0.1:3100"
     ollama_base_url: str = "http://127.0.0.1:11434"
-    ollama_default_model: str = "salar"
+    ollama_default_model: str = "salar-tuned"
 
     stripe_secret_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
