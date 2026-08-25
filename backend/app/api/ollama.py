@@ -58,14 +58,14 @@ _OLLAMA_TOOLS = [
 ]
 
 
-@router.get("/ollama/status")
+@router.get("/api/ollama/status")
 async def status(request: Request, user=Depends(get_current_user)):
     """Check whether the user's connected desktop can reach a local Ollama server."""
     available = await ollama_is_available(request.app.state.settings.ollama_base_url)
     return {"available": available, "url": request.app.state.settings.ollama_base_url}
 
 
-@router.get("/ollama/models")
+@router.get("/api/ollama/models")
 async def get_models(request: Request, user=Depends(get_current_user)):
     base_url = request.app.state.settings.ollama_base_url
     models = await list_ollama_models(base_url)
@@ -73,7 +73,7 @@ async def get_models(request: Request, user=Depends(get_current_user)):
     return {"available": available, "models": models, "default": request.app.state.settings.ollama_default_model}
 
 
-@router.post("/ollama/chat")
+@router.post("/api/ollama/chat")
 async def chat(
     request: Request,
     user=Depends(get_current_user),
