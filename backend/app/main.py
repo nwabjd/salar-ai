@@ -33,6 +33,7 @@ from .api.reminders import router as reminders_router
 from .api.knowledge import router as knowledge_router
 from .api.workflows import router as workflows_router
 from .api.live import router as live_router
+from .api.ollama import router as ollama_router
 from .api.billing import router as billing_router
 from .api.intel import router as intel_router
 from .api.missions import router as missions_router
@@ -360,6 +361,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(knowledge_router)
     app.include_router(workflows_router)
     app.include_router(live_router)
+    app.include_router(ollama_router)
     app.include_router(billing_router)
     app.include_router(intel_router)
     app.include_router(missions_router)

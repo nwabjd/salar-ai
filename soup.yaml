@@ -1,0 +1,25 @@
+# SALAR personality fine-tune
+# Base: Qwen2.5-3B-Instruct (right size for Quadro P600 4GB)
+# Layer streaming keeps the frozen base out of VRAM
+
+base: Qwen/Qwen2.5-3B-Instruct
+task: sft
+
+data:
+  train: ./data/train.jsonl
+  format: alpaca
+  val_split: 0.1
+  max_length: 1024
+
+training:
+  epochs: 3
+  lr: 2e-4
+  batch_size: 1
+  stream_layers: true      # base streams out of VRAM one layer at a time
+  quantization: 4bit       # NF4
+  lora:
+    r: 16
+    alpha: 32
+    target_modules: auto
+
+output: ./output/salar-model
