@@ -238,32 +238,14 @@ export class SalarApi {
 
   async ollamaStatus() { return this.request<{available:boolean;models:string[];default:string}>('/api/ollama/status') }
   async ollamaModels() { return this.request<{available:boolean;models:string[];default:string}>('/api/ollama/models') }
-  async ollamaChatStream(messages:{role:string;content:string}[], model?:string, onChunk:(text:string)=>void={}, onDone:()=>void={}, onError:(err:string)=>void={}) {
+  async ollamaChat(messages:{role:string;content:string}[], model?:string): Promise<{content:string;executed:{tool:string;result:unknown}[]}> {
     const response = await fetch(`${this.baseUrl}/api/ollama/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` },
       body: JSON.stringify({ messages, model }),
     })
-    if (!response.ok) { onError(`Ollama error ${response.status}`); return }
-    const reader = response.body!.getReader()
-    const decoder = new TextDecoder()
-    let buf = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buf += decoder.decode(value, { stream: true })
-      const lines = buf.split('\n')
-      buf = lines.pop()!
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        try {
-          const ev = JSON.parse(line.slice(6))
-          if (ev.type === 'text') onChunk(ev.text)
-          else if (ev.type === 'done') onDone()
-          else if (ev.type === 'error') onError(ev.error)
-        } catch {}
-      }
-    }
+    if (!response.ok) throw new Error(`Local model error (${response.status})`)
+    return response.json()
   }
 
   async nextDeviceCommand(deviceToken: string) {

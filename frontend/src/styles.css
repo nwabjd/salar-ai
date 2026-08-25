@@ -693,3 +693,5 @@
 .setup-error strong{color:#fecaca;display:block;margin-bottom:4px}
 .setup-retry{margin-top:12px;padding:9px 24px;border:1px solid rgba(255,255,255,.32);border-radius:999px;background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
 .setup-retry:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}
+
+.live-control.local-active{color:#70e5aa;border-color:rgba(112,229,170,.45);background:rgba(112,229,170,.12);box-shadow:0 0 14px rgba(112,229,170,.25)}
