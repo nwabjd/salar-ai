@@ -695,3 +695,4 @@
 .setup-retry:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}
 
 .live-control.local-active{color:#70e5aa;border-color:rgba(112,229,170,.45);background:rgba(112,229,170,.12);box-shadow:0 0 14px rgba(112,229,170,.25)}
+.composer-row{display:flex;align-items:center;gap:10px;width:100%}.local-toggle{display:flex;align-items:center;gap:6px;height:38px;padding:0 14px;border:1px solid rgba(255,255,255,.14);border-radius:19px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font-size:11px;font-weight:600;letter-spacing:.04em;cursor:pointer;transition:180ms ease;flex-shrink:0}.local-toggle:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}.local-toggle.active{border-color:rgba(112,229,170,.5);background:rgba(112,229,170,.14);color:#70e5aa;box-shadow:0 0 14px rgba(112,229,170,.22)}

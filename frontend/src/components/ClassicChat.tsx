@@ -1,9 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
+import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check, Cpu } from 'lucide-react'
 import { OrbInput } from './ui/animated-input'
 import { Conversation, Message, SalarApi } from '../api'
 import { useMode, MODE_INFO } from '../contexts/ModeContext'
 import { useSettings } from '../contexts/SettingsContext'
+
+function LocalToggle({ localMode, onToggle }: { localMode: boolean; onToggle: () => void }) {
+  return (
+    <button
+      className={`local-toggle${localMode ? ' active' : ''}`}
+      onClick={onToggle}
+      title={localMode ? 'Switch to cloud model' : 'Switch to your local fine-tuned model (runs on your PC)'}
+    >
+      <Cpu size={14} />
+      <span>{localMode ? 'Local' : 'Cloud'}</span>
+    </button>
+  )
+}
 
 function TypingDots() {
   return (
@@ -41,6 +54,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const [busy, setBusy] = useState(false)
   const [streaming, setStreaming] = useState('')
   const [toolActivity, setToolActivity] = useState('')
+  const [localMode, setLocalMode] = useState(false)
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
   const { mode } = useMode()
@@ -70,6 +84,24 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     setMessages((prev) => [...prev, userMsg])
     let done = false
     const finish = () => { if (done) return; done = true; setStreaming(''); streamBuf.current = ''; setToolActivity(''); setBusy(false) }
+
+    if (localMode) {
+      setToolActivity('Running on your PC (local model)…')
+      const history = messages.filter(m => !m.id.startsWith('tmp-') && !m.id.startsWith('err-')).slice(-10).map(m => ({ role: m.role, content: m.content }))
+      api.ollamaChat([...history, { role: 'user', content: fullContent }])
+        .then((result) => {
+          const toolsNote = result.executed?.length ? `\n\n[${result.executed.map(e => e.tool).join(', ')} executed on your PC]` : ''
+          setMessages((prev) => [...prev.slice(0, -1), userMsg, { id: 'local-' + Date.now(), role: 'assistant', content: (result.content || '(empty response)') + toolsNote, created_at: new Date().toISOString() }])
+          finish()
+        })
+        .catch((err) => {
+          console.error('Local model failed:', err)
+          const msg = String(err?.message || err)
+          setMessages((prev) => [...prev.slice(0, -1), userMsg, { id: 'err-' + Date.now(), role: 'assistant', content: msg.includes('No connected device') ? 'Local model needs the SALAR desktop app running (with Ollama).' : `Local model error: ${msg}`, created_at: new Date().toISOString() }])
+          finish()
+        })
+      return
+    }
 
     if (!settings.streaming) {
       api.chat(conversation.id, fullContent, mode)
@@ -118,7 +150,10 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           <div className="cc-empty">
             <h1 className="cc-empty-heading">How can I help you today?</h1>
             <div className="cc-composer-wrap">
-              <OrbInput onSubmit={handleSend} onOrbClick={onLive} />
+              <div className="composer-row">
+                <LocalToggle localMode={localMode} onToggle={() => setLocalMode(v => !v)} />
+                <OrbInput onSubmit={handleSend} onOrbClick={onLive} />
+              </div>
             </div>
           </div>
         ) : (
@@ -164,13 +199,16 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
       {hasMessages && (
         <div className="orb-composer-sticky">
           <div className="orb-composer-inner">
-            <OrbInput
-              onSubmit={handleSend}
-              onOrbClick={onLive}
-              placeholder={busy ? "Salaar is thinking..." : undefined}
-              disabled={busy}
-              loading={busy}
-            />
+            <div className="composer-row">
+              <LocalToggle localMode={localMode} onToggle={() => setLocalMode(v => !v)} />
+              <OrbInput
+                onSubmit={handleSend}
+                onOrbClick={onLive}
+                placeholder={busy ? "Salaar is thinking..." : (localMode ? "Ask your local SALAR model…" : undefined)}
+                disabled={busy}
+                loading={busy}
+              />
+            </div>
           </div>
         </div>
       )}
