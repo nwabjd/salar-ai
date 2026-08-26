@@ -181,7 +181,11 @@ export class SalarApi {
         clearTimeout(timer)
         if (!response.ok) {
           const err = await response.json().catch(() => ({ detail: 'Stream failed' }))
-          throw new Error(err.detail || `Stream failed (${response.status})`)
+          const d = err.detail
+          const msg = typeof d === 'object' && d !== null
+            ? (d.quota_exceeded ? `Monthly quota exceeded (${d.used}/${d.limit}) — resets ${String(d.reset_at).slice(0, 10)}. Use the local model (chip icon) or upgrade in Billing.` : JSON.stringify(d))
+            : (d || `Stream failed (${response.status})`)
+          throw new Error(msg)
         }
         const reader = response.body!.getReader()
         const decoder = new TextDecoder()
@@ -238,7 +242,7 @@ export class SalarApi {
 
   async ollamaStatus() { return this.request<{available:boolean;models:string[];default:string}>('/api/ollama/status') }
   async ollamaModels() { return this.request<{available:boolean;models:string[];default:string}>('/api/ollama/models') }
-  async ollamaChat(messages:{role:string;content:string}[], model?:string): Promise<{content:string;executed:{tool:string;result:unknown}[]}> {
+  async ollamaChat(messages:{role:string;content:string}[], model?:string): Promise<{content:string;executed:{tool:string;result:unknown}[];error?:string}> {
     const response = await fetch(`${this.baseUrl}/api/ollama/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` },

@@ -90,6 +90,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
       const history = messages.filter(m => !m.id.startsWith('tmp-') && !m.id.startsWith('err-')).slice(-10).map(m => ({ role: m.role, content: m.content }))
       api.ollamaChat([...history, { role: 'user', content: fullContent }])
         .then((result) => {
+          if (result.error) throw new Error(result.error)
           const toolsNote = result.executed?.length ? `\n\n[${result.executed.map(e => e.tool).join(', ')} executed on your PC]` : ''
           setMessages((prev) => [...prev.slice(0, -1), userMsg, { id: 'local-' + Date.now(), role: 'assistant', content: (result.content || '(empty response)') + toolsNote, created_at: new Date().toISOString() }])
           finish()

@@ -344,6 +344,20 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
             let mut messages: Vec<Value> = payload.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
             if messages.is_empty() { return Err("No messages provided".into()); }
             let tools = payload.get("tools").cloned().unwrap_or(Value::Null);
+            // Auto-start Ollama if it isn't running.
+            let ollama_up = ureq::get("http://127.0.0.1:11434/api/tags")
+                .timeout(std::time::Duration::from_secs(3))
+                .call()
+                .is_ok();
+            if !ollama_up {
+                let _ = Command::new("cmd").args(["/c", "start", "/min", "ollama", "serve"]).spawn();
+                let mut up = false;
+                for _ in 0..20 {
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                    if ureq::get("http://127.0.0.1:11434/api/tags").timeout(std::time::Duration::from_secs(2)).call().is_ok() { up = true; break; }
+                }
+                if !up { return Err("Ollama is not installed or failed to start".into()); }
+            }
             let mut executed: Vec<Value> = Vec::new();
             let mut content = String::new();
             let mut last_err = String::new();
