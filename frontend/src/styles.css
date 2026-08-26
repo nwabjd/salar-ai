@@ -696,3 +696,10 @@
 
 .live-control.local-active{color:#70e5aa;border-color:rgba(112,229,170,.45);background:rgba(112,229,170,.12);box-shadow:0 0 14px rgba(112,229,170,.25)}
 .composer-row{display:flex;align-items:center;gap:10px;width:100%}.local-toggle{display:flex;align-items:center;gap:6px;height:38px;padding:0 14px;border:1px solid rgba(255,255,255,.14);border-radius:19px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font-size:11px;font-weight:600;letter-spacing:.04em;cursor:pointer;transition:180ms ease;flex-shrink:0}.local-toggle:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}.local-toggle.active{border-color:rgba(112,229,170,.5);background:rgba(112,229,170,.14);color:#70e5aa;box-shadow:0 0 14px rgba(112,229,170,.22)}
+
+.titlebar{position:fixed;top:0;left:0;right:0;z-index:9999;height:36px;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;pointer-events:auto;-webkit-app-region:no-drag}
+.titlebar-drag{position:absolute;inset:0;-webkit-app-region:drag}
+.titlebar-controls{display:flex;gap:2px;position:relative;z-index:1}
+.tb-btn{width:36px;height:36px;display:grid;place-items:center;border:0;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;transition:background .15s,color .15s}
+.tb-btn:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9)}
+.tb-close:hover{background:rgba(239,68,68,.85);color:#fff}

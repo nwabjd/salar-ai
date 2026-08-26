@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Calendar, Cpu, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, Send, Sparkles, X, MessageSquare, ArrowLeft } from 'lucide-react'
+import { Calendar, Cpu, FileText, LogOut, MemoryStick, MessageCircle, Mic2, Monitor, Send, Sparkles, X, MessageSquare, ArrowLeft, Minus } from 'lucide-react'
 import LiquidEther from './effects/LiquidEther.jsx'
 import MagicRings from './effects/MagicRings.jsx'
 import Strands from './effects/Strands.jsx'
@@ -190,11 +190,12 @@ function App() {
   }
 
   if (launchMode === 'unknown') return null
-  if (launchMode === 'setup' || launchMode === 'update') return <SetupScreen variant={launchMode === 'setup' ? 'install' : 'update'}/>
-  if (!ready) return <Loader/>
-  if (access !== 'connected') return <SalaarLanding onEnterApp={enterApp}/>
+  if (launchMode === 'setup' || launchMode === 'update') return <><TitleBar /><SetupScreen variant={launchMode === 'setup' ? 'install' : 'update'}/></>
+  if (!ready) return <><TitleBar /><Loader/></>
+  if (access !== 'connected') return <><TitleBar /><SalaarLanding onEnterApp={enterApp}/></>
 
   return <><main className={`app-shell${live ? ' live-open' : ''}`}>
+    <TitleBar />
     <div className="liquid-stage"><LiquidEther colors={['#5227FF','#FF9FFC','#B497CF']} mouseForce={20} cursorSize={100} isViscous={false} viscous={30} iterationsViscous={32} iterationsPoisson={32} resolution={0.5} isBounce={false} autoDemo autoSpeed={0.5} autoIntensity={2.2} takeoverDuration={0.25} autoResumeDelay={3000} autoRampDuration={0.6}/></div>
     <header className="topbar">
       <div className="brand"><div className="salar-glyph">S</div><div><b>SALAR</b><small>PERSONAL INTELLIGENCE</small></div></div>
@@ -278,6 +279,29 @@ function SituationStrip({ onAsk, onAct }: { onAsk: (summary: string) => void; on
       </button>
     ))}
   </div>
+}
+
+function TitleBar() {
+  const isDesktop = typeof window !== 'undefined' && '__TAURI__' in window
+  if (!isDesktop) return null
+  const win = (window as any).__TAURI__?.window?.getCurrentWindow?.()
+  if (!win) return null
+  return (
+    <div className="titlebar" data-tauri-drag-region>
+      <div className="titlebar-drag" data-tauri-drag-region />
+      <div className="titlebar-controls">
+        <button className="tb-btn tb-min" onClick={() => win.minimize()} title="Minimize">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+        </button>
+        <button className="tb-btn tb-max" onClick={() => win.toggleMaximize()} title="Maximize">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2.5" y="2.5" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.1"/></svg>
+        </button>
+        <button className="tb-btn tb-close" onClick={() => win.hide()} title="Close">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function Chat({ connected, onLive }: { connected: boolean; onLive: () => void }) {

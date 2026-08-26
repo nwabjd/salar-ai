@@ -16,8 +16,8 @@
       "height": 900,
       "minWidth": 960,
       "minHeight": 640,
-      "fullscreen": true,
-      "decorations": true,
+      "fullscreen": false,
+      "decorations": false,
       "resizable": true,
       "additionalBrowserArgs": "--disable-features=ServiceWorker,msWebOOUI,msPdfOOUI,msSmartScreenProtection"
     }],

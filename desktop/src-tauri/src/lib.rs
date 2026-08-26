@@ -487,6 +487,12 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_deep_link::init())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+            }
+        })
         .setup(|app| {
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
@@ -534,6 +540,40 @@ pub fn run() {
                     });
                 });
             }
+            // System tray — hide to tray instead of quitting
+            use tauri::menu::{MenuBuilder, MenuItemBuilder};
+            let show_mi = MenuItemBuilder::with_id("show", "Show SALAR").build(app)?;
+            let quit_mi = MenuItemBuilder::with_id("quit", "Quit SALAR").build(app)?;
+            let tray_menu = MenuBuilder::new(app).item(&show_mi).item(&quit_mi).build()?;
+            let handle = app.handle().clone();
+            let _tray = tauri::tray::TrayIconBuilder::new()
+                .icon(app.default_window_icon().cloned().expect("no icon"))
+                .menu(&tray_menu)
+                .tooltip("SALAR — Personal Intelligence")
+                .on_menu_event(move |app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![execute_device_command, save_token, load_token, clear_token, live_metrics, open_external, get_launch_mode, install_copy_files, install_register_protocol, install_create_shortcuts, install_finish])
