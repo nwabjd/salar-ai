@@ -371,8 +371,21 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
                     Ok(r) => r,
                     Err(e) => { last_err = format!("Ollama unreachable (is it running?): {e}"); break; }
                 };
+                if resp.status() != 200 {
+                    let status = resp.status();
+                    let txt = resp.into_string().unwrap_or_default();
+                    let snippet: String = txt.chars().take(400).collect();
+                    last_err = format!("Ollama HTTP {}: {}", status, snippet);
+                    break;
+                }
                 let data: Value = match resp.into_json() { Ok(d) => d, Err(e) => { last_err = format!("Bad Ollama response: {e}"); break; } };
-                if let Some(err) = data.get("error").and_then(Value::as_str) { last_err = err.to_string(); break; }
+                if let Some(err) = data.get("error") {
+                    last_err = match err.as_str() {
+                        Some(s) => s.to_string(),
+                        None => serde_json::to_string(err).unwrap_or_else(|_| "Unknown Ollama error".into()),
+                    };
+                    break;
+                }
                 let msg = data.get("message").cloned().unwrap_or(json!({}));
                 let calls = msg.get("tool_calls").and_then(Value::as_array).cloned().unwrap_or_default();
                 if calls.is_empty() {

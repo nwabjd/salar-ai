@@ -329,11 +329,12 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
       },
       (err) => {
         console.error('Stream failed:', err)
+        const msg = err instanceof Error ? err.message : String(err)
         if (streamBuf.current) {
           const reply = streamBuf.current
           setMessages(current => [...current.slice(0, -1), userMsg, { id: 'err-' + Date.now(), role: 'assistant', content: reply + '\n\n[Stream interrupted]', created_at: new Date().toISOString() }])
         } else {
-          setError('Connection lost — try again')
+          setError(msg.includes('quota') ? msg : 'Connection lost — try again')
           setMessages(current => current.filter(m => m.id !== userMsg.id))
         }
         finish()

@@ -1398,7 +1398,8 @@ async def _route_to_local_device(kind: str, payload: dict, user_id: str, db_sess
             inner = payload_result.get("result") or payload_result
             return {"status": "completed_on_device", "device": result.get("device"), **(inner if isinstance(inner, dict) else {})}
         if cmd.status == "failed":
-            return {"error": "Your computer reported a failure running this command.", "detail": cmd.result_json}
+            detail = (cmd.result_json or "")[:600]
+            return {"error": f"Your computer reported a failure running this command. Detail: {detail}", "detail": cmd.result_json}
     return {"status": "queued", "device": result.get("device"), "command_id": command_id,
             "note": "Sent to your computer â€” it will run when your SALAR desktop app is online."}
 
