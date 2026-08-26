@@ -184,8 +184,7 @@ fn install_finish() -> Result<Value, String> {
     std::process::exit(0);
 }
 
-#[tauri::command]
-fn execute_device_command(kind: String, payload: Value) -> Result<Value, String> {
+fn run_local_action(kind: String, payload: Value) -> Result<Value, String> {
     match kind.as_str() {
         "open_url" => {
             let raw = payload.get("url").and_then(Value::as_str).ok_or("Missing URL")?;
@@ -337,73 +336,6 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
             }
             Ok(json!({"volume_set": level}))
         }
-        "ollama_chat" => {
-            // Proxy a chat request to the local Ollama server, executing any
-            // tool calls the model makes via the local device handlers.
-            let model = payload.get("model").and_then(Value::as_str).unwrap_or("salar-tuned").to_string();
-            let mut messages: Vec<Value> = payload.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
-            if messages.is_empty() { return Err("No messages provided".into()); }
-            let tools = payload.get("tools").cloned().unwrap_or(Value::Null);
-            // Auto-start Ollama if it isn't running.
-            let ollama_up = ureq::get("http://127.0.0.1:11434/api/tags")
-                .timeout(std::time::Duration::from_secs(3))
-                .call()
-                .is_ok();
-            if !ollama_up {
-                let _ = Command::new("cmd").args(["/c", "start", "/min", "ollama", "serve"]).spawn();
-                let mut up = false;
-                for _ in 0..20 {
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
-                    if ureq::get("http://127.0.0.1:11434/api/tags").timeout(std::time::Duration::from_secs(2)).call().is_ok() { up = true; break; }
-                }
-                if !up { return Err("Ollama is not installed or failed to start".into()); }
-            }
-            let mut executed: Vec<Value> = Vec::new();
-            let mut content = String::new();
-            let mut last_err = String::new();
-            for _round in 0..8 {
-                let mut body = json!({"model": model, "messages": messages, "stream": false});
-                if !tools.is_null() { body["tools"] = tools.clone(); }
-                let resp = match ureq::post("http://127.0.0.1:11434/api/chat")
-                    .timeout(std::time::Duration::from_secs(600))
-                    .send_json(&body)
-                {
-                    Ok(r) => r,
-                    Err(e) => { last_err = format!("Ollama unreachable (is it running?): {e}"); break; }
-                };
-                if resp.status() != 200 {
-                    let status = resp.status();
-                    let txt = resp.into_string().unwrap_or_default();
-                    let snippet: String = txt.chars().take(400).collect();
-                    last_err = format!("Ollama HTTP {}: {}", status, snippet);
-                    break;
-                }
-                let data: Value = match resp.into_json() { Ok(d) => d, Err(e) => { last_err = format!("Bad Ollama response: {e}"); break; } };
-                if let Some(err) = data.get("error") {
-                    last_err = match err.as_str() {
-                        Some(s) => s.to_string(),
-                        None => serde_json::to_string(err).unwrap_or_else(|_| "Unknown Ollama error".into()),
-                    };
-                    break;
-                }
-                let msg = data.get("message").cloned().unwrap_or(json!({}));
-                let calls = msg.get("tool_calls").and_then(Value::as_array).cloned().unwrap_or_default();
-                if calls.is_empty() {
-                    content = msg.get("content").and_then(Value::as_str).unwrap_or("").to_string();
-                    break;
-                }
-                messages.push(msg);
-                for call in calls {
-                    let fname = call.pointer("/function/name").and_then(Value::as_str).unwrap_or("").to_string();
-                    let fargs = call.pointer("/function/arguments").cloned().unwrap_or(json!({}));
-                    let result = execute_device_command(fname.clone(), fargs).unwrap_or_else(|e| json!({"error": e}));
-                    executed.push(json!({"tool": fname, "result": result}));
-                    messages.push(json!({"role": "tool", "content": serde_json::to_string(&result).unwrap_or_default()}));
-                }
-            }
-            if content.is_empty() && !last_err.is_empty() { return Err(last_err); }
-            Ok(json!({"content": content, "executed": executed}))
-        }
         "system_info" => {
             let mut system = System::new_all(); system.refresh_all();
             Ok(json!({
@@ -417,6 +349,89 @@ fn execute_device_command(kind: String, payload: Value) -> Result<Value, String>
         }
         _ => Err("Command is not allowed".into()),
     }
+}
+
+fn handle_ollama_chat(payload: Value) -> Result<Value, String> {
+    // Proxy a chat request to the local Ollama server, executing any tool
+    // calls the model makes via the local device handlers. Runs on a blocking
+    // thread so the UI never freezes during inference.
+    let model = payload.get("model").and_then(Value::as_str).unwrap_or("salar-tuned").to_string();
+    let mut messages: Vec<Value> = payload.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
+    if messages.is_empty() { return Err("No messages provided".into()); }
+    let tools = payload.get("tools").cloned().unwrap_or(Value::Null);
+    // Auto-start Ollama if it isn't running.
+    let ollama_up = ureq::get("http://127.0.0.1:11434/api/tags")
+        .timeout(std::time::Duration::from_secs(3))
+        .call()
+        .is_ok();
+    if !ollama_up {
+        let _ = Command::new("cmd").args(["/c", "start", "/min", "ollama", "serve"]).spawn();
+        let mut up = false;
+        for _ in 0..20 {
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+            if ureq::get("http://127.0.0.1:11434/api/tags").timeout(std::time::Duration::from_secs(2)).call().is_ok() { up = true; break; }
+        }
+        if !up { return Err("Ollama is not installed or failed to start".into()); }
+    }
+    let mut executed: Vec<Value> = Vec::new();
+    let mut content = String::new();
+    let mut last_err = String::new();
+    let mut raw_snippet = String::new();
+    for _round in 0..8 {
+        let mut body = json!({"model": model, "messages": messages, "stream": false});
+        if !tools.is_null() { body["tools"] = tools.clone(); }
+        let resp = match ureq::post("http://127.0.0.1:11434/api/chat")
+            .timeout(std::time::Duration::from_secs(600))
+            .send_json(&body)
+        {
+            Ok(r) => r,
+            Err(e) => { last_err = format!("Ollama unreachable (is it running?): {e}"); break; }
+        };
+        if resp.status() != 200 {
+            let status = resp.status();
+            let txt = resp.into_string().unwrap_or_default();
+            let snippet: String = txt.chars().take(400).collect();
+            last_err = format!("Ollama HTTP {}: {}", status, snippet);
+            break;
+        }
+        let data: Value = match resp.into_json() { Ok(d) => d, Err(e) => { last_err = format!("Bad Ollama response: {e}"); break; } };
+        if let Some(err) = data.get("error") {
+            last_err = match err.as_str() {
+                Some(s) => s.to_string(),
+                None => serde_json::to_string(err).unwrap_or_else(|_| "Unknown Ollama error".into()),
+            };
+            break;
+        }
+        let msg = data.get("message").cloned().unwrap_or(json!({}));
+        let calls = msg.get("tool_calls").and_then(Value::as_array).cloned().unwrap_or_default();
+        if calls.is_empty() {
+            content = msg.get("content").and_then(Value::as_str).unwrap_or("").to_string();
+            if content.is_empty() {
+                raw_snippet = serde_json::to_string(&data).unwrap_or_default().chars().take(800).collect();
+            }
+            break;
+        }
+        messages.push(msg);
+        for call in calls {
+            let fname = call.pointer("/function/name").and_then(Value::as_str).unwrap_or("").to_string();
+            let fargs = call.pointer("/function/arguments").cloned().unwrap_or(json!({}));
+            let result = run_local_action(fname.clone(), fargs).unwrap_or_else(|e| json!({"error": e}));
+            executed.push(json!({"tool": fname, "result": result}));
+            messages.push(json!({"role": "tool", "content": serde_json::to_string(&result).unwrap_or_default()}));
+        }
+    }
+    if content.is_empty() && !last_err.is_empty() { return Err(last_err); }
+    Ok(json!({"content": content, "executed": executed, "raw": raw_snippet}))
+}
+
+#[tauri::command]
+async fn execute_device_command(kind: String, payload: Value) -> Result<Value, String> {
+    if kind == "ollama_chat" {
+        return tauri::async_runtime::spawn_blocking(move || handle_ollama_chat(payload))
+            .await
+            .map_err(|e| format!("Background task failed: {e}"))?;
+    }
+    run_local_action(kind, payload)
 }
 
 #[tauri::command]
