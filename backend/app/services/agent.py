@@ -1395,8 +1395,10 @@ async def _route_to_local_device(kind: str, payload: dict, user_id: str, db_sess
                 payload_result = json.loads(cmd.result_json) if cmd.result_json else {}
             except Exception:
                 payload_result = {}
-            inner = payload_result.get("result") or payload_result
-            return {"status": "completed_on_device", "device": result.get("device"), **(inner if isinstance(inner, dict) else {})}
+            inner = payload_result.get("data") or payload_result.get("result") or payload_result
+            if not isinstance(inner, dict):
+                inner = payload_result
+            return {"status": "completed_on_device", "device": result.get("device"), **inner}
         if cmd.status == "failed":
             detail = (cmd.result_json or "")[:600]
             return {"error": f"Your computer reported a failure running this command. Detail: {detail}", "detail": cmd.result_json}

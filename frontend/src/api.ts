@@ -242,7 +242,7 @@ export class SalarApi {
 
   async ollamaStatus() { return this.request<{available:boolean;models:string[];default:string}>('/api/ollama/status') }
   async ollamaModels() { return this.request<{available:boolean;models:string[];default:string}>('/api/ollama/models') }
-  async ollamaChat(messages:{role:string;content:string}[], model?:string): Promise<{content:string;executed:{tool:string;result:unknown}[];error?:string}> {
+  async ollamaChat(messages:{role:string;content:string}[], model?:string): Promise<{content:string;executed:{tool:string;result:unknown}[];raw?:string;error?:string}> {
     const response = await fetch(`${this.baseUrl}/api/ollama/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` },
