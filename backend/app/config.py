@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_default_model: str = "salar-tuned"
 
+    # NVIDIA NIM (OpenAI-compatible, server-side only)
+    nim_api_key: Optional[str] = None
+    nim_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nim_enabled: bool = True # auto-disabled if no key
+    nim_default_model: str = "nvidia/nemotron-3-super-120b-a12b"
+
     stripe_secret_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
     stripe_price_pro: Optional[str] = None

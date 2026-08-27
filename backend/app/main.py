@@ -34,6 +34,7 @@ from .api.knowledge import router as knowledge_router
 from .api.workflows import router as workflows_router
 from .api.live import router as live_router
 from .api.ollama import router as ollama_router
+from .api.nim import router as nim_router
 from .api.billing import router as billing_router
 from .api.intel import router as intel_router
 from .api.missions import router as missions_router
@@ -145,7 +146,13 @@ def create_app(settings: Settings = None) -> FastAPI:
         if not hasattr(app.state, "coordinator"):
             try:
                 gemini = GeminiClient(active_settings.gemini_api_key, active_settings.gemini_model)
+                nim = None
+                if getattr(active_settings, "nim_api_key", None):
+                    from .services.nim import NIMProvider
+                    nim = NIMProvider(active_settings.nim_api_key, active_settings.nim_base_url)
+                    log.info("NIM provider ready — base: %s", active_settings.nim_base_url)
                 app.state.coordinator = AICoordinator(gemini)
+                app.state.nim = nim  # NIMProvider or None
                 log.info("SALAR ready — Gemini model: %s", active_settings.gemini_model)
             except Exception as e:
                 log.error("Gemini client init failed: %s", e)
@@ -362,6 +369,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(workflows_router)
     app.include_router(live_router)
     app.include_router(ollama_router)
+    app.include_router(nim_router)
     app.include_router(billing_router)
     app.include_router(intel_router)
     app.include_router(missions_router)
