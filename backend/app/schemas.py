@@ -29,6 +29,9 @@ class UserResponse(BaseModel):
 class ProjectCreate(BaseModel):
     name: str
     description: str = ""
+    status: str = "active"
+    goals: List[str] = []
+    deadline: Optional[datetime] = None
 
 
 class ProjectResponse(ProjectCreate):
@@ -79,11 +82,16 @@ class MemoryCreate(BaseModel):
     content: str
     layer: str = "long_term"
     project_id: Optional[str] = None
+    tags: List[str] = []
+    strength: float = 1.0
+    expires_at: Optional[datetime] = None
 
 
 class MemoryResponse(MemoryCreate):
     model_config = ConfigDict(from_attributes=True)
     id: str
+    expired: bool
+    encrypted: bool
     created_at: datetime
     updated_at: datetime
 
@@ -99,6 +107,21 @@ class DocumentResponse(BaseModel):
 
 class DocumentSearchResult(DocumentResponse):
     snippet: str
+
+
+class AttachmentCreate(BaseModel):
+    conversation_id: Optional[str] = None
+
+
+class AttachmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    filename: str
+    media_type: str
+    size_bytes: int
+    analysis: Optional[str] = None
+    conversation_id: Optional[str] = None
+    created_at: datetime
 
 
 class DeviceCreate(BaseModel):

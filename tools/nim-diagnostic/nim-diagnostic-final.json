@@ -1,0 +1,308 @@
+{
+  "summary": {
+    "base_url": "https://integrate.api.nvidia.com/v1",
+    "timestamp": null,
+    "account_models_listed": 84,
+    "models_tested": 33,
+    "models_working": 15,
+    "weighting": {
+      "quality": 0.4,
+      "reliability": 0.25,
+      "latency": 0.2,
+      "instruction": 0.15
+    },
+    "notes": [
+      "Several catalog models return 404 'Not found for this account' (not provisioned on this plan).",
+      "Embedding models (e.g. nemotron-3-embed-1b) hang on the generic /embeddings shape; not verified.",
+      "nemotron-parse requires multimodal (document) input, not plain text.",
+      "cosmos/ising/video-detector models use non-chat endpoints; excluded from chat routing."
+    ]
+  },
+  "rankings": [
+    {
+      "model": "poolside/laguna-xs-2.1",
+      "category": "CODING",
+      "status": "PASS",
+      "latency_s": 2.55,
+      "streaming": true,
+      "quality_score": 1.0,
+      "reliability": 1.0,
+      "instruction_following": 1.0,
+      "overall_score": 0.96
+    },
+    {
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "category": "GENERAL",
+      "status": "PASS",
+      "latency_s": 0.89,
+      "streaming": true,
+      "quality_score": 0.75,
+      "reliability": 1.0,
+      "instruction_following": 1.0,
+      "overall_score": 0.9
+    },
+    {
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "category": "MULTIMODAL",
+      "status": "PASS",
+      "latency_s": 4.39,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 1.0,
+      "overall_score": 0.76
+    },
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "category": "REASONING",
+      "status": "PASS",
+      "latency_s": 0.94,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.65
+    },
+    {
+      "model": "nvidia/nemotron-3-nano-30b-a3b",
+      "category": "GENERAL",
+      "status": "PASS",
+      "latency_s": 0.52,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.65
+    },
+    {
+      "model": "meta/muse-glimmer-30b",
+      "category": "MULTIMODAL",
+      "status": "PASS",
+      "latency_s": 0.44,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.65
+    },
+    {
+      "model": "google/diffusiongemma-26b-a4b-it",
+      "category": "VISION",
+      "status": "PASS",
+      "latency_s": 0.99,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.65
+    },
+    {
+      "model": "nvidia/riva-translate-4b-instruct-v2",
+      "category": "TRANSLATION",
+      "status": "PASS",
+      "latency_s": 0.51,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.65
+    },
+    {
+      "model": "nvidia/nemotron-3.5-content-safety",
+      "category": "SAFETY",
+      "status": "PASS",
+      "latency_s": 0.46,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.65
+    },
+    {
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "category": "REASONING",
+      "status": "PASS",
+      "latency_s": 9.19,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.55
+    },
+    {
+      "model": "nvidia/ising-calibration-1.5-31b",
+      "category": "CALIBRATION",
+      "status": "PASS",
+      "latency_s": 9.24,
+      "streaming": true,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.55
+    },
+    {
+      "model": "deepseek-ai/deepseek-v4-flash-0731",
+      "category": "GENERAL",
+      "status": "PASS",
+      "latency_s": 86.16,
+      "streaming": false,
+      "quality_score": 0.5,
+      "reliability": 1.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.47
+    },
+    {
+      "model": "deepseek-ai/deepseek-v4-pro-0813",
+      "category": "REASONING",
+      "status": "PASS",
+      "latency_s": 38.09,
+      "streaming": true,
+      "quality_score": 0.25,
+      "reliability": 0.7,
+      "instruction_following": 0.0,
+      "overall_score": 0.335
+    },
+    {
+      "model": "openai/gpt-oss-20b",
+      "category": "GENERAL",
+      "status": "PASS",
+      "latency_s": null,
+      "streaming": null,
+      "quality_score": 0.5,
+      "reliability": 0.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.2
+    },
+    {
+      "model": "moonshotai/kimi-k3",
+      "category": "GENERAL",
+      "status": "PASS",
+      "latency_s": null,
+      "streaming": null,
+      "quality_score": 0.5,
+      "reliability": 0.0,
+      "instruction_following": 0.0,
+      "overall_score": 0.2
+    }
+  ],
+  "working_models": [
+    "poolside/laguna-xs-2.1",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3-nano-30b-a3b",
+    "meta/muse-glimmer-30b",
+    "google/diffusiongemma-26b-a4b-it",
+    "nvidia/riva-translate-4b-instruct-v2",
+    "nvidia/nemotron-3.5-content-safety",
+    "nvidia/nemotron-3-ultra-550b-a55b",
+    "nvidia/ising-calibration-1.5-31b",
+    "deepseek-ai/deepseek-v4-flash-0731",
+    "deepseek-ai/deepseek-v4-pro-0813",
+    "openai/gpt-oss-20b",
+    "moonshotai/kimi-k3"
+  ],
+  "recommended_routing": [
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 1,
+      "model": "poolside/laguna-xs-2.1",
+      "reason": "overall 0.96, latency 2.55s, quality 1.0, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 2,
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "reason": "overall 0.9, latency 0.89s, quality 0.75, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 3,
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "reason": "overall 0.76, latency 4.39s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 4,
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "reason": "overall 0.65, latency 0.94s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 5,
+      "model": "nvidia/nemotron-3-nano-30b-a3b",
+      "reason": "overall 0.65, latency 0.52s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 6,
+      "model": "meta/muse-glimmer-30b",
+      "reason": "overall 0.65, latency 0.44s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 7,
+      "model": "google/diffusiongemma-26b-a4b-it",
+      "reason": "overall 0.65, latency 0.99s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 8,
+      "model": "nvidia/riva-translate-4b-instruct-v2",
+      "reason": "overall 0.65, latency 0.51s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 9,
+      "model": "nvidia/nemotron-3.5-content-safety",
+      "reason": "overall 0.65, latency 0.46s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 10,
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "reason": "overall 0.55, latency 9.19s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 11,
+      "model": "nvidia/ising-calibration-1.5-31b",
+      "reason": "overall 0.55, latency 9.24s, quality 0.5, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 12,
+      "model": "deepseek-ai/deepseek-v4-flash-0731",
+      "reason": "overall 0.47, latency 86.16s, quality 0.5, streaming False"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 13,
+      "model": "deepseek-ai/deepseek-v4-pro-0813",
+      "reason": "overall 0.335, latency 38.09s, quality 0.25, streaming True"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 14,
+      "model": "openai/gpt-oss-20b",
+      "reason": "overall 0.2, latency Nones, quality 0.5, streaming None"
+    },
+    {
+      "route": "GENERAL_CHAT",
+      "priority": 15,
+      "model": "moonshotai/kimi-k3",
+      "reason": "overall 0.2, latency Nones, quality 0.5, streaming None"
+    }
+  ],
+  "failed_models": [
+    "google/gemma-4-31b-it",
+    "nvidia/ising-calibration-1-35b-a3b",
+    "nvidia/cosmos3-nano",
+    "nvidia/cosmos3-nano-reasoner",
+    "nvidia/cosmos-transfer2.5-2b",
+    "stepfun-ai/step-3.7-flash",
+    "nvidia/synthetic-video-detector",
+    "nvidia/active-speaker-detection",
+    "nvidia/nemotron-3-embed-1b"
+  ]
+}

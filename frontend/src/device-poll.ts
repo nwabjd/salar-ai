@@ -5,9 +5,10 @@ const DEVICE_TOKEN_KEY = 'salar.deviceToken'
 
 let stopped = false
 let timer: number | null = null
+const listeners = new Set<() => void>()
 
 function tauriInvoke(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
-  const invoker = (window as any).__TAURI_INTERNALS__?.invoke
+  const invoker = (window as any).__TAURI_INTERNALS__?.invoke || (window as any).__TAURI__?.core?.invoke || (window as any).__TAURI__?.invoke
   if (!invoker) return Promise.reject(new Error('Not in Tauri context'))
   return invoker(cmd, args || {})
 }
@@ -38,6 +39,15 @@ async function executeCommand(kind: string, payload: Record<string, unknown>, ap
   }
 }
 
+export function onDeviceCommand(cb: () => void): () => void {
+  listeners.add(cb)
+  return () => listeners.delete(cb)
+}
+
+function notify() {
+  listeners.forEach((cb) => cb())
+}
+
 export function startDevicePolling(api: SalarApi): () => void {
   if (!isDesktop()) return () => {}
   stopped = false
@@ -52,9 +62,11 @@ export function startDevicePolling(api: SalarApi): () => void {
     try {
       const command = await api.nextDeviceCommand(token)
       if (command && !stopped) {
+        notify()
         const result = await executeCommand(command.kind, command.payload || {}, api)
         try {
           await api.completeDeviceCommand(command.id, token, result)
+          notify()
         } catch { /* ignore reporting errors */ }
       }
     } catch (reason) {

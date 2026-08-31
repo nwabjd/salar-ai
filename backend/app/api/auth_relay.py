@@ -9,11 +9,36 @@ router = APIRouter(tags=["auth-relay"])
 
 # In-memory handshake store: the desktop app generates a random code, the
 # browser deposits tokens under it, the desktop app collects them once.
-# Single-process Render deployment keeps this safe; entries expire quickly.
-_LOCK = threading.Lock()
-_HANDSHAKES: Dict[str, Dict[str, Any]] = {}
-_TTL_SECONDS = 600
-_MIN_CODE_LEN = 16
+from fastapi.responses import HTMLResponse
+
+@router.get("/auth-relay", response_class=HTMLResponse)
+def auth_relay_page():
+    return """
+<!DOCTYPE html>
+<html>
+<body>
+    <script>
+        // Extract tokens from URL hash, post to handshake, close.
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const handshake = new URLSearchParams(window.location.search).get('handshake');
+        
+        if (accessToken && refreshToken && handshake) {
+            fetch(`/api/auth/handshake/${encodeURIComponent(handshake)}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({access_token: accessToken, refresh_token: refreshToken})
+            }).then(() => {
+                document.body.innerHTML = '<h1>Sign-in successful. You can close this window.</h1>';
+            });
+        } else {
+            document.body.innerHTML = '<h1>Error: Missing authentication parameters.</h1>';
+        }
+    </script>
+</body>
+</html>
+"""
 
 
 class HandshakePayload(BaseModel):

@@ -1,0 +1,81 @@
+{
+  "poolside/laguna-xs-2.1": {
+    "reasoning_status": "PASS",
+    "reasoning_latency": 4.65,
+    "coding_status": "PASS",
+    "coding_latency": 3.47,
+    "instruction_status": "PASS",
+    "result_ok": true,
+    "json_valid": true,
+    "json_status": "PASS"
+  },
+  "nvidia/nemotron-3-super-120b-a12b": {
+    "reasoning_status": "PASS",
+    "reasoning_latency": 3.99,
+    "coding_status": "PASS",
+    "coding_latency": 6.81,
+    "instruction_status": "PASS",
+    "result_ok": false,
+    "json_valid": false,
+    "json_status": "FAIL"
+  },
+  "nvidia/nemotron-3-ultra-550b-a55b": {
+    "reasoning_status": "PASS",
+    "reasoning_latency": 4.47,
+    "coding_status": "PASS",
+    "coding_latency": 16.28,
+    "instruction_status": "PASS",
+    "result_ok": false,
+    "json_valid": false,
+    "json_status": "FAIL"
+  },
+  "nvidia/nemotron-3-nano-30b-a3b": {
+    "reasoning_status": "PASS",
+    "reasoning_latency": 2.77,
+    "coding_status": "PASS",
+    "coding_latency": 4.98,
+    "instruction_status": "PASS",
+    "result_ok": false,
+    "json_valid": false,
+    "json_status": "FAIL"
+  },
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
+    "reasoning_status": "ERR 503",
+    "reasoning_latency": 0.59,
+    "coding_status": "PASS",
+    "coding_latency": 20.32,
+    "instruction_status": "PASS",
+    "result_ok": true,
+    "json_valid": false,
+    "json_status": "FAIL"
+  },
+  "deepseek-ai/deepseek-v4-pro-0813": {
+    "reasoning_status": "PASS",
+    "reasoning_latency": 43.0
+  },
+  "nvidia/nemotron-3.5-lightning-30b-a3b": {
+    "reasoning_status": "PASS",
+    "reasoning_latency": 22.59,
+    "coding_status": "PASS",
+    "coding_latency": 31.29,
+    "instruction_status": "PASS",
+    "result_ok": true,
+    "json_valid": false,
+    "json_status": "FAIL"
+  },
+  "_specialized": {
+    "embedding": {
+      "status": "FAIL",
+      "error": ""
+    },
+    "translation": {
+      "status": "PASS",
+      "latency": 0.61,
+      "output": "Salaar \u090f\u0915 \u092c\u0941\u0926\u094d\u0927\u093f\u092e\u093e\u0928 AI \u0938\u0939\u093e\u092f\u0915 \u0939\u0948\u0964"
+    },
+    "safety": {
+      "status": "PASS",
+      "latency": 0.62
+    }
+  }
+}

@@ -9,12 +9,12 @@ const STEP_COMMANDS = [
   { id: "install_finish", label: "Igniting your companion" },
 ];
 
-type TauriInternals = { __TAURI_INTERNALS__?: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } };
-
 function tauriInvoke(cmd: string) {
-  const internals = (window as unknown as TauriInternals).__TAURI_INTERNALS__;
-  if (!internals?.invoke) throw new Error("Tauri runtime unavailable");
-  return internals.invoke(cmd);
+  const invoke = (window as any).__TAURI_INTERNALS__?.invoke
+    || (window as any).__TAURI__?.core?.invoke
+    || (window as any).__TAURI__?.invoke;
+  if (!invoke) throw new Error("Tauri runtime unavailable");
+  return invoke(cmd);
 }
 
 export function SetupScreen({ variant = "install" }: { variant?: "install" | "update" }) {

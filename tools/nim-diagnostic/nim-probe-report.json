@@ -1,0 +1,72 @@
+[
+  {
+    "model": "openai/gpt-oss-120b",
+    "status": "FAIL",
+    "error": "",
+    "latency": 60.35
+  },
+  {
+    "model": "openai/gpt-oss-20b",
+    "status": "PASS",
+    "latency": 34.5
+  },
+  {
+    "model": "moonshotai/kimi-k3",
+    "status": "PASS",
+    "latency": 54.54
+  },
+  {
+    "model": "moonshotai/kimi-k2.6",
+    "status": "FAIL",
+    "http": 404,
+    "error": "{\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '23d4f03a-b8a6-4adb-a183-7daa083a09cc': Not found for account 'CDq9",
+    "latency": 0.27
+  },
+  {
+    "model": "minimaxai/minimax-m3",
+    "status": "FAIL",
+    "error": "",
+    "latency": 60.2
+  },
+  {
+    "model": "nvidia/nemotron-parse",
+    "status": "FAIL",
+    "http": 400,
+    "error": "{\"object\":\"error\",\"message\":\"Content cannot be a plain string. The model does not support text input. Content cannot be ",
+    "latency": 0.39
+  },
+  {
+    "model": "mistralai/mistral-nemotron",
+    "status": "FAIL",
+    "error": "",
+    "latency": 60.18
+  },
+  {
+    "model": "nvidia/nemotron-4-340b-instruct",
+    "status": "FAIL",
+    "http": 404,
+    "error": "{\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'b0fcd392-e905-4ab4-8eb9-aeae95c30b37': Not found for account 'CDq9",
+    "latency": 0.26
+  },
+  {
+    "model": "writer/palmyra-creative-122b",
+    "status": "FAIL",
+    "http": 404,
+    "error": "{\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '00bdd0a7-e38f-4423-9007-c4d8730a3f78': Not found for account 'CDq9",
+    "latency": 0.25
+  },
+  {
+    "model": "nvidia/llama-3.1-nemotron-70b-instruct",
+    "status": "FAIL",
+    "http": 404,
+    "error": "{\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '9b96341b-9791-4db9-a00d-4e43aa192a39': Not found for account 'CDq9",
+    "latency": 0.25
+  },
+  {
+    "model": "google/gemma-3-12b-it",
+    "status": "FAIL",
+    "http": 404,
+    "error": "{\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'ee47df99-c92b-4dc9-b3a7-f3fb0f087b73': Not found for account 'CDq9",
+    "latency": 0.24
+  }
+]

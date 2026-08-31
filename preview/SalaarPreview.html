@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALAR Nova — UI Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-void:  #07090f;
+    --bg-navy:  #090d18;
+    --bg-violet:#100b1e;
+    --cyan:   #60efff;
+    --violet: #a879ff;
+    --white:  #f7f9ff;
+    --lunar:  #9da7ba;
+    --mint:   #78f4c5;
+    --amber:  #ffcc75;
+    --coral:  #ff7185;
+    --glass:       rgba(16, 20, 32, .46);
+    --glass-strong:rgba(10, 12, 22, .78);
+    --line:       rgba(255,255,255,.10);
+    --line-bright:rgba(255,255,255,.20);
+    --line-cyan:  rgba(96,239,255,.35);
+    --glow-cyan:   0 0 24px rgba(96,239,255,.32), 0 0 80px rgba(96,239,255,.10);
+    --glow-violet: 0 0 24px rgba(168,121,255,.34), 0 0 90px rgba(168,121,255,.12);
+    --blur: blur(28px) saturate(150%);
+  }
+
+  body {
+    min-height: 100vh;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--white);
+    background: var(--bg-void);
+    overflow-x: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+  }
+
+  /* Animated cosmic background */
+  .aurora {
+    position: fixed; inset: 0; z-index: -2;
+    background:
+      radial-gradient(60% 50% at 15% 20%, rgba(96,239,255,.14), transparent 60%),
+      radial-gradient(50% 45% at 85% 15%, rgba(168,121,255,.16), transparent 60%),
+      radial-gradient(55% 50% at 75% 85%, rgba(120,244,197,.08), transparent 60%),
+      radial-gradient(45% 40% at 20% 85%, rgba(255,113,133,.08), transparent 60%);
+    animation: aurora 18s ease-in-out infinite alternate;
+  }
+  @keyframes aurora {
+    0%   { transform: translate(0,0) scale(1); opacity:.8 }
+    50%  { transform: translate(-2%, 1.5%) scale(1.08); opacity:1 }
+    100% { transform: translate(2%, -1.5%) scale(1.04); opacity:.85 }
+  }
+  .stars {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+      radial-gradient(1px 1px at 70% 20%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 40% 70%, var(--cyan), transparent),
+      radial-gradient(1px 1px at 90% 60%, #fff, transparent),
+      radial-gradient(1px 1px at 10% 80%, var(--violet), transparent),
+      radial-gradient(1.5px 1.5px at 55% 40%, #fff, transparent),
+      radial-gradient(1px 1px at 80% 85%, var(--lunar), transparent);
+    animation: twinkle 6s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle { 0%,100% { opacity:.45 } 50% { opacity:1 } }
+
+  .frame {
+    position: relative;
+    width: min(960px, 100%);
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--glass);
+    -webkit-backdrop-filter: var(--blur);
+    backdrop-filter: var(--blur);
+    box-shadow: 0 40px 100px rgba(0,0,0,.5);
+  }
+
+  /* top bar */
+  .titlebar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(10,12,22,.55);
+    position: relative;
+  }
+  .tb-dots { display: flex; gap: 7px }
+  .tb-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .tb-dot.r { background: var(--coral) } .tb-dot.y { background: var(--amber) } .tb-dot.g { background: var(--mint) }
+  .tb-title { font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--lunar); margin-left: 8px; }
+  .tb-spacer { flex: 1 }
+  .tb-icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 13px; color: var(--lunar); border: 1px solid transparent; cursor: pointer; transition: .2s }
+  .tb-icon:hover { background: rgba(255,255,255,.06); color: var(--cyan); border-color: var(--line) }
+
+  .shell { padding: 34px 26px 40px; display: flex; flex-direction: column; align-items: center; gap: 26px; }
+
+  /* Greeting */
+  .greeting { text-align: center; animation: rise .7s cubic-bezier(.22,1,.36,1) both; }
+  .greeting .eyebrow { font-size: 11px; letter-spacing: .3em; text-transform: uppercase; color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .greeting h1 { font-family:'Space Grotesk'; font-size: clamp(28px,4vw,40px); font-weight:600; margin-top: 6px; letter-spacing: -.02em; }
+
+  /* Orb */
+  .orb-wrap { display: grid; place-items: center; animation: rise .7s .12s cubic-bezier(.22,1,.36,1) both; }
+  .orb {
+    width: 128px; height: 128px; border-radius: 50%;
+    position: relative;
+    background: radial-gradient(circle at 32% 28%, rgba(96,239,255,.9), rgba(96,239,255,.18) 32%, rgba(168,121,255,.22) 60%, rgba(7,9,15,.0) 72%);
+    box-shadow: inset 0 0 30px rgba(96,239,255,.35), var(--glow-cyan), var(--glow-violet);
+    animation: breathe 5s ease-in-out infinite;
+  }
+  .orb::before, .orb::after {
+    content:''; position: absolute; inset: -1px; border-radius:50%;
+    border: 1px solid rgba(96,239,255,.35);
+  }
+  .orb::before { animation: spin 7s linear infinite; border-top-color: var(--violet); }
+  .orb::after  { animation: spin 11s linear infinite reverse; border-bottom-color: var(--cyan); }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  @keyframes breathe { 0%,100% { transform: scale(1) } 50% { transform: scale(1.05) } }
+  .orb-core {
+    position:absolute; inset:34px; border-radius:50%;
+    background: radial-gradient(circle at 40% 35%, #fff, var(--cyan) 45%, var(--violet) 90%);
+    box-shadow: 0 0 40px rgba(96,239,255,.5);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:.85} 50%{opacity:1} }
+
+  /* Command bar */
+  .cmd {
+    width: min(600px, 92%);
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 12px 12px 14px;
+    border-radius: 18px;
+    background: var(--glass);
+    border: 1px solid var(--line-cyan);
+    -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+    box-shadow: var(--glow-cyan);
+    animation: rise .7s .22s cubic-bezier(.22,1,.36,1) both;
+    transition: box-shadow .35s, border-color .25s;
+  }
+  .cmd:focus-within { box-shadow: 0 0 40px rgba(96,239,255,.42); border-color: var(--cyan); }
+  .cmd button {
+    width: 40px; height: 40px; border-radius: 12px; border: none; background: transparent;
+    color: var(--white); cursor: pointer; display: grid; place-items: center; position: relative;
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1), background .2s;
+  }
+  .cmd button:hover { background: rgba(255,255,255,.07); transform: translateY(-1px) scale(1.06) }
+  .cmd button:active { transform: scale(.9) }
+  .cmd .send-btn {
+    width: 42px; height: 42px; border-radius: 13px;
+    background: linear-gradient(135deg, var(--cyan), #6a7bff);
+    color: #051018; box-shadow: 0 8px 22px rgba(0,0,0,.3);
+    animation: sendGlow 3s ease-in-out infinite;
+  }
+  @keyframes sendGlow { 0%,100%{ box-shadow:0 8px 22px rgba(0,0,0,.3) } 50%{ box-shadow: 0 8px 30px rgba(96,239,255,.45) } }
+  .cmd input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--white); font-size: 15px; font-family: inherit; min-width: 0;
+  }
+  .cmd input::placeholder { color: var(--lunar) }
+  .badge-pulse {
+    position:absolute; top:4px; right:4px; width:8px; height:8px; border-radius:50%;
+    background: var(--mint); box-shadow: 0 0 8px var(--mint); animation: pulseDot 2s infinite;
+  }
+  @keyframes pulseDot { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* attachment chips */
+  .chips {
+    width: min(600px, 92%); display: flex; gap: 8px; flex-wrap: wrap;
+    min-height: 0; overflow: hidden; justify-content: center;
+  }
+  .chip {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 12px;
+    border-radius: 12px; background: var(--glass); border: 1px solid var(--line-cyan);
+    font-size: 12.5px; box-shadow: var(--glow-cyan);
+    animation: chipIn .5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  .chip:nth-child(2) { animation-delay: .1s } .chip:nth-child(3) { animation-delay: .2s }
+  .chip .ic { display:grid; place-items:center; width:26px; height:26px; border-radius:8px; background: rgba(96,239,255,.12); color: var(--cyan); }
+  .chip .rm { width:20px; height:20px; border-radius:6px; border:none; background:transparent; color:var(--lunar); cursor:pointer; font-size:13px }
+  .chip .rm:hover { color: var(--coral) }
+  @keyframes chipIn { from { opacity:0; transform: translateY(8px) scale(.85) } to { opacity:1; transform:none } }
+
+  /* indicators */
+  .indics { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; animation: rise .7s .32s both; }
+  .indic {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    border-radius: 14px; background: var(--glass); border: 1px solid var(--line);
+    -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+    font-size: 12.5px; transition: border-color .25s, transform .25s;
+  }
+  .indic:hover { border-color: var(--line-cyan); transform: translateY(-2px) }
+  .indic .val { color: var(--white); font-weight: 600 }
+  .indic .lab { color: var(--lunar) }
+  .indic .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.cyan { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); animation: pulseDot 1.8s infinite }
+  .dot.mint { background: var(--mint); box-shadow: 0 0 10px var(--mint); animation: pulseDot 2.2s infinite }
+  .dot.vio  { background: var(--violet); box-shadow: 0 0 10px var(--violet); animation: pulseDot 2.5s infinite }
+  .dot.amber{ background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulseDot 2s infinite }
+
+  /* suggestions */
+  .sugg { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; animation: rise .7s .4s both; }
+  .sugg-card {
+    display: flex; gap: 10px; align-items: center; padding: 12px 16px;
+    border-radius: 14px; background: var(--glass); border: 1px solid var(--line);
+    cursor: pointer; font-size: 13px; transition: transform .3s cubic-bezier(.34,1.56,.64,1), border-color .3s, box-shadow .3s;
+  }
+  .sugg-card:hover { transform: translateY(-4px); border-color: var(--line-cyan); box-shadow: var(--glow-cyan); }
+  .sugg-card .ic { font-size: 18px }
+  .sugg-card .sub { color: var(--lunar); font-size: 11.5px }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
+
+  .hint {
+    color: var(--lunar); font-size: 11.5px; text-align:center; margin-top: 6px;
+    animation: rise .7s .5s both; letter-spacing: .04em;
+  }
+  .hint b { color: var(--cyan) }
+
+  /* stair footer */
+  .rail {
+    display:flex; justify-content:center; gap: 6px; margin-top: 6px;
+    animation: rise .7s .55s both;
+  }
+  .rail-icon {
+    width: 44px; height: 44px; border-radius: 14px; background: var(--glass);
+    border: 1px solid var(--line); display:grid; place-items:center; font-size: 17px;
+    cursor:pointer; transition: .25s;
+  }
+  .rail-icon:hover { border-color: var(--line-cyan); transform: translateY(-3px); box-shadow: var(--glow-cyan) }
+  .rail-icon.active { border-color: var(--cyan); box-shadow: var(--glow-cyan) }
+</style>
+</head>
+<body>
+  <div class="aurora"></div>
+  <div class="stars"></div>
+
+  <div class="frame">
+    <!-- custom title bar -->
+    <div class="titlebar">
+      <div class="tb-dots"><div class="tb-dot r"></div><div class="tb-dot y"></div><div class="tb-dot g"></div></div>
+      <div class="tb-title">SALAR Nova</div>
+      <div class="tb-spacer"></div>
+      <div class="tb-icon" title="Minimize">▁</div>
+      <div class="tb-icon" title="Maximize">▢</div>
+      <div class="tb-icon" title="Close">✕</div>
+    </div>
+
+    <div class="shell">
+      <!-- greeting -->
+      <div class="greeting">
+        <div class="eyebrow">◆ Online · NIM Scale</div>
+        <h1>Ready when you are.</h1>
+      </div>
+
+      <!-- orb -->
+      <div class="orb-wrap">
+        <div class="orb"><div class="orb-core"></div></div>
+      </div>
+
+      <!-- attachment chips (show that files+docs works) -->
+      <div class="chips">
+        <div class="chip"><div class="ic">📄</div><span>server-report.pdf</span><button class="rm">✕</button></div>
+        <div class="chip"><div class="ic">📊</div><span>q3-budget.xlsx</span><button class="rm">✕</button></div>
+        <div class="chip"><div class="ic">🖼️</div><span>screen-01.png</span><button class="rm">✕</button></div>
+      </div>
+
+      <!-- command bar with attach + sign -->
+      <div class="cmd">
+        <button title="Attach files & documents">📎<span class="badge-pulse"></span></button>
+        <button title="Sign document">✒️</button>
+        <input placeholder="Ask Salaar anything or give it a mission…" value="Build me a sales dashboard">
+        <button title="Voice">🎙</button>
+        <button class="send-btn" title="Send">➤</button>
+      </div>
+
+      <!-- intelligence indicators -->
+      <div class="indics">
+        <div class="indic"><span class="dot cyan"></span><span><span class="val">4</span> <span class="lab">Devices</span></span></div>
+        <div class="indic"><span class="dot mint"></span><span><span class="val">Laguna</span> <span class="lab">NIM Primary</span></span></div>
+        <div class="indic"><span class="dot vio"></span><span><span class="val">3</span> <span class="lab">Priorities</span></span></div>
+        <div class="indic"><span class="dot amber"></span><span><span class="val">Operational</span> <span class="lab">Status</span></span></div>
+      </div>
+
+      <!-- suggestions -->
+      <div class="sugg">
+        <div class="sugg-card"><span class="ic">⚡</span><div><div>Continue development</div><div class="sub">Resume your last mission</div></div></div>
+        <div class="sugg-card"><span class="ic">🎯</span><div><div>Review priorities</div><div class="sub">Today's tasks and deadlines</div></div></div>
+        <div class="sugg-card"><span class="ic">🔬</span><div><div>Check system health</div><div class="sub">Devices, models, services</div></div></div>
+      </div>
+
+      <div class="hint"><b>New</b> — attach files & documents, or sign papers from SALAR directly.</div>
+
+      <div class="rail">
+        <div class="rail-icon active">🖥️</div>
+        <div class="rail-icon">🎯</div>
+        <div class="rail-icon">🧠</div>
+        <div class="rail-icon">⚛️</div>
+        <div class="rail-icon">⚙️</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

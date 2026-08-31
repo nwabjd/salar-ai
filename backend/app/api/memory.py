@@ -23,7 +23,9 @@ def owned_memory(db: Session, user_id: str, memory_id: str) -> Memory:
 
 @router.post("", response_model=MemoryResponse, status_code=status.HTTP_201_CREATED)
 def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    memory = Memory(user_id=user.id, **payload.model_dump())
+    data = payload.model_dump()
+    tags = data.pop("tags", [])
+    memory = Memory(user_id=user.id, tags_json=json.dumps(tags), **data)
     db.add(memory)
     db.flush()
     db.add(AuditEvent(user_id=user.id, action="memory.created", detail_json=json.dumps({"memory_id": memory.id})))
@@ -42,6 +44,10 @@ def create_memory(payload: MemoryCreate, db: Session = Depends(get_db), user: Us
 def list_memories(
     layer: Optional[str] = None,
     kind: Optional[str] = None,
+    project_id: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -50,7 +56,23 @@ def list_memories(
         query = query.where(Memory.layer == layer)
     if kind:
         query = query.where(Memory.kind == kind)
-    return list(db.scalars(query.order_by(Memory.updated_at.desc())))
+    if project_id:
+        query = query.where(Memory.project_id == project_id)
+    if search:
+        term = f"%{search}%"
+        query = query.where((Memory.title.ilike(term)) | (Memory.content.ilike(term)))
+    return list(
+        db.scalars(
+            query.order_by(Memory.updated_at.desc(), Memory.created_at.desc())
+            .limit(max(1, min(limit, 200)))
+            .offset(max(0, offset))
+        )
+    )
+
+
+@router.get("/{memory_id}", response_model=MemoryResponse)
+def get_memory(memory_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return owned_memory(db, user.id, memory_id)
 
 
 @router.patch("/{memory_id}", response_model=MemoryResponse)

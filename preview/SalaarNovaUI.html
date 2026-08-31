@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALAAR AI — Light Interface</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#ffffff;--bg-soft:#f8f9fe;--bg-tint:#fff5f8;
+  --brand:#e61359;--brand-soft:rgba(230,19,89,.08);--brand-glow:rgba(230,19,89,.28);
+  --violet:#8b5cf6;--mint:#10b981;--amber:#f59e0b;
+  --ink:#111827;--ink-2:#374151;--muted:#9aa0ae;
+  --glass:rgba(255,255,255,.72);--line:rgba(17,24,39,.08);--line-strong:rgba(17,24,39,.14);
+  --shadow:0 10px 40px rgba(230,19,89,.08),0 4px 16px rgba(17,24,39,.06);
+  --shadow-lg:0 24px 60px rgba(230,19,89,.14),0 8px 24px rgba(17,24,39,.08);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif}
+
+canvas#gradwave{position:fixed;inset:0;z-index:0;pointer-events:none;width:100%;height:100%;opacity:1}
+
+/* === LAYOUT === */
+.shell{position:relative;z-index:1;display:grid;grid-template-columns:60px 1fr 280px;height:100vh;overflow:hidden}
+
+/* === RAIL === */
+.rail{display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:6px;
+  background:rgba(255,255,255,.85);border-right:1px solid var(--line);backdrop-filter:blur(24px)}
+.rail-logo{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--brand),#ff5c94);color:#fff;font-weight:800;font-size:15px;
+  margin-bottom:22px;box-shadow:0 6px 20px rgba(230,19,89,.35);letter-spacing:-.5px}
+.rail-btn{width:42px;height:42px;border-radius:14px;border:none;background:transparent;
+  color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:.2s;font-size:18px}
+.rail-btn:hover{background:var(--brand-soft);color:var(--brand)}
+.rail-btn.active{background:var(--brand-soft);color:var(--brand);box-shadow:inset 0 0 0 1.5px rgba(230,19,89,.25)}
+.rail-spacer{flex:1}
+.rail-bottom{display:flex;flex-direction:column;gap:6px}
+
+/* === MAIN === */
+.main{display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* === HEADER === */
+.header{display:flex;align-items:center;gap:12px;padding:14px 28px;
+  background:rgba(255,255,255,.75);border-bottom:1px solid var(--line);backdrop-filter:blur(16px)}
+.header-title{font-family:'Space Grotesk';font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--ink-2);text-transform:uppercase}
+.header-badge{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;
+  background:var(--brand-soft);color:var(--brand);font-size:11px;font-weight:600}
+.header-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--brand);box-shadow:0 0 8px var(--brand);animation:pulseDot 2s infinite}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.header-spacer{flex:1}
+.header-time{font-family:'JetBrains Mono';font-size:11px;color:var(--muted)}
+
+/* === CONTENT === */
+.content{flex:1;overflow-y:auto;padding:36px 48px;display:flex;flex-direction:column;align-items:center;gap:30px}
+
+/* === ORB — crystalline AI energy core === */
+.orb-container{position:relative;width:200px;height:200px;cursor:pointer;margin:10px 0;
+  filter:drop-shadow(0 24px 48px rgba(230,19,89,.16))}
+
+/* Crystalline core - faceted gem look */
+.orb-core{
+  position:absolute;inset:0;border-radius:50%;
+  background:
+    conic-gradient(from 210deg at 50% 50%,
+      rgba(255,255,255,.95) 0deg, #ffe3ec 40deg, #f9b8cf 70deg, #fff5f8 100deg,
+      #f7c9db 140deg, #ffffff 180deg, #ffd6e4 220deg, #f3aac6 260deg,
+      #fff0f5 300deg, #ffffff 330deg, rgba(255,255,255,.95) 360deg);
+  box-shadow:
+    0 30px 70px rgba(230,19,89,.28),
+    0 0 0 1px rgba(230,19,89,.12),
+    inset 6px 8px 20px rgba(255,255,255,.7),
+    inset -8px -10px 24px rgba(230,19,89,.18);
+  animation:orbBreathe 5s ease-in-out infinite;
+  overflow:hidden;
+  transform-style:preserve-3d;
+}
+/* gem facet cuts - radial bands */
+.orb-facets{position:absolute;inset:0;border-radius:50%;opacity:.5;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(230,19,89,.18) 0deg 5deg, transparent 5deg 30deg),
+    repeating-conic-gradient(from 30deg, rgba(255,255,255,.55) 0deg 4deg, transparent 4deg 28deg);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, #000 42%, #000 58%, transparent 78%);
+          mask-image:radial-gradient(circle at 50% 50%, #000 42%, #000 58%, transparent 78%);
+  mix-blend-mode:multiply;
+  animation:facetShine 7s ease-in-out infinite alternate;
+}
+@keyframes facetShine{
+  0%{opacity:.35;transform:rotate(0deg) scale(1)}
+  50%{opacity:.6;transform:rotate(12deg) scale(1.03)}
+  100%{opacity:.4;transform:rotate(-8deg) scale(1)}
+}
+/* glass sheen highlight */
+.orb-gloss{position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 28% 20%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.18) 14%, transparent 32%);
+  mix-blend-mode:screen;}
+/* inner prism sparkle */
+.orb-prism{position:absolute;inset:12%;border-radius:50%;
+  background:
+    radial-gradient(circle at 34% 34%, rgba(255,255,255,.95), transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(230,19,89,.6), transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.3), transparent 60%);
+  mix-blend-mode:screen;
+  animation:prismPulse 4s ease-in-out infinite;
+  -webkit-mask-image:radial-gradient(circle, #000 55%, transparent 75%);
+          mask-image:radial-gradient(circle, #000 55%, transparent 75%);
+}
+@keyframes prismPulse{0%,100%{opacity:.7;transform:scale(.96)}50%{opacity:1;transform:scale(1.04)}}
+/* light rays bursting from core */
+.orb-rays{position:absolute;inset:-24%;border-radius:50%;opacity:.55;
+  background:repeating-conic-gradient(from 0deg, transparent 0deg 8deg, rgba(230,19,89,.4) 9deg 10deg, transparent 11deg 24deg);
+  -webkit-mask-image:radial-gradient(circle, #000 20%, transparent 62%);
+          mask-image:radial-gradient(circle, #000 20%, transparent 62%);
+  animation:raysSpin 16s linear infinite;
+}
+@keyframes raysSpin{to{transform:rotate(360deg)}}
+/* floating crystal shards */
+.orb-shard{position:absolute;border-radius:4px;background:linear-gradient(160deg,#ffffff,#f4a9c6);
+  box-shadow:0 0 14px rgba(230,19,89,.45);animation:shardFloat 5s ease-in-out infinite}
+.orb-shard.sh1{width:16px;height:22px;top:-38px;left:50%;transform:translateX(-50%) rotate(24deg)}
+.orb-shard.sh2{width:12px;height:16px;top:14px;right:-40px;transform:rotate(-32deg);background:linear-gradient(160deg,#fff,#c7b8f5);box-shadow:0 0 14px rgba(139,92,246,.45);animation-delay:1.2s}
+.orb-shard.sh3{width:9px;height:13px;bottom:-26px;left:10%;transform:rotate(12deg);animation-delay:2.4s}
+@keyframes shardFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+/* orbit rings with comets = depth */
+.orb-ring{position:absolute;border-radius:50%;border:1px solid rgba(230,19,89,.18)}
+.orb-ring:nth-child(1){inset:-20px;animation:orbSpin 9s linear infinite}
+.orb-ring:nth-child(2){inset:-42px;border-color:rgba(139,92,246,.16);animation:orbSpin 14s linear infinite reverse}
+.orb-ring:nth-child(3){inset:-64px;border-color:rgba(230,19,89,.08);animation:orbSpin 18s linear infinite}
+@keyframes orbSpin{to{transform:rotate(360deg)}}
+.ring-tick{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--brand);box-shadow:0 0 14px var(--brand-glow), 0 0 30px var(--brand-glow)}
+.ring-tick.t1{top:-22px;left:50%;transform:translateX(-50%)}
+.ring-tick.t2{bottom:-22px;left:50%;transform:translateX(-50%);background:var(--violet);box-shadow:0 0 14px rgba(139,92,246,.5), 0 0 28px rgba(139,92,246,.3)}
+
+@keyframes orbBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+.orb-pulse{position:absolute;inset:-2px;border-radius:50%;border:2px solid rgba(230,19,89,.2);animation:orbPulse 3.2s ease-out infinite;pointer-events:none}
+@keyframes orbPulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.5);opacity:0}}
+
+/* === STATE LABEL === */
+.state-label{font-size:11px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;color:var(--brand);transition:.3s}
+.state-dots{display:flex;gap:6px}
+.state-dots span{width:6px;height:6px;border-radius:50%;background:var(--brand);animation:stateBounce 1.6s ease-in-out infinite}
+.state-dots span:nth-child(2){animation-delay:.18s}.state-dots span:nth-child(3){animation-delay:.36s}
+@keyframes stateBounce{0%,80%,100%{transform:scale(.45);opacity:.3}40%{transform:scale(1);opacity:1}}
+
+/* === ATTACHMENTS === */
+.attachments{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:560px}
+.attach-chip{display:flex;align-items:center;gap:9px;padding:9px 16px;border-radius:14px;
+  background:var(--glass);border:1px solid var(--line-strong);box-shadow:0 4px 16px rgba(17,24,39,.05);
+  color:var(--ink);font-size:13px;font-weight:500;backdrop-filter:blur(8px);
+  animation:chipIn .5s cubic-bezier(.34,1.56,.64,1) both;transition:.22s;cursor:default}
+.attach-chip:hover{border-color:rgba(230,19,89,.28);box-shadow:0 8px 24px rgba(230,19,89,.1);transform:translateY(-2px)}
+.attach-chip:nth-child(2){animation-delay:.08s}.attach-chip:nth-child(3){animation-delay:.16s}
+@keyframes chipIn{from{opacity:0;transform:translateY(14px) scale(.92)}to{opacity:1;transform:none}}
+.chip-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:14px}
+.chip-icon.pdf{background:rgba(230,19,89,.09);color:var(--brand)}
+.chip-icon.img{background:rgba(139,92,246,.09);color:var(--violet)}
+.chip-icon.sign{background:rgba(16,185,129,.1);color:var(--mint)}
+.chip-remove{width:20px;height:20px;border-radius:7px;border:none;background:rgba(17,24,39,.05);color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:10px;transition:.15s}
+.chip-remove:hover{background:rgba(230,19,89,.1);color:var(--brand)}
+
+/* === COMMAND BAR === */
+.cmd-wrap{width:100%;max-width:620px;display:flex;flex-direction:column;gap:0}
+.cmd-bar{display:flex;align-items:center;gap:4px;padding:8px 10px 8px 14px;border-radius:20px;
+  background:var(--glass);border:1px solid var(--line-strong);box-shadow:var(--shadow);
+  backdrop-filter:blur(28px) saturate(160%);transition:all .3s cubic-bezier(.22,1,.36,1)}
+.cmd-bar:focus-within{border-color:rgba(230,19,89,.4);box-shadow:var(--shadow-lg)}
+.cmd-btn{width:38px;height:38px;border-radius:12px;border:1px solid transparent;background:transparent;
+  color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:.2s;flex-shrink:0}
+.cmd-btn:hover{background:var(--brand-soft);color:var(--brand)}
+.cmd-btn.sign:hover{color:var(--mint);background:rgba(16,185,129,.08)}
+.cmd-input{flex:1;background:transparent;border:none;outline:none;color:var(--ink);font-size:15px;font-family:'Inter',sans-serif;min-width:0;padding:8px 6px}
+.cmd-input::placeholder{color:rgba(154,160,174,.65)}
+.cmd-send{width:40px;height:40px;border-radius:14px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--brand),#ff5c94);color:#fff;display:grid;place-items:center;
+  transition:.2s;box-shadow:0 6px 20px rgba(230,19,89,.35);flex-shrink:0}
+.cmd-send:hover{transform:scale(1.06);box-shadow:0 8px 28px rgba(230,19,89,.45)}
+.cmd-send:active{transform:scale(.94)}
+.cmd-send svg{width:16px;height:16px}
+
+/* === INTELLIGENCE STRIP === */
+.intel-strip{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:620px}
+.intel-card{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:14px;
+  background:var(--glass);border:1px solid var(--line);box-shadow:0 4px 12px rgba(17,24,39,.04);
+  backdrop-filter:blur(12px);transition:.2s}
+.intel-card:hover{border-color:rgba(230,19,89,.2);transform:translateY(-1px)}
+.intel-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.intel-dot.brand{background:var(--brand);box-shadow:0 0 8px rgba(230,19,89,.4);animation:pulseDot 2s infinite}
+.intel-dot.mint{background:var(--mint);box-shadow:0 0 8px rgba(16,185,129,.4);animation:pulseDot 2.4s infinite}
+.intel-dot.violet{background:var(--violet);box-shadow:0 0 8px rgba(139,92,246,.4);animation:pulseDot 2.2s infinite}
+.intel-dot.amber{background:var(--amber);box-shadow:0 0 8px rgba(245,158,11,.4);animation:pulseDot 1.8s infinite}
+.intel-val{font-size:12.5px;font-weight:600;color:var(--ink)}
+.intel-lab{font-size:11px;color:var(--muted)}
+
+/* === SUGGESTIONS === */
+.suggestions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:620px}
+.sugg-card{display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:16px;
+  background:var(--glass);border:1px solid var(--line);box-shadow:0 4px 12px rgba(17,24,39,.04);
+  backdrop-filter:blur(12px);cursor:pointer;transition:all .25s cubic-bezier(.34,1.56,.64,1);max-width:210px}
+.sugg-card:hover{transform:translateY(-4px);border-color:rgba(230,19,89,.25);box-shadow:0 14px 32px rgba(230,19,89,.12)}
+.sugg-icon{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:17px;background:var(--brand-soft)}
+.sugg-text{display:flex;flex-direction:column;gap:2px;text-align:left}
+.sugg-title{font-size:12.5px;font-weight:600;color:var(--ink)}
+.sugg-sub{font-size:11px;color:var(--muted)}
+
+/* === WAVEFORM === */
+.waveform{display:flex;align-items:center;gap:3px;height:30px}
+.wave-bar{width:3px;border-radius:3px;background:linear-gradient(180deg,var(--brand),#ff8bb0);animation:wave 1.2s ease-in-out infinite}
+.wave-bar:nth-child(1){animation-delay:0s;height:9px}
+.wave-bar:nth-child(2){animation-delay:.1s;height:17px}
+.wave-bar:nth-child(3){animation-delay:.2s;height:25px}
+.wave-bar:nth-child(4){animation-delay:.15s;height:13px}
+.wave-bar:nth-child(5){animation-delay:.05s;height:21px}
+.wave-bar:nth-child(6){animation-delay:.25s;height:11px}
+.wave-bar:nth-child(7){animation-delay:.08s;height:19px}
+@keyframes wave{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+
+/* === THINKING / RESPONSE === */
+.state-block{display:flex;flex-direction:column;align-items:center;gap:12px;animation:fadeUp .6s cubic-bezier(.22,1,.36,1) both}
+.state-block .hint{font-size:13px;color:var(--muted);letter-spacing:.03em}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.response{max-width:560px;padding:18px 22px;border-radius:18px;border:1px solid var(--line-strong);
+  background:var(--glass);backdrop-filter:blur(16px);font-size:14px;line-height:1.7;color:var(--ink);
+  box-shadow:var(--shadow);animation:responseIn .5s cubic-bezier(.22,1,.36,1) both;text-align:left}
+@keyframes responseIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.response b{color:var(--brand)}
+.response .tag{display:inline-block;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;margin:0 2px}
+.response .tag.brand{background:rgba(230,19,89,.09);color:var(--brand)}
+.response .tag.violet{background:rgba(139,92,246,.09);color:var(--violet)}
+.response .tag.mint{background:rgba(16,185,129,.1);color:var(--mint)}
+
+/* === CONTEXT DOCK === */
+.dock{border-left:1px solid var(--line);background:rgba(255,255,255,.8);backdrop-filter:blur(24px);
+  padding:22px 16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.dock-title{font-family:'Space Grotesk';font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.dock-card{padding:13px;border-radius:14px;background:rgba(255,255,255,.7);border:1px solid var(--line);transition:.2s}
+.dock-card:hover{border-color:rgba(230,19,89,.18);box-shadow:0 6px 16px rgba(230,19,89,.08)}
+.dock-card-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.dock-card-value{font-family:'JetBrains Mono';font-size:12px;color:var(--ink);word-break:break-all}
+.dock-card-value.brand{color:var(--brand)}
+.dock-card-value.mint{color:var(--mint)}
+.dock-card-value.violet{color:var(--violet)}
+.dock-card-value.amber{color:var(--amber)}
+.dock-bar{height:5px;border-radius:3px;background:rgba(17,24,39,.06);margin-top:9px;overflow:hidden}
+.dock-bar-fill{height:100%;border-radius:3px;animation:barFill 1.6s ease-out both}
+@keyframes barFill{from{width:0}to{width:var(--fill)}}
+.dock-bar-fill.brand{background:linear-gradient(90deg,var(--brand),#ff8bb0)}
+.dock-bar-fill.mint{background:linear-gradient(90deg,var(--mint),#6ee7b7)}
+.dock-bar-fill.violet{background:linear-gradient(90deg,var(--violet),#c4b5fd)}
+.dock-divider{height:1px;background:var(--line)}
+
+/* === MISC === */
+.rise{animation:rise .6s cubic-bezier(.22,1,.36,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(17,24,39,.12);border-radius:2px}
+
+/* === CINEMATIC 5-SEC INTRO === */
+#intro{position:fixed;inset:0;z-index:9999;background:#02020a;display:block;
+  transition:opacity .8s ease;cursor:pointer}
+#intro.hide{opacity:0;pointer-events:none}
+#intro canvas{width:100%;height:100%;display:block}
+#skipIntro{position:absolute;right:22px;bottom:20px;color:rgba(255,255,255,.35);
+  font-family:'Inter';font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  background:transparent;border:1px solid rgba(255,255,255,.14);border-radius:99px;
+  padding:9px 18px;cursor:pointer;transition:.25s}
+#skipIntro:hover{color:#fff;border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.06)}
+#introHint{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);
+  color:rgba(255,255,255,.25);font-family:'Inter';font-size:10px;letter-spacing:.24em;
+  text-transform:uppercase;text-align:center;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div id="intro"><canvas id="introCanvas"></canvas><button id="skipIntro">Skip &rarr;</button><div id="introHint">An intelligence has awakened</div></div>
+
+<canvas id="gradwave"></canvas>
+
+<div class="shell">
+  <!-- Rail -->
+  <nav class="rail">
+    <div class="rail-logo">S</div>
+    <button class="rail-btn active" title="Home">&#9673;</button>
+    <button class="rail-btn" title="Missions">&#9733;</button>
+    <button class="rail-btn" title="Agents">&#9993;</button>
+    <button class="rail-btn" title="Spaces">&#9638;</button>
+    <button class="rail-btn" title="Files">&#128193;</button>
+    <div class="rail-spacer"></div>
+    <div class="rail-bottom">
+      <button class="rail-btn" title="Settings">&#9881;</button>
+      <button class="rail-btn" title="Profile">&#9679;</button>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="header">
+      <div class="header-title">Salaar Nova</div>
+      <div class="header-badge">Neural Active</div>
+      <div class="header-spacer"></div>
+      <div class="header-time" id="clock"></div>
+    </div>
+
+    <div class="content" id="content">
+      <!-- Orb -->
+      <div class="orb-container rise" style="animation-delay:.1s">
+        <div class="orb-ring"></div>
+        <div class="orb-ring"></div>
+        <div class="orb-ring"></div>
+        <div class="orb-pulse"></div>
+        <div class="orb-core">
+          <div class="orb-rays"></div>
+          <div class="orb-facets"></div>
+          <div class="orb-gloss"></div>
+          <div class="orb-prism"></div>
+        </div>
+      </div>
+
+      <div class="state-label rise" style="animation-delay:.2s" id="stateLabel">READY</div>
+
+      <!-- Attachments -->
+      <div class="attachments rise" style="animation-delay:.3s">
+        <div class="attach-chip" onclick="this.style.opacity='0';this.style.transform='scale(.85)';setTimeout(()=>this.remove(),280)">
+          <div class="chip-icon pdf">&#128196;</div>
+          <span>moonlink-proposal.pdf</span>
+          <button class="chip-remove">&#10005;</button>
+        </div>
+        <div class="attach-chip" onclick="this.style.opacity='0';this.style.transform='scale(.85)';setTimeout(()=>this.remove(),280)">
+          <div class="chip-icon img">&#127912;</div>
+          <span>screenshot-01.png</span>
+          <button class="chip-remove">&#10005;</button>
+        </div>
+        <div class="attach-chip">
+          <div class="chip-icon sign">&#9998;</div>
+          <span>sign-document.pdf</span>
+        </div>
+      </div>
+
+      <!-- Command Bar -->
+      <div class="cmd-wrap rise" style="animation-delay:.4s">
+        <div class="cmd-bar">
+          <button class="cmd-btn" title="Attach files" onclick="attachFiles()">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <button class="cmd-btn sign" title="Sign document" onclick="startSigning()">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+          </button>
+          <input class="cmd-input" type="text" id="cmdInput" placeholder="Ask Salaar anything, attach a file, or give it a mission..." value="">
+          <button class="cmd-btn" title="Voice" onclick="startVoice()">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          </button>
+          <button class="cmd-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Waveform -->
+      <div class="waveform" id="waveform" style="display:none">
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+      </div>
+
+      <!-- Thinking -->
+      <div class="state-block" id="thinking" style="display:none">
+        <div class="state-dots"><span></span><span></span><span></span></div>
+        <div class="hint" id="thinkingText">Analyzing context & routing to best model...</div>
+      </div>
+
+      <!-- Response -->
+      <div class="response" id="response" style="display:none"></div>
+
+      <!-- Suggestions -->
+      <div class="suggestions rise" style="animation-delay:.5s" id="suggestions">
+        <div class="sugg-card" onclick="runSuggestion('Continue development')">
+          <span class="sugg-icon">&#9889;</span>
+          <div class="sugg-text"><span class="sugg-title">Continue development</span><span class="sugg-sub">Resume last mission</span></div>
+        </div>
+        <div class="sugg-card" onclick="runSuggestion('Review priorities')">
+          <span class="sugg-icon">&#127919;</span>
+          <div class="sugg-text"><span class="sugg-title">Review priorities</span><span class="sugg-sub">Tasks & deadlines</span></div>
+        </div>
+        <div class="sugg-card" onclick="runSuggestion('Check system health')">
+          <span class="sugg-icon">&#128300;</span>
+          <div class="sugg-text"><span class="sugg-title">Check system health</span><span class="sugg-sub">Devices & models</span></div>
+        </div>
+      </div>
+
+      <!-- Intelligence Strip -->
+      <div class="intel-strip rise" style="animation-delay:.6s">
+        <div class="intel-card"><div class="intel-dot brand"></div><div style="display:flex;flex-direction:column"><span class="intel-val">4</span><span class="intel-lab">Devices</span></div></div>
+        <div class="intel-card"><div class="intel-dot violet"></div><div style="display:flex;flex-direction:column"><span class="intel-val">Laguna XS</span><span class="intel-lab">Primary</span></div></div>
+        <div class="intel-card"><div class="intel-dot mint"></div><div style="display:flex;flex-direction:column"><span class="intel-val">0.96</span><span class="intel-lab">Score</span></div></div>
+        <div class="intel-card"><div class="intel-dot amber"></div><div style="display:flex;flex-direction:column"><span class="intel-val">3</span><span class="intel-lab">Tasks</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Dock -->
+  <aside class="dock">
+    <div class="dock-title">Intelligence Panel</div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Active Model</div>
+      <div class="dock-card-value brand">poolside/laguna-xs-2.1</div>
+      <div class="dock-bar"><div class="dock-bar-fill brand" style="--fill:96%"></div></div>
+    </div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Benchmark Score</div>
+      <div class="dock-card-value mint">0.96 / 1.00</div>
+      <div class="dock-bar"><div class="dock-bar-fill mint" style="--fill:96%"></div></div>
+    </div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Latency</div>
+      <div class="dock-card-value violet">2.5s avg</div>
+      <div class="dock-bar"><div class="dock-bar-fill violet" style="--fill:35%"></div></div>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Routing Mode</div>
+      <div class="dock-card-value amber">AUTO</div>
+    </div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Attachments</div>
+      <div class="dock-card-value">3 in session</div>
+    </div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Signature Mode</div>
+      <div class="dock-card-value mint">Ready</div>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Session</div>
+      <div class="dock-card-value">12 messages</div>
+    </div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Memory</div>
+      <div class="dock-card-value">7 facts loaded</div>
+    </div>
+
+    <div class="dock-card">
+      <div class="dock-card-label">Documents</div>
+      <div class="dock-card-value">3 indexed</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+// === GRADIENT WAVES (react-bits style, raw WebGL2) ===
+(function(){
+  const canvas=document.getElementById('gradwave');
+  const gl=canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:true,antialias:false});
+  if(!gl){canvas.style.display='none';return;}
+
+  const vertSrc=`#version 300 es
+in vec2 position;
+void main(){gl_Position=vec4(position,0.0,1.0);}
+`;
+  const fragSrc=`#version 300 es
+precision highp float;
+uniform vec2 iResolution;
+uniform float iTime;
+uniform float uSpeed;
+uniform float uAmplitude;
+uniform float uWaveScale;
+uniform float uWaveRatio;
+uniform float uSwell;
+uniform float uTurbulence;
+uniform float uTilt;
+uniform float uZoom;
+uniform float uHeight;
+uniform float uFogDepth;
+uniform float uSteps;
+uniform float uBrightness;
+uniform float uOpacity;
+uniform vec2 uMouse;
+uniform float uParallax;
+uniform bool uEnableMouse;
+uniform vec3 uHorizonColor;
+uniform vec3 uWaveColor;
+uniform vec3 uCrestColor;
+out vec4 fragColor;
+const float MAX_DIST=20000.0;
+float hash21(vec2 p){vec3 p3=fract(vec3(p.xyx)*0.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
+float plasma(vec3 r,vec2 freq,vec4 tc){
+  float mx=r.x+tc.x; mx+=uSwell*sin((r.y+mx)/20.0+tc.y);
+  float my=r.y-tc.z; my+=uTurbulence*cos(r.x/23.0+tc.w);
+  return r.z-(sin(mx*freq.x)*uAmplitude+sin(my*freq.y)*uAmplitude+uHeight);
+}
+float raymarch(vec3 pos,vec3 dir,vec2 freq,vec4 tc){
+  float dist=0.0;
+  for(int i=0;i<128;i++){
+    if(float(i)>=uSteps) break;
+    float dscene=plasma(pos+dist*dir,freq,tc);
+    if(abs(dscene)<0.1) break;
+    dist+=0.9*dscene;
+    if(!(abs(dist)<MAX_DIST)) return MAX_DIST;
+  }
+  return dist;
+}
+void main(){
+  float T=iTime*uSpeed;
+  vec2 freq=vec2(uWaveScale/7.0,(uWaveScale*uWaveRatio)/3.0);
+  vec4 tc=vec4(T/0.130,T/0.810,T/0.200,T/0.710);
+  float c,s;
+  float vfov=(3.14159/2.3)/max(uZoom,0.05);
+  vec3 cam=vec3(0.0,0.0,30.0);
+  vec2 uv=(gl_FragCoord.xy/iResolution.xy)-0.5;
+  uv.x*=iResolution.x/iResolution.y;
+  uv.y*=-1.0;
+  vec3 dir=vec3(0.0,0.0,-1.0);
+  float ulen=length(uv);
+  float xrot=vfov*ulen;
+  c=cos(xrot);s=sin(xrot);
+  dir=mat3(1.0,0.0,0.0,0.0,c,-s,0.0,s,c)*dir;
+  vec2 nuv=ulen>1e-5?uv/ulen:vec2(1.0,0.0);
+  c=nuv.x;s=nuv.y;
+  dir=mat3(c,-s,0.0,s,c,0.0,0.0,0.0,1.0)*dir;
+  c=cos(uTilt);s=sin(uTilt);
+  dir=mat3(c,0.0,s,0.0,1.0,0.0,-s,0.0,c)*dir;
+  if(uEnableMouse){
+    float yaw=(uMouse.x-0.5)*uParallax*0.4;
+    float pitch=(uMouse.y-0.5)*uParallax*0.4;
+    c=cos(yaw);s=sin(yaw);
+    dir=mat3(c,0.0,s,0.0,1.0,0.0,-s,0.0,c)*dir;
+    c=cos(pitch);s=sin(pitch);
+    dir=mat3(1.0,0.0,0.0,0.0,c,-s,0.0,s,c)*dir;
+  }
+  float dist=raymarch(cam,dir,freq,tc);
+  vec3 pos=cam+dist*dir;
+  float t=clamp(uFogDepth/max(dist,0.001),0.0,1.0);
+  vec3 body=mix(uWaveColor,uCrestColor,clamp(pos.z*0.08+0.5,0.0,1.0));
+  vec3 col=mix(uHorizonColor,body,t);
+  col*=uBrightness;
+  col=clamp(col,0.0,1.0);
+  float alpha=clamp(t,0.0,1.0)*uOpacity;
+  alpha=clamp(alpha,0.0,1.0);
+  fragColor=vec4(col*alpha,alpha);
+}
+`;
+  function compile(type,src){
+    const sh=gl.createShader(type);gl.shaderSource(sh,src);gl.compileShader(sh);
+    if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(sh));
+    return sh;
+  }
+  const prog=gl.createProgram();
+  gl.attachShader(prog,compile(gl.VERTEX_SHADER,vertSrc));
+  gl.attachShader(prog,compile(gl.FRAGMENT_SHADER,fragSrc));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const buf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+  const loc=gl.getAttribLocation(prog,'position');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+
+  const U={};
+  ['iResolution','iTime','uSpeed','uAmplitude','uWaveScale','uWaveRatio','uSwell','uTurbulence','uTilt','uZoom','uHeight','uFogDepth','uSteps','uBrightness','uOpacity','uMouse','uParallax','uEnableMouse','uHorizonColor','uWaveColor','uCrestColor'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+  function hex3(hex){const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);return m?[parseInt(m[1],16)/255,parseInt(m[2],16)/255,parseInt(m[3],16)/255]:[1,1,1]}
+  const H=hex3('#ffffff'),W=hex3('#ff7ba4'),C=hex3('#e61359');
+  const horizon=new Float32Array(H),wave=new Float32Array(W),crest=new Float32Array(C);
+  const mouse=new Float32Array([.5,.5]);
+
+  function resize(){
+    const dpr=Math.min(window.devicePixelRatio||1,2);
+    canvas.width=Math.round(window.innerWidth*dpr);
+    canvas.height=Math.round(window.innerHeight*dpr);
+    gl.viewport(0,0,canvas.width,canvas.height);
+  }
+  resize();window.addEventListener('resize',resize);
+
+  let cm=[.5,.5];
+  document.addEventListener('mousemove',e=>{
+    const r=canvas.getBoundingClientRect();
+    mouse[0]=(e.clientX-r.left)/r.width;
+    mouse[1]=1-(e.clientY-r.top)/r.height;
+  });
+
+  const t0=performance.now();
+  gl.clearColor(1,1,1,1);
+  function loop(t){
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform2f(U.iResolution,canvas.width,canvas.height);
+    gl.uniform1f(U.iTime,(t-t0)*0.001);
+    gl.uniform1f(U.uSpeed,.2);
+    gl.uniform1f(U.uAmplitude,2.2);
+    gl.uniform1f(U.uWaveScale,.6);
+    gl.uniform1f(U.uWaveRatio,.9);
+    gl.uniform1f(U.uSwell,35);
+    gl.uniform1f(U.uTurbulence,20);
+    gl.uniform1f(U.uTilt,1.11);
+    gl.uniform1f(U.uZoom,1.0);
+    gl.uniform1f(U.uHeight,5.5);
+    gl.uniform1f(U.uFogDepth,15);
+    gl.uniform1f(U.uSteps,70.0);
+    gl.uniform1f(U.uBrightness,1.0);
+    gl.uniform1f(U.uOpacity,1.0);
+    gl.uniform1f(U.uParallax,.5);
+    gl.uniform1i(U.uEnableMouse,1);
+    cm[0]+=.05*(mouse[0]-cm[0]);cm[1]+=.05*(mouse[1]-cm[1]);
+    gl.uniform2f(U.uMouse,cm[0],cm[1]);
+    gl.uniform3fv(U.uHorizonColor,horizon);
+    gl.uniform3fv(U.uWaveColor,wave);
+    gl.uniform3fv(U.uCrestColor,crest);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+
+// === CLOCK ===
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+tick();setInterval(tick,1000);
+
+// === INTERACTIONS ===
+const responses=[
+  "I found <b>3 RAM modules</b> compatible with your laptop: <span class='tag brand'>Kingston 16GB DDR5</span> <span class='tag violet'>Corsair 32GB DDR4</span> <span class='tag brand'>G.Skill 64GB DDR5</span>. Prices range from AED 189 to AED 549.",
+  "Your document <b>moonlink-proposal.pdf</b> has been analyzed. I identified <b>2 signature fields</b> on pages 4 and 12. Ready when you are.",
+  "System health check complete: <b>4 devices online</b>, all NIM models operational. Laguna XS responding in <span class='tag brand'>2.5s</span> average latency.",
+  "I reviewed your timeline: <b>2 tasks overdue</b>, <b>3 due today</b>. Want me to surface the critical path?",
+  "MoonLink inventory updated: <b>12 new SSD listings</b> this week. <b>Samsung 990 Pro 2TB</b> is back in stock at AED 899."
+];
+function setState(s){document.getElementById('stateLabel').textContent=s}
+function sendMessage(){
+  const input=document.getElementById('cmdInput'),text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  const resp=document.getElementById('response');
+  resp.style.display='none';
+  document.getElementById('thinking').style.display='flex';
+  document.getElementById('waveform').style.display='flex';
+  setState('THINKING');
+  const t=['Analyzing intent…','Routing to Laguna XS…','Reading context…','Composing response…'][Math.floor(Math.random()*4)];
+  document.getElementById('thinkingText').textContent=t;
+  setTimeout(()=>{
+    document.getElementById('thinking').style.display='none';
+    document.getElementById('waveform').style.display='none';
+    resp.innerHTML=responses[Math.floor(Math.random()*responses.length)];
+    resp.style.display='block';
+    setState('COMPLETE');
+    setTimeout(()=>setState('READY'),3200);
+  },1900);
+}
+function runSuggestion(t){document.getElementById('cmdInput').value=t;sendMessage()}
+function startVoice(){
+  setState('LISTENING');
+  document.getElementById('waveform').style.display='flex';
+  setTimeout(()=>{document.getElementById('waveform').style.display='none';document.getElementById('cmdInput').value='Show me Samsung SSD prices';setState('READY')},2500);
+}
+function startSigning(){
+  setState('SIGNING MODE');
+  const resp=document.getElementById('response');
+  resp.innerHTML='<span class="tag mint">&#9998; Document Signing Mode</span><br><br>Signature capture is ready. Review the document on <b>page 4</b> and <b>page 12</b>, then confirm to apply your digital signature.';
+  resp.style.display='block';
+  setTimeout(()=>setState('READY'),4200);
+}
+function attachFiles(){
+  const chip=document.createElement('div');
+  chip.className='attach-chip';
+  chip.style.animation='chipIn .5s cubic-bezier(.34,1.56,.64,1) both';
+  chip.innerHTML='<div class="chip-icon pdf">&#128196;</div><span>new-attachment.pdf</span><button class="chip-remove" onclick="this.parentElement.remove()">&#10005;</button>';
+  const box=document.querySelector('.attachments');
+  box.appendChild(chip);
+  setState('FILE READY');
+  setTimeout(()=>setState('READY'),2200);
+}
+document.getElementById('cmdInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendMessage()});
+</script>
+
+<script>
+/* ============================================================
+   SALAAR — CINEMATIC 5-SEC INTRO ("an intelligence has awakened")
+   Timeline:
+     0.0-1.0s  awakening point + infalling particles
+     1.0-2.0s  3D energy core/orb forms (rotating particle sphere + rings)
+     2.0-3.5s  orb morphs into the SALAAR wordmark (particle assembly)
+     3.5-4.5s  energy pulse travels L→R through the wordmark
+     4.5-5.0s  breathing glow, final hold
+   All audio is synthesized live with WebAudio (no external assets).
+============================================================ */
+(function () {
+  const T_DUR = 5000;           // ms
+  const introEl = document.getElementById('intro');
+  const cv = document.getElementById('introCanvas');
+  if (!cv) return;
+  const cx = cv.getContext('2d');
+  let W = 0, H = 0, DPR = 1, raf = 0, ended = false;
+  let tStart = performance.now();
+
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const sm = (a, b, v) => { const x = clamp((v - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
+  const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  // advanced render state (caches + Fx)
+  let bloomCv = null, bloomCtx2 = null, bgCv = null, vigCv = null, grainCv = null, glints = [], infallStars = [], virgCv = null;
+  const sparks = [];
+  let shake = { amp: 0 };
+  let impactFired = false;
+  let last = performance.now();
+
+  // ---- compat helpers ----
+  const prefersQ = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 1.6);
+    W = innerWidth; H = innerHeight;                 // CSS px (all math below)
+    cv.width = Math.round(W * DPR);                  // device px bitmap
+    cv.height = Math.round(H * DPR);
+    buildCaches();
+  }
+  window.addEventListener('resize', resize); resize();
+
+  // ---- pre-rendered glow sprite (cheap additive particles) ----
+  const GS = 64, sprite = document.createElement('canvas');
+  sprite.width = sprite.height = GS;
+  const sg = sprite.getContext('2d');
+  const grad = sg.createRadialGradient(GS / 2, GS / 2, 0, GS / 2, GS / 2, GS / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,.8)');
+  grad.addColorStop(0.3, 'rgba(170,220,255,.4)');
+  grad.addColorStop(0.65, 'rgba(90,170,255,.12)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  sg.fillStyle = grad; sg.fillRect(0, 0, GS, GS);
+
+  // ---- rasterize SALAAR → letter target points ----
+  const P_W = 840, P_H = 240;
+  const lc = document.createElement('canvas'); lc.width = P_W; lc.height = P_H;
+  const lctx = lc.getContext('2d');
+  let letters = [];
+  function buildLetters() {
+    lctx.clearRect(0, 0, P_W, P_H);
+    lctx.font = '700 150px "Space Grotesk", Inter, Arial, sans-serif';
+    lctx.textAlign = 'center'; lctx.textBaseline = 'middle';
+    lctx.fillText('SALAAR', P_W / 2 + 4, P_H / 2 + 14);
+    const px = lctx.getImageData(0, 0, P_W, P_H).data;
+    const raw = [];
+    for (let y = 0; y < P_H; y += 3) for (let x = 0; x < P_W; x += 3)
+      if (px[(y * P_W + x) * 4 + 3] > 128) raw.push([x - P_W / 2, y - P_H / 2]);
+    const stride = Math.max(1, Math.floor(raw.length / 2200));
+    letters = [];
+    for (let i = 0; i < raw.length; i += stride) letters.push(raw[i]);
+    // hard fallback: if the font didn't load, rasterize a plain sans-serif
+    if (!letters.length) {
+      lctx.clearRect(0, 0, P_W, P_H);
+      lctx.font = '700 150px Arial, sans-serif';
+      lctx.fillText('SALAAR', P_W / 2 + 4, P_H / 2 + 14);
+      const px2 = lctx.getImageData(0, 0, P_W, P_H).data;
+      for (let y = 0; y < P_H; y += 3) for (let x = 0; x < P_W; x += 3)
+        if (px2[(y * P_W + x) * 4 + 3] > 128) letters.push([x - P_W / 2, y - P_H / 2]);
+    }
+  }
+  buildLetters();
+  try { document.fonts && document.fonts.ready.then(buildLetters); } catch (e) {}
+
+  // ---- particle field (sphere home + letter target) ----
+  const PART = 2400, P = [];
+  for (let i = 0; i < PART; i++) {
+    const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
+    const r = Math.random() * 0.72 + 0.28;
+    const tgt = letters.length ? letters[Math.floor(Math.random() * letters.length)] : [Math.random() * 300 - 150, Math.random() * 120 - 60];
+    P.push({
+      ox: Math.sqrt(1 - u * u) * Math.cos(th) * r,
+      oy: u * r,
+      oz: Math.sqrt(1 - u * u) * Math.sin(th) * r,
+      tx: tgt[0], ty: tgt[1],
+      size: Math.random() * 1.9 + 1.1,
+      tw: Math.random() * Math.PI * 2,
+      delay: Math.random() * 0.35,
+      seed: Math.random() * 10,
+    });
+  }
+
+  // rings around the core (phase 2 only)
+  const RINGS = 3, rings = [];
+  for (let i = 0; i < RINGS; i++) {
+    rings.push({ r: 1.15 + i * 0.42, tilt: (i - 1) * 0.32, speed: 0.5 - i * 0.12 });
+  }
+
+  // neural filaments behind the wordmark (phase 3)
+  const FILAMENTS = 9, fila = [];
+  for (let i = 0; i < FILAMENTS; i++) {
+    const a = P[(i * 173) % PART], b = P[(i * 251 + 97) % PART];
+    fila.push({ a, b, o: 0.12 + Math.random() * 0.16 });
+  }
+
+  // ---- pre-rendered resources (built once, no per-frame garbage) ----
+  function buildCaches() {
+    // static starfield
+    bgCv = document.createElement('canvas');
+    bgCv.width = cv.width; bgCv.height = cv.height;
+    const bg = bgCv.getContext('2d');
+    const starsN = Math.round((W * H) / 4200);
+    for (let i = 0; i < starsN; i++) {
+      const x = Math.random() * W, y = Math.random() * H;
+      bg.beginPath();
+      bg.fillStyle = 'rgba(170,205,255,' + (Math.random() * 0.55 + 0.12).toFixed(2) + ')';
+      bg.arc(x, y, Math.random() * 1.3 + 0.2, 0, 7); bg.fill();
+    }
+    const neb = bg.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, Math.max(W, H) * 0.5);
+    neb.addColorStop(0, 'rgba(30,60,150,.14)');
+    neb.addColorStop(0.5, 'rgba(12,30,90,.07)');
+    neb.addColorStop(1, 'rgba(0,0,0,0)');
+    bg.fillStyle = neb; bg.fillRect(0, 0, W, H);
+
+    // vignette (static, cheap to blit each frame)
+    virgCv = document.createElement('canvas');
+    virgCv.width = cv.width; virgCv.height = cv.height;
+    const vc = virgCv.getContext('2d');
+    const vg = vc.createRadialGradient(W / 2, H * 0.46, Math.min(W, H) * 0.24, W / 2, H * 0.46, Math.max(W, H) * 0.72);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(0.55, 'rgba(0,0,0,0.06)');
+    vg.addColorStop(1, 'rgba(2,4,14,0.64)');
+    vc.fillStyle = vg; vc.fillRect(0, 0, W, H);
+
+    // film grain tile
+    grainCv = document.createElement('canvas');
+    grainCv.width = 96; grainCv.height = 96;
+    const gg = grainCv.getContext('2d');
+    const gimg = gg.createImageData(96, 96);
+    for (let i = 0; i < gimg.data.length; i += 4) {
+      const v = (Math.random() * 255) | 0;
+      gimg.data[i] = v; gimg.data[i + 1] = v; gimg.data[i + 2] = v; gimg.data[i + 3] = 26;
+    }
+    gg.putImageData(gimg, 0, 0);
+
+    // twinkle glints
+    glints = [];
+    for (let i = 0; i < 42; i++) glints.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.6 + 0.4, ph: Math.random() * Math.PI * 2, sp: Math.random() * 8 + 4 });
+
+    // stable infall star field (positions seeded once → no flicker)
+    infallStars = [];
+    for (let i = 0; i < 110; i++) infallStars.push({ ang: Math.random() * Math.PI * 2, r0: Math.random() * 3.6 + 1.4, ph: Math.random() * 9 });
+
+    // bloom buffer (quarter res)
+    bloomCv = document.createElement('canvas');
+    bloomCv.width = Math.max(2, W >> 2); bloomCv.height = Math.max(2, H >> 2);
+    bloomCtx2 = bloomCv.getContext('2d');
+  }
+
+  // spark burst (fired at the 3.5s impact)
+  function spawnSparks() {
+    for (let i = 0; i < 170; i++) {
+      const a = Math.random() * Math.PI * 2, sp = Math.random() * 520 + 90;
+      sparks.push({ x: W / 2 + Math.random() * 20 - 10, y: H * 0.46 + Math.random() * 20 - 10, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: Math.random() * 1.8 + 0.6, life: Math.random() * 0.9 + 0.35, max: 1 });
+    }
+  }
+
+  // ---- frame renderer ----
+  function render(now) {
+    const t = (now - tStart) / 1000;             // seconds 0..5
+    const tN = clamp(t / (T_DUR / 1000), 0, 1);  // normalized
+    const dt = clamp((now - last) / 1000, 0.0001, 0.05); last = now;
+
+    // phase envelopes (smoothed → buttery transitions)
+    const phAwaken = sm(0, 0.75, t);                            // 0-1 point pulse
+    const phOrb = sm(0.6, 1.7, t) * (1 - sm(3.1, 3.9, t));      // orb forms 1-2, fades by 3.5
+    const phAssemble = sm(1.9, 3.3, t);                         // wordmark assembly 2-3.5
+    const phPulse = sm(3.4, 4.1, t);                            // L→R pulse 3.5-4.5
+    const phHold = sm(4.35, 4.7, t);                            // breathing hold 4.5-5
+
+    const cx0 = W / 2, cy0 = H * 0.46;
+    const unit = Math.min(W, H) * 0.16;
+    const push = 1 + 0.35 * sm(0.5, 2.2, t);                    // camera push forward
+    const orbR = unit * (0.05 + 0.95 * sm(0.15, 1.5, t)) * push;
+
+    // eased 3D yaw + gentle sway for a cinematic camera
+    const rotY = t * 0.55 + 0.75 * Math.sin(t * 0.8) * 0.18 + 0.2 * sm(1.4, 2.6, t);
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+
+    // letter layout scale (springy settle at lock)
+    const settle = 1 + 0.07 * Math.exp(-(t - 3.5) * 6) * (1 - sm(3.3, 4.2, t));
+    const ls = Math.min(W * 0.42, H * 0.30) * (0.5 + 0.5 * phAssemble) * push * settle;
+    const pulseX = lerp(-W * 0.34, W * 0.34, sm(3.55, 4.35, t)); // traveling wave
+
+    // impact → camera shake + spark burst (once)
+    if (t >= 3.5 && !impactFired) { impactFired = true; spawnSparks(); shake.amp = 9; }
+    shake.amp = Math.max(0, shake.amp - 26 * dt);
+    const shA = shake.amp;
+    const shx = (Math.random() * 2 - 1) * shA, shy = (Math.random() * 2 - 1) * shA * 0.55;
+
+    cx.setTransform(DPR, 0, 0, DPR, shx * DPR, shy * DPR);
+    cx.globalCompositeOperation = 'source-over';
+    cx.clearRect(-20, -20, W + 40, H + 40);
+
+    // --- static starfield + faint nebula ---
+    cx.globalAlpha = 1;
+    cx.drawImage(bgCv, 0, 0, W, H);
+
+    // twinkle glints
+    cx.globalCompositeOperation = 'lighter';
+    for (const g of glints) {
+      const a = 0.28 + 0.5 * (0.5 + 0.5 * Math.sin(now / 1000 * g.sp + g.ph));
+      cx.globalAlpha = a;
+      cx.fillStyle = 'rgba(185,215,255,1)';
+      cx.beginPath(); cx.arc(g.x, g.y, g.r, 0, 7); cx.fill();
+    }
+
+    // --- infalling star stream toward the awakening point ---
+    cx.globalAlpha = 1;
+    for (const s of infallStars) {
+      const prog = sm(0.05, 0.95, tN);
+      const rad = (s.r0 - prog * (s.r0 - 0.6)) * unit;
+      const pxp = cx0 + Math.cos(s.ang) * rad, pyp = cy0 + Math.sin(s.ang) * rad * 0.94;
+      const al = (1 - tN) * 0.30 * (0.6 + 0.4 * Math.sin(now / 700 + s.ph));
+      if (al <= 0) continue;
+      const sz = Math.max(1.2, 2 + 4 * (s.r0 - rad) / (s.r0 + 0.01));
+      cx.globalAlpha = al;
+      cx.fillStyle = 'rgba(150,205,255,1)';
+      cx.beginPath(); cx.arc(pxp, pyp, sz, 0, 7); cx.fill();
+    }
+
+    // --- awakening core ---
+    const coreA = Math.max(phAwaken, phOrb) * (1 - phAssemble);
+    if (coreA > 0.004) {
+      const pulse = Math.sin(sm(0.12, 0.5, t) * Math.PI);
+      const coreR = unit * (0.02 + (0.34 * pulse + 0.22) * Math.max(phAwaken, phOrb * 0.8));
+      cx.globalAlpha = coreA;
+      const cg = cx.createRadialGradient(cx0, cy0, 0, cx0, cy0, coreR);
+      cg.addColorStop(0, 'rgba(255,255,255,.95)');
+      cg.addColorStop(0.35, 'rgba(150,205,255,.5)');
+      cg.addColorStop(1, 'transparent');
+      cx.fillStyle = cg;
+      cx.beginPath(); cx.arc(cx0, cy0, coreR, 0, 7); cx.fill();
+    }
+
+    // --- holographic rings (phase 2) ---
+    // recede as the wordmark assembles so they never wash it out
+    const ringA = phOrb * (1 - sm(2.15, 2.9, t));
+    if (ringA > 0.008) {
+      for (const ring of rings) {
+        const rr = orbR * ring.r;
+        cx.globalAlpha = ringA * 0.3 * (0.6 + 0.4 * Math.sin(now / 400 + ring.speed * 8));
+        cx.strokeStyle = 'rgba(150,205,255,.8)';
+        cx.lineWidth = 1.1;
+        cx.beginPath();
+        const steps = 96;
+        for (let i = 0; i <= steps; i++) {
+          const a = (i / steps) * Math.PI * 2;
+          const rx = Math.cos(a) * rr, rz = Math.sin(a) * rr;
+          const xr = rx * cosY + rz * sinY;
+          const rr2 = -rx * sinY + rz * cosY;
+          const py = Math.sin(a + ring.tilt * 2) * rr * Math.sin(ring.tilt + 0.4);
+          const sx = cx0 + xr * push, sy = cy0 - py * push;
+          i ? cx.lineTo(sx, sy) : cx.moveTo(sx, sy);
+        }
+        cx.stroke();
+      }
+    }
+
+    // --- particle orb → wordmark ---
+    const lsHalfW = P_W * 0.5, lsHalfH = P_H * 0.5;
+    for (const p of P) {
+      const rx = p.ox * cosY + p.oz * sinY;
+      const rz = -p.ox * sinY + p.oz * cosY;
+      const ry = p.oy;
+      const orbB = orbR;
+      const ox3 = rx * orbB, oy3 = ry * orbB;
+      const persp = 1 / (1 + rz * 0.35);
+      const sx0 = cx0 + ox3 * persp * push;
+      const sy0 = cy0 - oy3 * persp * push;
+
+      const txx = cx0 + (p.tx / lsHalfW) * ls;
+      const tyy = cy0 + (p.ty / lsHalfH) * ls * 0.9;
+
+      // left→right staggered assembly
+      const staggerRight = ((p.tx / lsHalfW) + 1) / 2;
+      const asmP = clamp(phAssemble * 1.5 - p.delay * 2.2 - staggerRight * 0.18, 0, 1);
+      const asmE = asmP * asmP * (3 - 2 * asmP);
+      const len = asmE, inv = 1 - asmE;
+
+      let pxp = sx0 * inv + txx * len;
+      let pyp = sy0 * inv + tyy * len;
+      pxp += Math.sin(now / 500 + p.tw) * orbB * 0.12 * inv;
+      pyp += Math.cos(now / 640 + p.seed) * orbB * 0.10 * inv;
+
+      let bright = 0.5;
+      bright += phOrb * 0.3 * (0.5 + 0.5 * Math.sin(now / 300 + p.tw));
+      bright += phAssemble * 0.4;
+      if (phPulse > 0 && len > 0.8) {
+        const d = Math.abs(pxp - pulseX);
+        bright += Math.max(0, 1 - d / (W * 0.10)) * 0.9 * phPulse;
+      }
+      bright *= (0.88 + 0.12 * Math.sin(now / 900 + p.seed));
+      const bo = phHold * 0.08 * Math.sin(now / 500 + p.seed * 2);
+
+      const s = p.size * (1 + bright * 0.5) * push;
+      const alpha = (inv > 0.96 ? phOrb * 0.7 : phAssemble > 0.01 ? 0.8 : 0.35) * clamp(bright + bo, 0, 0.85);
+
+      // assembled core
+      cx.globalAlpha = clamp(alpha, 0, 1);
+      cx.drawImage(sprite, pxp - s, pyp - s, s * 2, s * 2);
+      // faint halo pass for readability
+      if (len > 0.9) {
+        cx.globalAlpha = clamp(alpha * phAssemble * 0.18, 0, 0.3);
+        cx.drawImage(sprite, pxp - s * 2.2, pyp - s * 2.2, s * 4.4, s * 4.4);
+      }
+    }
+
+    // --- neural filaments behind wordmark (phase 3+) ---
+    if (phAssemble > 0.02 || phPulse > 0) {
+      const fa = Math.max(0.06, phAssemble * 0.55 + phPulse * 0.3);
+      cx.lineWidth = 1;
+      for (const f of fila) {
+        const A = f.a, B = f.b;
+        const ax = cx0 + (A.tx / lsHalfW) * ls, ay = cy0 + (A.ty / lsHalfH) * ls * 0.9;
+        const bx = cx0 + (B.tx / lsHalfW) * ls, by = cy0 + (B.ty / lsHalfH) * ls * 0.9;
+        const m = (ax + bx) / 2, n = (ay + by) / 2;
+        const mx = m + Math.sin(now / 700 + f.a.seed) * ls * 0.1;
+        const my = n + Math.cos(now / 820 + f.b.seed) * ls * 0.1;
+        const gradLn = cx.createLinearGradient(ax, ay, bx, by);
+        gradLn.addColorStop(0, 'rgba(90,170,255,0)');
+        gradLn.addColorStop(0.5, 'rgba(170,215,255,' + fa * 0.8 + ')');
+        gradLn.addColorStop(1, 'rgba(90,170,255,0)');
+        cx.strokeStyle = gradLn;
+        cx.globalAlpha = 1;
+        cx.beginPath();
+        cx.moveTo(ax, ay); cx.quadraticCurveTo(mx, my, bx, by); cx.stroke();
+      }
+    }
+
+    // --- traveling pulse band (3.5-4.5) ---
+    if (phPulse > 0.02) {
+      const bandW = W * 0.07;
+      const g2 = cx.createLinearGradient(pulseX - bandW, 0, pulseX + bandW, 0);
+      g2.addColorStop(0, 'rgba(120,180,255,0)');
+      g2.addColorStop(0.5, 'rgba(205,230,255,' + 0.35 * phPulse + ')');
+      g2.addColorStop(1, 'rgba(120,180,255,0)');
+      cx.fillStyle = g2; cx.globalAlpha = 1;
+      cx.fillRect(pulseX - bandW, 0, bandW * 2, H);
+    }
+
+    // --- final breathing glow behind wordmark ---
+    if (phHold > 0.02) {
+      const breath = 1 + 0.05 * Math.sin(now / 700);
+      const gr = ls * 1.25 * breath;
+      const g3 = cx.createRadialGradient(cx0, cy0, 0, cx0, cy0, gr);
+      g3.addColorStop(0, 'rgba(140,195,255,' + (0.16 * phHold) + ')');
+      g3.addColorStop(0.6, 'rgba(140,195,255,' + (0.07 * phHold) + ')');
+      g3.addColorStop(1, 'transparent');
+      cx.fillStyle = g3;
+      cx.beginPath(); cx.arc(cx0, cy0, gr, 0, 7); cx.fill();
+    }
+
+    // --- wordmark lock flash (impact at 3.5) — outward ring, not a hot disc ---
+    if (phAssemble > 0.99) {
+      const k = sm(3.5, 4.0, t); // 0→1 over 0.5s
+      const ringR = ls * (1.05 + 0.75 * k);
+      cx.globalAlpha = (1 - k) * 0.7;
+      cx.lineWidth = 2 + 5 * (1 - k);
+      cx.strokeStyle = 'rgba(200,235,255,.9)';
+      cx.beginPath(); cx.arc(cx0, cy0, ringR, 0, 7); cx.stroke();
+      cx.globalAlpha = (1 - k) * 0.25;
+      cx.lineWidth = 1;
+      cx.strokeStyle = 'rgba(120,180,255,1)';
+      cx.beginPath(); cx.arc(cx0, cy0, ringR * 0.9, 0, 7); cx.stroke();
+    }
+
+    // --- spark burst (fired at 3.5s impact) ---
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const sp = sparks[i];
+      sp.life -= dt;
+      if (sp.life <= 0) { sparks.splice(i, 1); continue; }
+      sp.vx *= Math.pow(0.92, dt * 60);
+      sp.vy = sp.vy * Math.pow(0.92, dt * 60) + 640 * dt;
+      sp.x += sp.vx * dt; sp.y += sp.vy * dt;
+      const ka = clamp(sp.life / sp.max, 0, 1);
+      cx.globalAlpha = ka * 0.9;
+      cx.drawImage(sprite, sp.x - sp.r * 3, sp.y - sp.r * 3, sp.r * 6, sp.r * 6);
+    }
+
+    // --- cross-process lens blink at impact ---
+    const blink = Math.max(phAwaken, sm(3.47, 3.52, t) * (1 - sm(3.55, 3.75, t)));
+    if (blink > 0.02) {
+      cx.globalCompositeOperation = 'lighter';
+      cx.globalAlpha = blink * 0.35;
+      cx.fillStyle = 'rgba(220,240,255,1)';
+      cx.fillRect(-20, -20, W + 40, H + 40);
+    }
+
+    // --- cheap bloom: downsample scene, re-add upsized (soft glow) ---
+    bloomCv.width = Math.max(2, W >> 2); bloomCv.height = Math.max(2, H >> 2);
+    bloomCtx2.clearRect(0, 0, bloomCv.width, bloomCv.height);
+    bloomCtx2.drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, bloomCv.width, bloomCv.height);
+    cx.globalCompositeOperation = 'lighter';
+    cx.globalAlpha = 0.3;
+    cx.drawImage(bloomCv, 0, 0, bloomCv.width, bloomCv.height, -shx, -shy, W, H);
+
+    // --- vignette + grain (source-over) ---
+    cx.globalCompositeOperation = 'source-over';
+    cx.globalAlpha = 1;
+    cx.drawImage(virgCv, 0, 0, W, H);
+    cx.globalAlpha = 0.5;
+    cx.drawImage(grainCv, 0, 0, W, H);   // subtle film grain
+
+    if (t >= T_DUR / 1000) { finish(); return; }
+  }
+
+  // safe loop: any render exception must not kill the animation
+  function frame(now) {
+    try { render(now); } catch (e) {}
+    if (!ended) raf = requestAnimationFrame(frame);
+  }
+
+  function finish() {
+    if (ended) return;
+    ended = true;
+    cancelAnimationFrame(raf);
+    introEl.classList.add('hide');
+    setTimeout(() => { introEl.style.display = 'none'; }, 850);
+  }
+
+  function skip() { tStart = performance.now() - T_DUR; if (raf) cancelAnimationFrame(raf); finish(); }
+  document.getElementById('skipIntro').addEventListener('click', function (e) { e.stopPropagation(); skip(); });
+
+  /* ---- WebAudio score: sub-bass awakening, rising energy,
+          electronic pulses, impact on logo lock, afterglow ---- */
+  const AUDIO = (function () {
+    let ctx = null, master = null;
+    function env(g, t, a, v1, d1, v2, d2, v3) {
+      if (!ctx || g === null) return;
+      const T = ctx.currentTime + Math.max(0, t) / 1000 + 0.0001;
+      g.gain.setValueAtTime(0.0001, T);
+      if (a > 0) g.gain.linearRampToValueAtTime(Math.max(0.0001, v1), T + a / 1000);
+      if (d1 > 0) { g.gain.setValueAtTime(Math.max(0.0001, v1), T + a / 1000); g.gain.exponentialRampToValueAtTime(Math.max(0.0001, v2), T + (a + d1) / 1000); }
+      if (d2 > 0 && v3 > 0) g.gain.exponentialRampToValueAtTime(Math.max(0.0001, v3), T + (a + d1 + d2) / 1000);
+    }
+    function noiseBurst(t0, dur, freq, gain, q) {
+      if (!ctx) return;
+      const len = Math.max(1, Math.floor(ctx.sampleRate * dur / 1000));
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q || 1.2;
+      const g = ctx.createGain();
+      src.connect(f); f.connect(g); g.connect(master);
+      const T = ctx.currentTime + Math.max(0, t0) / 1000;
+      g.gain.setValueAtTime(0.0001, T);
+      g.gain.linearRampToValueAtTime(gain, T + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, T + dur / 1000);
+      src.start(T); src.stop(T + dur / 1000 + 0.05);
+    }
+    return {
+      start() {
+        if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+        try {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) { return; }
+        master = ctx.createGain(); master.gain.value = 0.8; master.connect(ctx.destination);
+
+        /* 1. sub-bass awakening tone (0s → 5s) */
+        const o1 = ctx.createOscillator(), g1 = ctx.createGain();
+        o1.type = 'sine'; o1.frequency.value = 48; o1.connect(g1); g1.connect(master);
+        o1.start(); env(g1, 0, 900, 0.32, 1200, 0.30, 900, 0.05); o1.stop(ctx.currentTime + 5.4);
+        // warm 3rd
+        const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+        o2.type = 'sine'; o2.frequency.value = 72.6; o2.connect(g2); g2.connect(master);
+        o2.start(); env(g2, 0, 1100, 0.10, 1000, 0.09, 800, 0.02); o2.stop(ctx.currentTime + 5.0);
+
+        /* 2. rising futuristic energy sweep (0 → 3.5s, peaks at impact) */
+        const o3 = ctx.createOscillator(), g3 = ctx.createGain();
+        o3.type = 'sawtooth';
+        const f3 = ctx.createBiquadFilter();
+        f3.type = 'lowpass';
+        o3.frequency.setValueAtTime(70, ctx.currentTime);
+        o3.frequency.exponentialRampToValueAtTime(940, ctx.currentTime + 3.4);
+        f3.frequency.setValueAtTime(400, ctx.currentTime);
+        f3.frequency.exponentialRampToValueAtTime(5200, ctx.currentTime + 3.4);
+        o3.connect(f3); f3.connect(g3); g3.connect(master);
+        g3.gain.setValueAtTime(0.013, ctx.currentTime);
+        g3.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 2.8);
+        g3.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 4.0);
+        o3.start(); o3.stop(ctx.currentTime + 4.1);
+
+        /* 3. subtle electronic pulses */
+        [260, 620, 1050, 1500, 1950, 2380, 2800, 3180, 3500].forEach((tt, i) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'triangle'; o.frequency.value = 220 * (1 + i * 0.22);
+          o.connect(g); g.connect(master);
+          const T = ctx.currentTime + tt / 1000;
+          o.start(T);
+          g.gain.setValueAtTime(0.0001, T);
+          g.gain.linearRampToValueAtTime(0.05 + i * 0.006, T + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, T + 0.14);
+          o.stop(T + 0.16);
+          if (i === 8) noiseBurst(tt, 160, 1800, 0.3, 1.5);
+        });
+
+        /* 4. clean premium impact at 3.5s (logo locks) */
+        noiseBurst(3500, 620, 120, 0.85, 0.7);      // deep boom
+        noiseBurst(3500, 300, 2600, 0.22, 2.2);     // airy crack
+        const imp = ctx.createOscillator(), ig = ctx.createGain();
+        imp.type = 'sine';
+        imp.frequency.setValueAtTime(160, ctx.currentTime + 3.5);
+        imp.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 4.4);
+        imp.connect(ig); ig.connect(master);
+        const IT = ctx.currentTime + 3.5;
+        imp.start(IT); ig.gain.setValueAtTime(0.0001, IT);
+        ig.gain.linearRampToValueAtTime(0.5, IT + 0.012);
+        ig.gain.exponentialRampToValueAtTime(0.0001, IT + 1.0);
+        imp.stop(IT + 1.1);
+        // shimmer tail on lock
+        [1046, 1568, 2093].forEach((fr, i) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = fr; o.connect(g); g.connect(master);
+          const ST = ctx.currentTime + 3.52 + i * 0.04;
+          o.start(ST); g.gain.setValueAtTime(0.0001, ST);
+          g.gain.linearRampToValueAtTime(0.05 - i * 0.012, ST + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0001, ST + 1.4);
+          o.stop(ST + 1.5);
+        });
+
+        /* 5. afterglow pad + breathing (4.5 → 6s) */
+        [110, 165, 220, 330].forEach((fr, i) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = fr; o.connect(g); g.connect(master);
+          const AT = ctx.currentTime + 4.4 + i * 0.03;
+          o.start(AT); g.gain.setValueAtTime(0.0001, AT);
+          g.gain.linearRampToValueAtTime(0.028 - i * 0.005, AT + 0.45);
+          g.gain.exponentialRampToValueAtTime(0.0001, AT + 2.4);
+          o.stop(AT + 2.5);
+        });
+      },
+      pause: function () { if (ctx && ctx.state === 'running') ctx.suspend(); },
+    };
+  })();
+
+  // autoplay attempt; fall back to first interaction (browsers require a gesture)
+  function bootAudio() { AUDIO.start(); }
+  try { bootAudio(); } catch (e) {}
+  const kick = function () { bootAudio(); window.removeEventListener('pointerdown', kick); window.removeEventListener('keydown', kick); };
+  window.addEventListener('pointerdown', kick);
+  window.addEventListener('keydown', kick);
+
+  // click anywhere except skip = start audio (and skip if finished)
+  introEl.addEventListener('click', function () {
+    bootAudio();
+    if (ended || performance.now() - tStart > T_DUR) skip();
+  });
+
+  // reduced-motion users get the final frame instantly
+  if (prefersQ) { skip(); return; }
+
+  raf = requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

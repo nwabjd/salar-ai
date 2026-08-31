@@ -78,6 +78,14 @@ DEFAULT_SPECS: Dict[str, ToolSpec] = {
         verification="code_run",
         cost_class="cheap",
     ),
+    "delete_file": ToolSpec(
+        name="delete_file",
+        description="Deletes a file or folder permanently. Cannot be undone.",
+        risk_level=4,
+        permission_category="destructive",
+        verification="delete_file",
+        cost_class="cheap",
+    ),
     "open_url": ToolSpec(
         name="open_url",
         description="Fetches a web page.",

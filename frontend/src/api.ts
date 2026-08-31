@@ -1,10 +1,12 @@
 export type Message = { id: string; role: 'user' | 'assistant'; content: string; created_at: string }
 export type Conversation = { id: string; title: string; messages?: Message[] }
-export type Memory = { id: string; title: string; content: string; layer: string; created_at: string }
+export type Memory = { id: string; title: string; content: string; layer: string; project_id?: string; tags?: string[]; strength?: number; expired?: boolean; created_at: string; updated_at?: string }
 export type DocumentItem = { id: string; filename: string; media_type: string; created_at: string }
+export type AttachmentItem = { id: string; filename: string; media_type: string; size_bytes: number; analysis?: string; conversation_id?: string; created_at: string }
 export type Device = { id: string; name: string; platform: string; last_seen_at: string | null }
 export type WhatsAppChat = { jid: string; name: string; lastMessage: string | null }
 export type WhatsAppMessage = { id: string; fromMe: boolean; text: string; senderName: string; pushName: string; timestamp: number }
+export type Project = { id: string; name: string; description: string; status: string; goals: string[]; deadline: string | null; created_at: string }
 export type EmailAccount = { address: string; password: string; imap_host?: string; smtp_host?: string }
 export type EmailMessage = { id: string; from: string; to: string; subject: string; date: string }
 export type EmailFolder = { folder: string; total: number; unread: number }
@@ -42,6 +44,31 @@ export type WorldPolicy = {
   successes: number
   resolved_count: number
   score: number
+}
+
+export type ResearchAgentFinding = {
+  agent: string
+  finding: string
+  sources?: string[]
+  confidence?: string
+}
+
+export type ResearchReport = {
+  id: string
+  goal: string
+  status: string
+  error?: string | null
+  agents: ResearchAgentFinding[]
+  synthesis?: {
+    synthesis?: string
+    confidence?: string
+    consensus_points?: string[]
+    contradictions?: string[]
+    unresolved?: string[]
+    sources_cited?: string[]
+  }
+  findings: ResearchAgentFinding[]
+  created_at?: string | null
 }
 
 export type MissionStep = {
@@ -86,7 +113,14 @@ export type Mission = {
 }
 
 localStorage.removeItem('salar.apiUrl')
-export const DEFAULT_API = (import.meta.env.VITE_API_URL || 'https://salar-backend.onrender.com').replace(/\/$/, '')
+function getDefaultApi(): string {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/$/, '')
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://127.0.0.1:8000'
+  }
+  return 'https://salar-backend.onrender.com'
+}
+export const DEFAULT_API = getDefaultApi()
 
 const DEFAULT_TIMEOUT = 30000
 const STREAM_TIMEOUT = 120000
@@ -119,6 +153,7 @@ export class SalarApi {
     try {
       const response = await fetch(`${this.baseUrl}${path}`, { ...init, headers, signal })
       if (!response.ok) {
+        if (response.status === 204) return null as unknown as T
         const body = await response.json().catch(() => null)
         if (response.status === 401) throw new Error('Authentication expired — please log in again')
         throw new Error(body?.detail || `Request failed (${response.status})`)
@@ -127,6 +162,12 @@ export class SalarApi {
     } finally {
       cleanup()
     }
+  }
+
+  async login(email: string, password: string) {
+    const data = await this.request<{access_token:string;token_type:string}>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+    this.token = data.access_token
+    return data
   }
 
   async supabaseLogin(token: string) {
@@ -155,6 +196,12 @@ export class SalarApi {
   async usage() {
     return this.request<{ plan: string; limit: number | null; used: number; reset_at: string; exempt: boolean }>('/api/billing/usage')
   }
+  projects() { return this.request<Project[]>('/api/projects') }
+  project(id: string) { return this.request<Project>(`/api/projects/${id}`) }
+  createProject(data: Partial<Project>) { return this.request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(data) }) }
+  updateProject(id: string, data: Partial<Project>) { return this.request<Project>(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }) }
+  deleteProject(id: string) { return this.request<{ status: string; id: string }>(`/api/projects/${id}`, { method: 'DELETE' }) }
+
   conversations() { return this.request<Conversation[]>('/api/conversations') }
   conversation(id: string) { return this.request<Conversation>(`/api/conversations/${id}`) }
   createConversation(title='New conversation') { return this.request<Conversation>('/api/conversations', {method:'POST', body:JSON.stringify({title})}) }
@@ -232,10 +279,45 @@ export class SalarApi {
   coreTraces(): Promise<any[]> { return this.request('/api/core/traces') }
   coreTrace(traceId: string): Promise<any> { return this.request(`/api/core/traces/${traceId}`) }
 
-  memories() { return this.request<Memory[]>('/api/memories') }
-  saveMemory(title:string, content:string) { return this.request<Memory>('/api/memories',{method:'POST',body:JSON.stringify({title,content,layer:'long_term'})}) }
+  memories(params: { layer?: string; search?: string } = {}) {
+    const q = new URLSearchParams()
+    if (params.layer) q.set('layer', params.layer)
+    if (params.search) q.set('search', params.search)
+    const qs = q.toString()
+    return this.request<Memory[]>(`/api/memories${qs ? `?${qs}` : ''}`)
+  }
+  memory(id: string) { return this.request<Memory>(`/api/memories/${id}`) }
+  saveMemory(title: string, content: string, layer = 'long_term', tags: string[] = [], project_id?: string) {
+    return this.request<Memory>('/api/memories', { method: 'POST', body: JSON.stringify({ title, content, layer, tags, ...(project_id ? { project_id } : {}) }) })
+  }
+  updateMemory(id: string, payload: Partial<Memory>) {
+    return this.request<Memory>(`/api/memories/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+  }
+  deleteMemory(id: string) {
+    return this.request<{ status: string }>(`/api/memories/${id}`, { method: 'DELETE' })
+  }
   documents() { return this.request<DocumentItem[]>('/api/documents') }
   async upload(file:File) { const body=new FormData(); body.append('file',file); return this.request<DocumentItem>('/api/documents',{method:'POST',body}) }
+  async uploadFiles(files: File[]) {
+    // Parallel upload to the documents store; returns per-file results.
+    return Promise.all(files.map(f => this.upload(f)))
+  }
+  deleteDocument(id: string) { return this.request<{ status: string; id: string }>(`/api/documents/${encodeURIComponent(id)}`, { method: 'DELETE' }) }
+
+  attachments(conversation_id = '') {
+    const q = conversation_id ? `?conversation_id=${encodeURIComponent(conversation_id)}` : ''
+    return this.request<AttachmentItem[]>(`/api/attachments${q}`)
+  }
+  async uploadAttachment(file: File, conversation_id = '') {
+    const body = new FormData()
+    body.append('file', file)
+    if (conversation_id) body.append('conversation_id', conversation_id)
+    return this.request<AttachmentItem>('/api/attachments', { method: 'POST', body })
+  }
+  async uploadAttachments(files: File[], conversation_id = '') {
+    return Promise.all(files.map(f => this.uploadAttachment(f, conversation_id)))
+  }
+  deleteAttachment(id: string) { return this.request<{ status: string; id: string }>(`/api/attachments/${encodeURIComponent(id)}`, { method: 'DELETE' }) }
   devices() { return this.request<Device[]>('/api/devices') }
   registerDevice(name:string, platform='windows') { return this.request<Device & {token:string}>('/api/devices',{method:'POST',body:JSON.stringify({name,platform})}) }
   command(device_id:string, kind:string, payload:Record<string,unknown>) { return this.request('/api/commands',{method:'POST',body:JSON.stringify({device_id,kind,payload})}) }
@@ -250,6 +332,22 @@ export class SalarApi {
     })
     if (!response.ok) throw new Error(`Local model error (${response.status})`)
     return response.json()
+  }
+
+  async visionAnalyze(file: File, prompt: string) {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('prompt', prompt)
+    return this.request<{ status: string; answer: string }>('/api/vision/analyze', { method: 'POST', body })
+  }
+  async visionScreenshot(prompt: string) {
+    return this.request<{ status: string; answer: string }>('/api/vision/screenshot', { method: 'POST', body: JSON.stringify({ prompt }) })
+  }
+  async visionHistory() {
+    return this.request<{ results: any[] }>('/api/vision/history')
+  }
+  async deleteVision(id: string) {
+    return this.request<{ status: string }>(`/api/vision/history/${id}`, { method: 'DELETE' })
   }
 
   async nextDeviceCommand(deviceToken: string) {
@@ -560,6 +658,8 @@ export class SalarApi {
   codeExecute(code: string, language = 'python', timeout = 30): Promise<{ stdout: string; stderr: string; status: string; exit_code: number }> {
     return this.request('/api/code/execute', { method: 'POST', body: JSON.stringify({ code, language, timeout }) })
   }
+  codeHistory(limit = 20): Promise<{ history: any[] }> { return this.request(`/api/code/history?limit=${limit}`) }
+  codeClearHistory(): Promise<any> { return this.request('/api/code/history', { method: 'DELETE' }) }
 
   workspaces(): Promise<any[]> { return this.request('/api/workspaces') }
   createWorkspace(data: { name: string; icon?: string; color?: string }): Promise<any> { return this.request('/api/workspaces', { method: 'POST', body: JSON.stringify(data) }) }
@@ -593,6 +693,9 @@ export class SalarApi {
   overdueReminders(): Promise<any[]> { return this.request('/api/reminders/overdue') }
 
   knowledgeDocs(): Promise<any[]> { return this.request('/api/knowledge') }
+  researchList(): Promise<{ results: ResearchReport[] }> { return this.request('/api/research') }
+  researchGet(id: string): Promise<ResearchReport> { return this.request(`/api/research/${id}`) }
+  researchRun(goal: string): Promise<ResearchReport> { return this.request('/api/research', { method: 'POST', body: JSON.stringify({ goal }) }) }
   uploadKnowledge(file: File): Promise<any> {
     const form = new FormData()
     form.append('file', file)
@@ -605,6 +708,17 @@ export class SalarApi {
   systemPerf(): Promise<any> { return this.request('/api/system/perf') }
   systemNetwork(): Promise<any> { return this.request('/api/system/network') }
   swarmAgents(): Promise<{ agents: any[] }> { return this.request('/api/swarm/agents') }
+  swarmDecompose(goal: string): Promise<{ agents: any[] }> { return this.request('/api/swarm/decompose', { method: 'POST', body: JSON.stringify({ goal }) }) }
+  swarmRun(goal: string): Promise<{ run: any }> { return this.request('/api/swarm/run', { method: 'POST', body: JSON.stringify({ goal }) }) }
+  swarmRuns(limit = 10): Promise<{ runs: any[] }> { return this.request(`/api/swarm/runs?limit=${limit}`) }
+  swarmRunGet(runId: string): Promise<{ run: any }> { return this.request(`/api/swarm/runs/${encodeURIComponent(runId)}`) }
+
+  userProfile(): Promise<any> { return this.request('/api/users/me') }
+  listUsers(): Promise<{ users: any[] }> { return this.request('/api/users/list') }
+  inviteUser(email: string, workspace_id?: string, role = 'member'): Promise<any> { return this.request('/api/users/invite', { method: 'POST', body: JSON.stringify({ email, workspace_id, role }) }) }
+  listWorkspaceMembers(workspaceId: string): Promise<{ members: any[] }> { return this.request(`/api/users/workspaces/${encodeURIComponent(workspaceId)}/members`) }
+  removeWorkspaceMember(workspaceId: string, memberUserId: string): Promise<any> { return this.request(`/api/users/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberUserId)}`, { method: 'DELETE' }) }
+
   guardianActivity(limit = 10): Promise<any[]> { return this.request(`/api/guardian/activity?limit=${limit}`) }
   thoughtStream(limit = 10): Promise<{ items: any[] }> { return this.request(`/api/thought-stream?limit=${limit}`) }
   intelUnreadCount(): Promise<{ unread_count: number }> { return this.request('/api/intel/unread-count') }
@@ -634,6 +748,17 @@ export class SalarApi {
   toggleWorkflow(id: string): Promise<any> { return this.request(`/api/workflows/${id}/toggle`, { method: 'PATCH' }) }
   workflowRuns(id: string): Promise<any> { return this.request(`/api/workflows/${id}/runs`) }
   testWorkflow(id: string): Promise<any> { return this.request(`/api/workflows/${id}/test`, { method: 'POST' }) }
+  approveCommand(commandId: string): Promise<any> { return this.request(`/api/commands/${commandId}/approve`, { method: 'POST' }) }
+  async getCommands(): Promise<any[]> { return this.request('/api/commands') }
+
+  async semanticSearch(query: string, limit = 10): Promise<{ results: any[]; count: number }> {
+    return this.request('/api/retrieval/query', { method: 'POST', body: JSON.stringify({ query, limit }) })
+  }
+  async uploadDocument(file: File): Promise<any> {
+    const body = new FormData()
+    body.append('file', file)
+    return this.request('/api/documents', { method: 'POST', body })
+  }
 }
 
 const api = new SalarApi()

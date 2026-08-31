@@ -423,8 +423,10 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
     // to the backend under a one-time handshake code, and we poll for them —
     // no custom protocol involved.
     if (isDesktop()) {
-      const internals = (window as unknown as { __TAURI_INTERNALS__?: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }).__TAURI_INTERNALS__;
-      if (!internals?.invoke) {
+      const tauriInvoke = (window as any).__TAURI_INTERNALS__?.invoke
+        || (window as any).__TAURI__?.core?.invoke
+        || (window as any).__TAURI__?.invoke;
+      if (!tauriInvoke) {
         setError("Desktop runtime unavailable.");
         setBusy(false);
         return;
@@ -433,11 +435,12 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
       // NOTE: window.location.origin inside the Tauri webview is
       // http://tauri.localhost — never send THAT to the OAuth provider. The
       // browser must land on the real site so it can relay the tokens.
-      const siteOrigin = "https://salaar.cloud";
+      const siteOrigin = api.baseUrl;
       const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${siteOrigin}/?handshake=${encodeURIComponent(handshake)}`, skipBrowserRedirect: true },
+        options: { redirectTo: `${siteOrigin}/auth-relay?handshake=${encodeURIComponent(handshake)}`, skipBrowserRedirect: true },
       });
+
       if (authError) {
         setError(authError.message);
         setBusy(false);
@@ -449,7 +452,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
         return;
       }
       try {
-        await internals.invoke("open_external", { url: data.url });
+        await tauriInvoke("open_external", { url: data.url });
       } catch (invokeError) {
         const reason = typeof invokeError === "string" ? ` (${invokeError})` : "";
         setError(`Could not open your default browser${reason}.`);

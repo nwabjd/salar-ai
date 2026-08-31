@@ -13,3 +13,16 @@ backend/data/
 dist/
 *.log
 .worktrees/
+
+# Large model/binary artifacts (must not be committed)
+.soup/
+merged/
+output/
+mobile/*.apk
+*.safetensors
+*.gguf
+ui-preview-assets/
+.vs/
+.idea/
+*.db
+*.vsidx

@@ -72,6 +72,17 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 24px 60px rgba(0, 0, 0, .35);
 }
 
+/* ---- Gradient waves background (react-bits GradientWaves) ---- */
+.nova-gradient-bg {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 0;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+  opacity: .9;
+}
+
 .nova-intel-glass {
   background: var(--nova-intel-glass);
   -webkit-backdrop-filter: blur(var(--nova-blur)) saturate(160%);

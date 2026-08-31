@@ -1,7 +1,10 @@
 export type AccessState = 'checking' | 'connected' | 'signed-out'
 
 export function isDesktop(): boolean {
-  return typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__)
+  if (typeof window === 'undefined') return false
+  if (Boolean((window as any).__TAURI_INTERNALS__)) return true
+  if (Boolean((window as any).__TAURI__)) return true
+  return navigator.userAgent.includes('Tauri') || window.location.protocol === 'tauri:'
 }
 
 export function resolveAccessState(input: { token: string }): AccessState {
@@ -10,7 +13,7 @@ export function resolveAccessState(input: { token: string }): AccessState {
 }
 
 function invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
-  const invoker = (window as any).__TAURI_INTERNALS__?.invoke
+  const invoker = (window as any).__TAURI_INTERNALS__?.invoke || (window as any).__TAURI__?.core?.invoke || (window as any).__TAURI__?.invoke
   if (!invoker) return Promise.reject(new Error('Not in Tauri context'))
   return invoker(cmd, args || {})
 }

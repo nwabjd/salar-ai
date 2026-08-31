@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import NovaBackground from './NovaBackground'
+import GradientWaves from '../effects/GradientWaves'
 import NovaRail from './NovaRail'
 import HomeScreen from './HomeScreen'
 import QuantumEngine from './quantum/QuantumEngine'
@@ -8,6 +9,9 @@ import { MissionCenter } from './missions'
 import { SpacesOverview, SpaceContainer, DEFAULT_SPACES } from './spaces'
 import { NotificationCenter, PermissionOverlay, ContextDock } from './context'
 import AgentCenter from './agents/AgentCenter'
+import { MemoryView } from './memory/MemoryView'
+import { DevicesView } from './devices/DevicesView'
+import { SystemView } from './system/SystemView'
 import type { PermissionRequest } from './context'
 import type { RailView } from './NovaRail'
 import type { SpaceKind } from './spaces'
@@ -30,7 +34,7 @@ interface ShellProps {
 }
 
 export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: ShellProps) {
-  const [view, setView] = useState<RailView>('quantum')
+  const [view, setView] = useState<RailView>('home')
   const [openSpace, setOpenSpace] = useState<SpaceKind | null>(null)
   const [coreState, setCoreState] = useState<CoreState>('idle')
   const [conversation, setConversation] = useState<Conversation | null>(null)
@@ -43,12 +47,12 @@ export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: She
     setView(next)
   }
 
-  const handleSend = async (text: string, approved?: boolean) => {
+  const handleSend = async (text: string, _files?: File[]) => {
     if (!text.trim()) return
 
     // Context gate: high-stakes intents pause for explicit approval.
     const highRisk = /(delete|wipe|erase|kill|terminate|shut ?down|remove|uninstall|send (money|payment)|transfer|cancel|permanent)/i.test(text)
-    if (highRisk && !approved) {
+    if (highRisk) {
       setPendingText(text)
       setPermission({
         id: 'risk-' + Date.now(),
@@ -61,6 +65,10 @@ export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: She
       return
     }
 
+    await sendToAgent(text)
+  }
+
+  const sendToAgent = async (text: string) => {
     if (!conversation) {
       try {
         const list = await api.conversations()
@@ -119,11 +127,47 @@ export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: She
     onLive?.()
   }
 
+  const handleAttach = async (files: File[]) => {
+    if (!files.length) return
+    try {
+      await api.uploadFiles(files)
+      setCoreState('complete')
+      setTimeout(() => setCoreState('idle'), 1600)
+    } catch (err) {
+      console.error('Upload failed:', err)
+      setCoreState('error')
+      setTimeout(() => setCoreState('idle'), 2400)
+    }
+  }
+
+  const handleSign = () => {
+    setPermission({
+      id: 'sign-' + Date.now(),
+      title: 'Document signature',
+      description: 'Signing mode is ready. Attach a document to sign it digitally.',
+      detail: 'Salaar can capture your signature and embed it into PDF and Office documents.',
+      confidence: 0.9,
+      irreversible: false,
+    })
+  }
+
+  const handleApproveSign = () => {
+    setPermission(null)
+    setCoreState('complete')
+    setTimeout(() => setCoreState('idle'), 1600)
+  }
+
   const handleApprove = () => {
+    const isSignRequest = permission?.id.startsWith('sign-')
     const text = pendingText
     setPendingText('')
     setPermission(null)
-    if (text) handleSend(text, true)
+    if (isSignRequest) {
+      setCoreState('complete')
+      setTimeout(() => setCoreState('idle'), 1600)
+      return
+    }
+    if (text) sendToAgent(text)
   }
 
   const handleDeny = () => {
@@ -146,6 +190,29 @@ export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: She
       fontFamily: 'var(--nova-font-sans)',
     }}>
       <NovaBackground/>
+      <GradientWaves
+        className="nova-gradient-bg"
+        horizonColor="#e61359"
+        waveColor="#ff7ba4"
+        crestColor="#ffffff"
+        speed={0.4}
+        amplitude={2.5}
+        waveScale={0.6}
+        waveRatio={0.9}
+        swell={35}
+        turbulence={20}
+        tilt={1.11}
+        zoom={1.0}
+        height={5.5}
+        fogDepth={15}
+        detail="medium"
+        brightness={1.0}
+        opacity={1.0}
+        mouseInteraction={true}
+        parallaxStrength={0.5}
+        grain={false}
+        grainIntensity={0}
+      />
       <NovaRail active={view} onNavigate={setView}/>
 
       {/* Main content area */}
@@ -168,14 +235,16 @@ export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: She
               coreState={coreState}
               onSend={handleSend}
               onVoice={handleVoice}
+              onAttach={handleAttach}
+              onSign={handleSign}
               onCoreClick={handleVoice}
             />
           )}
           {view === 'missions' && (
-            <MissionCenter key="missions" api={api}/>
+            <MissionCenter key="missions" api={api} />
           )}
           {view === 'agents' && (
-            <AgentCenter key="agents" api={api}/>
+            <AgentCenter key="agents" api={api} />
           )}
           {view === 'spaces' && openSpace === null && (
             <SpacesOverview
@@ -194,8 +263,17 @@ export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: She
               onBack={() => setOpenSpace(null)}
             />
           )}
-          {view !== 'home' && view !== 'missions' && view !== 'spaces' && view !== 'agents' && (
-            <NovaViewPlaceholder key={view} view={view}/>
+          {view === 'memory' && (
+            <MemoryView key="memory" api={api} />
+          )}
+          {view === 'devices' && (
+            <DevicesView key="devices" api={api} />
+          )}
+          {view === 'system' && (
+            <SystemView key="system" api={api} />
+          )}
+          {(['memory', 'devices', 'system', 'quantum', 'home', 'missions', 'spaces', 'agents'] as RailView[]).includes(view) === false && (
+            <NovaViewPlaceholder key={view} view={view} />
           )}
         </AnimatePresence>
       </motion.main>
@@ -216,7 +294,7 @@ export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: She
       {/* Exit Quantum toggle */}
       <button
         onClick={onExitQuantum}
-        aria-label="Exit Quantum mode"
+        aria-label="Exit Nova mode back to classic view"
         style={{
           position: 'fixed', right: 62, top: 18, zIndex: 50,
           padding: '7px 14px', borderRadius: 12,
@@ -230,7 +308,7 @@ export default function NovaShell({ api, onLive, onSignOut, onExitQuantum }: She
           textTransform: 'uppercase' as const,
         }}
       >
-        EXIT QUANTUM
+        CLASSIC VIEW
       </button>
     </div>
   )

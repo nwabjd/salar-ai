@@ -81,3 +81,18 @@ def search_documents(q: str, user: User = Depends(get_current_user), db: Session
         base = DocumentResponse.model_validate(record, from_attributes=True)
         results.append(DocumentSearchResult(**base.model_dump(), snippet=record.extracted_text[start:end]))
     return results
+
+
+@router.delete("/{document_id}")
+def delete_document(document_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    record = db.scalar(select(Document).where(Document.id == document_id, Document.user_id == user.id))
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    if record.storage_path:
+        try:
+            Path(record.storage_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+    db.delete(record)
+    db.commit()
+    return {"status": "deleted", "id": document_id}

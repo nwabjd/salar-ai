@@ -1,6 +1,7 @@
+import json
 import secrets
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -34,7 +35,22 @@ class Project(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(160))
     description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(32), default="active")  # active, completed, archived
+    goals_json: Mapped[str] = mapped_column(Text, default="[]")
+    deadline: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    @property
+    def goals(self) -> List[str]:
+        try:
+            return json.loads(self.goals_json)
+        except Exception:
+            return []
+
+    @goals.setter
+    def goals(self, value: List[str]) -> None:
+        self.goals_json = json.dumps(value or [])
 
 
 class Conversation(Base):
@@ -95,13 +111,28 @@ class Memory(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     project_id: Mapped[Optional[str]] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
-    layer: Mapped[str] = mapped_column(String(32), default="long_term")
+    layer: Mapped[str] = mapped_column(String(32), default="long_term")  # short-term, long-term, project, personal, vault
     title: Mapped[str] = mapped_column(String(240))
     content: Mapped[str] = mapped_column(Text)
     kind: Mapped[str] = mapped_column(String(32), default="memory")  # person, project, file, preference, decision, place, event, memory
     tags_json: Mapped[str] = mapped_column(Text, default="[]")
+    strength: Mapped[float] = mapped_column(Float, default=1.0)
+    expired: Mapped[bool] = mapped_column(Boolean, default=False)
+    encrypted: Mapped[bool] = mapped_column(Boolean, default=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    @property
+    def tags(self) -> List[str]:
+        try:
+            return json.loads(self.tags_json)
+        except Exception:
+            return []
+
+    @tags.setter
+    def tags(self, value: List[str]) -> None:
+        self.tags_json = json.dumps(value or [])
 
 
 class MemoryRelation(Base):
@@ -123,6 +154,19 @@ class Document(Base):
     media_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
     storage_path: Mapped[str] = mapped_column(Text)
     extracted_text: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    conversation_id: Mapped[Optional[str]] = mapped_column(ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    media_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
+    storage_path: Mapped[str] = mapped_column(Text)
+    size_bytes: Mapped[int] = mapped_column(default=0)
+    analysis: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -185,6 +229,15 @@ class Workspace(Base):
     icon: Mapped[str] = mapped_column(String(20), default="📁")
     color: Mapped[str] = mapped_column(String(20), default="#5227FF")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WorkspaceMember(Base):
+    __tablename__ = "workspace_members"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(20), default="member")  # owner, admin, member, viewer
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

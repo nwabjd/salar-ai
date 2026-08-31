@@ -10,6 +10,7 @@ export type SessionDependencies = {
   validateBackendToken: (token: string) => Promise<boolean>
   getSupabaseToken: () => Promise<string | null>
   exchangeSupabaseToken: (token: string) => Promise<string>
+  devBootstrapLogin?: () => Promise<string>
 }
 
 async function isValid(deps: SessionDependencies, token: string): Promise<boolean> {
@@ -42,6 +43,15 @@ async function connectOnce(
   }
 
   if (!supabaseToken) {
+    if (deps.devBootstrapLogin) {
+      try {
+        const devToken = await deps.devBootstrapLogin()
+        if (devToken && (await isValid(deps, devToken))) {
+          await deps.saveBackendToken(devToken)
+          return { status: 'connected', token: devToken }
+        }
+      } catch { /* ignore fallback */ }
+    }
     await deps.clearBackendToken()
     return { status: 'signed-out' }
   }

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 
 from . import __version__
 from .api.core import router as core_router
@@ -15,6 +15,7 @@ from .api.chat import router as chat_router
 from .api.memory import router as memory_router
 from .api.memory_graph import router as memory_graph_router
 from .api.projects import router as projects_router
+from .api.attachments import router as attachments_router
 from .api.documents import router as documents_router
 from .api.devices import router as devices_router
 from .api.tts import router as tts_router
@@ -84,6 +85,8 @@ from .api.media_memory import router as media_memory_router
 from .api.creative_templates import router as creative_templates_router
 from .api.presentation import router as presentation_router
 from .api.widgets import router as widgets_router
+from .api.retrieval import router as retrieval_router
+from .api.users import router as users_router
 from .api.ar_status import router as ar_status_router
 from .api.wallpapers import router as wallpapers_router
 from .services.whatsapp import WhatsAppClient
@@ -103,8 +106,48 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
+def _apply_inline_migrations(engine) -> None:
+    """Additive, idempotent column migrations for existing SQLite databases."""
+    try:
+        inspector = inspect(engine)
+        if not inspector.has_table("memories"):
+            return
+        existing = {c["name"] for c in inspector.get_columns("memories")}
+        with engine.begin() as conn:
+            for name, ddl in {
+                "strength": "ALTER TABLE memories ADD COLUMN strength FLOAT DEFAULT 1.0",
+                "expired": "ALTER TABLE memories ADD COLUMN expired BOOLEAN DEFAULT 0",
+                "encrypted": "ALTER TABLE memories ADD COLUMN encrypted BOOLEAN DEFAULT 0",
+                "expires_at": "ALTER TABLE memories ADD COLUMN expires_at DATETIME",
+            }.items():
+                if name not in existing:
+                    conn.execute(text(ddl))
+        existing_p = {c["name"] for c in inspector.get_columns("projects")}
+        with engine.begin() as conn:
+            for name, ddl in {
+                "status": "ALTER TABLE projects ADD COLUMN status VARCHAR(32) DEFAULT 'active'",
+                "goals_json": "ALTER TABLE projects ADD COLUMN goals_json TEXT DEFAULT '[]'",
+                "deadline": "ALTER TABLE projects ADD COLUMN deadline DATETIME",
+                "updated_at": "ALTER TABLE projects ADD COLUMN updated_at DATETIME",
+            }.items():
+                if name not in existing_p:
+                    conn.execute(text(ddl))
+    except Exception:
+        log.warning("Inline schema migration skipped", exc_info=True)
+
+
 def create_app(settings: Settings = None) -> FastAPI:
     active_settings = settings or Settings()
+    if active_settings.environment == "production":
+        if active_settings.jwt_secret in {"", "change-this-development-secret-before-deployment"}:
+            raise RuntimeError(
+                "Refusing to start in production: SALAR_JWT_SECRET is unset or the insecure default."
+            )
+        if active_settings.bootstrap_password == "ChangeMeImmediately!" and not active_settings.supabase_url:
+            raise RuntimeError(
+                "Refusing to start in production: SALAR_BOOTSTRAP_PASSWORD is the insecure default "
+                "and no Supabase auth is configured."
+            )
     engine, session_factory = create_session_factory(active_settings.database_url)
 
     @asynccontextmanager
@@ -118,6 +161,7 @@ def create_app(settings: Settings = None) -> FastAPI:
 
         try:
             Base.metadata.create_all(engine)
+            _apply_inline_migrations(engine)
             log.info("Database ready")
         except Exception as e:
             log.error("Database init failed: %s", e)
@@ -350,6 +394,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(chat_router)
     app.include_router(memory_router)
     app.include_router(projects_router)
+    app.include_router(attachments_router)
     app.include_router(documents_router)
     app.include_router(devices_router)
     app.include_router(tts_router)
@@ -422,6 +467,8 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(widgets_router)
     app.include_router(ar_status_router)
     app.include_router(wallpapers_router)
+    app.include_router(retrieval_router)
+    app.include_router(users_router)
     app.include_router(core_router)
     return app
 

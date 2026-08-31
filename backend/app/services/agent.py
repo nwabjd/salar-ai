@@ -77,6 +77,18 @@ TOOL_DEFINITIONS = [
                 }
             },
             {
+                "name": "delete_file",
+                "description": "Delete a file or folder from the user's PC. Relative paths resolve against the user's home folder. For folders, set recursive=true to delete the folder and everything inside it. Deletes permanently and cannot be undone.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Relative or absolute path to the file or folder to delete"},
+                        "recursive": {"type": "boolean", "description": "Whether to delete a folder and its contents (default false)"}
+                    },
+                    "required": ["path"]
+                }
+            },
+            {
                 "name": "open_url",
                 "description": "Open a URL in the user's default browser, OR open a local file path (e.g. a file you just created) in the user's browser. Pass either an http(s) URL or a file path/name from the user's workspace.",
                 "parameters": {
@@ -107,7 +119,7 @@ TOOL_DEFINITIONS = [
                     "type": "object",
                     "properties": {
                         "device_id": {"type": "string", "description": "Device ID to send command to (omit for first available device)"},
-                        "kind": {"type": "string", "enum": ["open_url", "open_app", "reveal_path", "create_directory", "write_file", "run_command", "set_volume"], "description": "Type of command"},
+                        "kind": {"type": "string", "enum": ["open_url", "open_app", "reveal_path", "create_directory", "write_file", "delete_file", "run_command", "set_volume"], "description": "Type of command"},
                         "payload": {"type": "object", "description": "Command payload. open_url: {'url'}. open_app: {'app'}. reveal_path/create_directory/write_file/run_command: {'path'} / {'path','content'} / {'command'}.", "properties": {}},
                         "requires_confirmation": {"type": "boolean", "description": "Whether the device should ask user confirmation before executing"}
                     },
@@ -897,6 +909,8 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
             return await _read_file(args.get("path", ""), user_id, db_session)
         elif name == "write_file":
             return await _write_file(args.get("path", ""), args.get("content", ""), user_id, db_session)
+        elif name == "delete_file":
+            return await _delete_file(args.get("path", ""), bool(args.get("recursive", False)), user_id, db_session)
         elif name == "open_url":
             return await _open_url(args.get("url", ""), user_id, db_session, base_url, jwt_secret)
         elif name == "send_notification":
@@ -1258,6 +1272,42 @@ async def _write_file(path: str, content: str, user_id: str = "", db_session=Non
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
         return {"status": "written", "path": str(p), "size": len(content)}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def _delete_file(path: str, recursive: bool = False, user_id: str = "", db_session=None) -> Dict[str, Any]:
+    if not path:
+        return {"error": "No path provided"}
+    # 1. Prefer deleting on the user's own computer via their connected desktop app
+    if user_id and db_session:
+        result = await _route_to_local_device("delete_file", {"path": path, "recursive": recursive}, user_id, db_session)
+        if result is not None and result.get("status") != "queued":
+            return {**result, "note": "Deleted from your computer."}
+        if result is not None:
+            return {**result, "note": "Delete sent to your computer."}
+    # 2. Fall back to the server-side sandbox
+    try:
+        p = Path(path)
+        managed = False
+        fm = None
+        if not p.is_absolute() and user_id:
+            fm = _get_file_manager(user_id)
+            p = fm._resolve(path) if hasattr(fm, "_resolve") else (fm.root / p)
+            managed = True
+        if not p.exists():
+            return {"error": f"Path not found: {path}"}
+        if p.is_dir() and not recursive:
+            return {"error": "Is a folder. Pass recursive=true to delete a folder and its contents."}
+        if p.is_dir():
+            import shutil
+            shutil.rmtree(p)
+        else:
+            p.unlink()
+        detail = {"status": "deleted", "path": str(p), "recursive": recursive}
+        if managed and fm:
+            detail["note"] = "Deleted from the workspace."
+        return detail
     except Exception as e:
         return {"error": str(e)}
 

@@ -31,6 +31,11 @@ _OLLAMA_TOOLS = [
         "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
     }},
     {"type": "function", "function": {
+        "name": "delete_file",
+        "description": "Delete a file or folder from the user's PC. Relative paths resolve against home. Set recursive=true to delete a folder and its contents. Permanently deletes.",
+        "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "recursive": {"type": "boolean"}}, "required": ["path"]},
+    }},
+    {"type": "function", "function": {
         "name": "list_files",
         "description": "List a directory on the user's PC. Relative paths resolve against home.",
         "parameters": {"type": "object", "properties": {"path": {"type": "string"}}},

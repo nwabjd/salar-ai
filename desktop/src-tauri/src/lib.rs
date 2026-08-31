@@ -233,6 +233,23 @@ fn run_local_action(kind: String, payload: Value) -> Result<Value, String> {
             fs::write(&path, content).map_err(|e| e.to_string())?;
             Ok(json!({"written": path, "size": size}))
         }
+        "delete_file" => {
+            let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
+            let recursive = payload.get("recursive").and_then(Value::as_bool).unwrap_or(false);
+            let path = std::path::PathBuf::from(raw);
+            let path = if path.is_absolute() { path } else {
+                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
+                home.join(path)
+            };
+            if !path.exists() { return Err(format!("Path not found: {}", path.display())); }
+            if path.is_dir() {
+                if !recursive { return Err("Is a folder. Pass recursive=true to delete a folder and its contents.".into()); }
+                fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
+            } else {
+                fs::remove_file(&path).map_err(|e| e.to_string())?;
+            }
+            Ok(json!({"deleted": path, "recursive": recursive}))
+        }
         "list_files" => {
             let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
             let path = std::path::PathBuf::from(raw);

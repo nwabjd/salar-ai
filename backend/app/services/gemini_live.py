@@ -130,6 +130,7 @@ def build_setup(model: str, voice: str = "Kore", handle: str = "") -> Dict:
             "speechConfig": {
                 "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}
             },
+            "thinkingConfig": {"thinkingLevel": "minimal"},
         },
         "realtimeInputConfig": {
             "automaticActivityDetection": {

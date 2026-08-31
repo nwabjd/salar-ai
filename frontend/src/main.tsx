@@ -28,6 +28,8 @@ import { ModeProvider } from './contexts/ModeContext'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { TermsPage } from './components/TermsPage'
 import { SetupScreen } from './components/SetupScreen'
+import { NovaShell } from './nova'
+import { WorkspaceShell } from './workspace'
 
 const api = new SalarApi()
 const LegacyRings = MagicRings
@@ -53,6 +55,19 @@ const sessionCoordinator = createSessionCoordinator({
     const result = await api.supabaseLogin(token)
     return result.access_token
   },
+  devBootstrapLogin: async () => {
+    try {
+      const res = await api.login('owner@example.com', 'ChangeMeImmediately!')
+      return res.access_token
+    } catch {
+      try {
+        const res = await api.login('owner@salar.local', 'ChangeMeImmediately!')
+        return res.access_token
+      } catch {
+        return ''
+      }
+    }
+  },
 })
 
 type Usage = { plan: string; limit: number | null; used: number; reset_at: string; exempt: boolean }
@@ -75,9 +90,9 @@ function App() {
 
   useEffect(() => {
     if (!isDesktop()) { setLaunchMode('app'); return }
-    const internals = (window as unknown as { __TAURI_INTERNALS__?: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }).__TAURI_INTERNALS__
+    const internals = (window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__
     internals?.invoke('get_launch_mode')
-      .then(mode => setLaunchMode(mode === 'setup' ? 'setup' : mode === 'update' ? 'update' : 'app'))
+      .then((mode: string) => setLaunchMode(mode === 'setup' ? 'setup' : mode === 'update' ? 'update' : 'app'))
       .catch(() => setLaunchMode('app'))
   }, [])
 
@@ -189,10 +204,48 @@ function App() {
     setAccess('signed-out')
   }
 
+  const [shell, setShell] = useState<'workspace' | 'nova' | 'classic'>('workspace')
+  const novaMode = shell === 'nova'
+
   if (launchMode === 'unknown') return null
   if (launchMode === 'setup' || launchMode === 'update') return <><TitleBar /><SetupScreen variant={launchMode === 'setup' ? 'install' : 'update'}/></>
   if (!ready) return <><TitleBar /><Loader/></>
   if (access !== 'connected') return <><TitleBar /><SalaarLanding onEnterApp={enterApp}/></>
+
+  const usageLabel = usage
+    ? `${usage.used.toLocaleString()} / ${usage.limit === null ? '∞' : usage.limit.toLocaleString()}`
+    : undefined
+
+  const classicView = (
+    <section className="workspace chat-workspace">
+      <div className="chat-column">
+        <ClassicChat api={api} onLive={() => setLive(true)}/>
+      </div>
+      <StatusRail/>
+    </section>
+  )
+
+  const novaView = (
+    <NovaShell
+      api={api}
+      onLive={() => setLive(true)}
+      onSignOut={handleSignOut}
+      onExitQuantum={() => setShell('classic')}
+    />
+  )
+
+  const workspaceView = (
+    <WorkspaceShell
+      api={api}
+      usageLabel={usageLabel}
+      onShowPricing={() => setShowPricing(true)}
+      onShowTerms={() => setShowTerms(true)}
+      onSignOut={handleSignOut}
+      onLive={() => setLive(true)}
+      onEnterNova={() => setShell('nova')}
+      onEnterClassic={() => setShell('classic')}
+    />
+  )
 
   return <><main className={`app-shell${live ? ' live-open' : ''}`}>
     <TitleBar />
@@ -206,14 +259,11 @@ function App() {
         <ProfileDropdown onSignOut={handleSignOut} onShowPricing={() => setShowPricing(true)} onShowTerms={() => setShowTerms(true)} />
       </div>
     </header>
-    <section className="workspace chat-workspace">
-      <div className="chat-column">
-        <ClassicChat api={api} onLive={() => setLive(true)}/>
-      </div>
-      <StatusRail/>
-      {showPricing && <div className="pricing-overlay"><button className="pricing-close" onClick={() => setShowPricing(false)} aria-label="Close plan & billing"><X/></button><PricingPage connected onClose={() => setShowPricing(false)}/></div>}
-      {showTerms && <TermsPage onClose={() => setShowTerms(false)} />}
-    </section>
+    {shell === 'classic' && classicView}
+    {shell === 'nova' && novaView}
+    {shell === 'workspace' && workspaceView}
+    {showPricing && <div className="pricing-overlay"><button className="pricing-close" onClick={() => setShowPricing(false)} aria-label="Close plan & billing"><X/></button><PricingPage connected onClose={() => setShowPricing(false)}/></div>}
+    {showTerms && <TermsPage onClose={() => setShowTerms(false)} />}
   </main>{live && <Live connected onClose={() => setLive(false)}/>}</>
 }
 
@@ -468,9 +518,20 @@ function Live({ connected, onClose }: { connected: boolean; onClose: () => void 
     onClose()
   }
 
+  const phaseLabel = state.phase === 'connecting' ? 'Connecting'
+    : state.phase === 'reconnecting' ? 'Reconnecting'
+    : state.phase === 'listening' ? 'Listening'
+    : state.phase === 'thinking' ? 'Thinking'
+    : state.phase === 'speaking' ? 'Speaking'
+    : ''
+
   return (
     <div className="lv-wrap">
       <button className="lv-close" onClick={handleClose} aria-label="Back to chat"><ArrowLeft size={18} /></button>
+
+      <div className="rings lv-rings"><MagicRings color="#fc42ff" colorTwo="#42fcff" ringCount={6} speed={1} attenuation={10} lineThickness={2} baseRadius={0.35} radiusStep={0.1} scaleRate={0.1} blur={0} noiseAmount={0.1} rotation={0} ringGap={1.5} fadeIn={0.7} fadeOut={0.5} followMouse={false} mouseInfluence={0.2} hoverScale={1.2} parallax={0.05} clickBurst={false} phase={orbState} volume={Math.max(micVol, aiVol)}/></div>
+
+      <p className="lv-phase" role="status">{phaseLabel}</p>
 
       <LiveOrb
         size={420}

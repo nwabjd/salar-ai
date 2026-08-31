@@ -18,8 +18,10 @@ type CoreState = 'idle' | 'listening' | 'understanding' | 'thinking'
 
 interface HomeProps {
   coreState?: CoreState
-  onSend?: (text: string) => void
+  onSend?: (text: string, files?: File[]) => void
   onVoice?: () => void
+  onAttach?: (files: File[]) => void
+  onSign?: () => void
   onCoreClick?: () => void
   greeting?: string
 }
@@ -55,6 +57,8 @@ export default function HomeScreen({
   coreState = 'idle',
   onSend,
   onVoice,
+  onAttach,
+  onSign,
   onCoreClick,
   greeting,
 }: HomeProps) {
@@ -102,7 +106,7 @@ export default function HomeScreen({
             transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
             style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}
           >
-            <CommandBar onSend={onSend} onVoice={onVoice}/>
+            <CommandBar onSend={onSend} onVoice={onVoice} onAttach={onAttach} onSign={onSign}/>
           </motion.div>
         )}
       </AnimatePresence>

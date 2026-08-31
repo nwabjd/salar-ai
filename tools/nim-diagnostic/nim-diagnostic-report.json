@@ -1,0 +1,219 @@
+{
+  "deepseek-ai/deepseek-v4-pro-0813": {
+    "model": "deepseek-ai/deepseek-v4-pro-0813",
+    "category": "REASONING",
+    "status": "PASS",
+    "content": "SALAAR NIM TEST OK",
+    "latency": 38.09,
+    "ttft": 76.99,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/nemotron-3.5-lightning-30b-a3b": {
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "category": "GENERAL",
+    "status": "PASS",
+    "content": "Hereellsellsellsells: 10",
+    "latency": 0.89,
+    "ttft": 0.44,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/nemotron-3-ultra-550b-a55b": {
+    "model": "nvidia/nemotron-3-ultra-550b-a55b",
+    "category": "REASONING",
+    "status": "PASS",
+    "content": "The user asks: \"Reply with exactly: SALAAR NIM TEST OK\". This is a direct instruction to output that exact text. The content is",
+    "latency": 9.19,
+    "ttft": null,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/nemotron-3-super-120b-a12b": {
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "category": "REASONING",
+    "status": "PASS",
+    "content": "User wants exactly: \"SALAAR NIM TEST OK\". Must output that exact string, no extra whitespace or newline? Usually just the text. Provide",
+    "latency": 0.94,
+    "ttft": 0.85,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/nemotron-3-nano-30b-a3b": {
+    "model": "nvidia/nemotron-3-nano-30b-a3b",
+    "category": "GENERAL",
+    "status": "PASS",
+    "content": "The user says: \"Reply with exactly: SALAAR NIM TEST OK\". So they want the assistant to output exactly that string: \"SAL",
+    "latency": 0.52,
+    "ttft": 0.41,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "deepseek-ai/deepseek-v4-flash-0731": {
+    "model": "deepseek-ai/deepseek-v4-flash-0731",
+    "category": "GENERAL",
+    "status": "PASS",
+    "content": "SALAAR NIM TEST OK",
+    "latency": 86.16,
+    "ttft": null,
+    "streaming": false,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "google/gemma-4-31b-it": {
+    "model": "google/gemma-4-31b-it",
+    "category": "GENERAL",
+    "status": "FAIL",
+    "error": "TIMEOUT",
+    "latency": 120.1266546
+  },
+  "poolside/laguna-xs-2.1": {
+    "model": "poolside/laguna-xs-2.1",
+    "category": "CODING",
+    "status": "PASS",
+    "content": "SALAAR NIM TEST OK",
+    "latency": 2.55,
+    "ttft": 0.47,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "category": "MULTIMODAL",
+    "status": "PASS",
+    "content": "SALAAR NIM TEST OK",
+    "latency": 4.39,
+    "ttft": null,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "meta/muse-glimmer-30b": {
+    "model": "meta/muse-glimmer-30b",
+    "category": "MULTIMODAL",
+    "status": "PASS",
+    "content": null,
+    "latency": 0.44,
+    "ttft": 0.47,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "google/diffusiongemma-26b-a4b-it": {
+    "model": "google/diffusiongemma-26b-a4b-it",
+    "category": "VISION",
+    "status": "PASS",
+    "content": "SALAAR NIM TEST OK",
+    "latency": 0.99,
+    "ttft": 0.53,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/ising-calibration-1.5-31b": {
+    "model": "nvidia/ising-calibration-1.5-31b",
+    "category": "CALIBRATION",
+    "status": "PASS",
+    "content": "SALAAR NIM TEST OK",
+    "latency": 9.24,
+    "ttft": 10.4,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/ising-calibration-1-35b-a3b": {
+    "model": "nvidia/ising-calibration-1-35b-a3b",
+    "category": "CALIBRATION",
+    "status": "FAIL",
+    "error": "UNKNOWN",
+    "http": 410,
+    "latency": 0.19475369999997838
+  },
+  "nvidia/cosmos3-nano": {
+    "model": "nvidia/cosmos3-nano",
+    "category": "VIDEO",
+    "status": "FAIL",
+    "error": "ENDPOINT_NOT_SUPPORTED",
+    "http": 404,
+    "latency": 0.177150499999982,
+    "endpoint": "/chat/completions"
+  },
+  "nvidia/cosmos3-nano-reasoner": {
+    "model": "nvidia/cosmos3-nano-reasoner",
+    "category": "VIDEO",
+    "status": "FAIL",
+    "error": "ENDPOINT_NOT_SUPPORTED",
+    "http": 404,
+    "latency": 0.17319040000000996,
+    "endpoint": "/chat/completions"
+  },
+  "nvidia/cosmos-transfer2.5-2b": {
+    "model": "nvidia/cosmos-transfer2.5-2b",
+    "category": "SPECIALIZED",
+    "status": "FAIL",
+    "error": "ENDPOINT_NOT_SUPPORTED",
+    "http": 404,
+    "latency": 0.18133040000003575,
+    "endpoint": "/chat/completions"
+  },
+  "stepfun-ai/step-3.7-flash": {
+    "model": "stepfun-ai/step-3.7-flash",
+    "category": "CODING",
+    "status": "FAIL",
+    "error": "TIMEOUT",
+    "latency": 120.13990200000003
+  },
+  "nvidia/riva-translate-4b-instruct-v2": {
+    "model": "nvidia/riva-translate-4b-instruct-v2",
+    "category": "TRANSLATION",
+    "status": "PASS",
+    "content": "\u0627\u0633\u062a\u062c\u0627\u0628\u0629 \u0645\u0639 \u0639\u0628\u0627\u0631\u0629: \u0627\u062e\u062a\u0628\u0627\u0631 \u0627\u0633\u0644\u0648\u0628 \u0627\u0644\u062f\u062e\u0644 \u0625\u064a\u062c\u0627\u0628\u064a",
+    "latency": 0.51,
+    "ttft": 0.36,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/nemotron-3.5-content-safety": {
+    "model": "nvidia/nemotron-3.5-content-safety",
+    "category": "SAFETY",
+    "status": "PASS",
+    "content": "User Safety: safe",
+    "latency": 0.46,
+    "ttft": 0.34,
+    "streaming": true,
+    "endpoint": "/chat/completions",
+    "http": 200
+  },
+  "nvidia/synthetic-video-detector": {
+    "model": "nvidia/synthetic-video-detector",
+    "category": "SPECIALIZED",
+    "status": "FAIL",
+    "error": "ENDPOINT_NOT_SUPPORTED",
+    "http": 404,
+    "latency": 0.17945579999997108,
+    "endpoint": "/chat/completions"
+  },
+  "nvidia/active-speaker-detection": {
+    "model": "nvidia/active-speaker-detection",
+    "category": "SPECIALIZED",
+    "status": "FAIL",
+    "error": "ENDPOINT_NOT_SUPPORTED",
+    "http": 404,
+    "latency": 0.16753409999995483,
+    "endpoint": "/chat/completions"
+  },
+  "nvidia/nemotron-3-embed-1b": {
+    "model": "nvidia/nemotron-3-embed-1b",
+    "category": "EMBEDDING",
+    "status": "FAIL",
+    "error": "NETWORK_ERROR",
+    "detail": ""
+  }
+}
