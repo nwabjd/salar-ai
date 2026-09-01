@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm --prefix ../frontend run dev",
     "devUrl": "http://127.0.0.1:4173",
-    "beforeBuildCommand": "npm --prefix ../frontend run build",
+    "beforeBuildCommand": "set VITE_API_URL=https://salar-backend.onrender.com&& npm --prefix ../frontend run build",
     "frontendDist": "../../frontend/dist"
   },
   "app": {

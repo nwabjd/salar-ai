@@ -1,5 +1,5 @@
 param(
-  [string]$ApiUrl = "https://api.salar.example.com"
+  [string]$ApiUrl = "https://salar-backend.onrender.com"
 )
 $ErrorActionPreference = "Stop"
 $Workspace = Split-Path -Parent $PSScriptRoot
