@@ -113,6 +113,37 @@ TOOL_DEFINITIONS = [
                 }
             },
             {
+                "name": "analyze_image",
+                "description": "Analyze an image. Provide the image bytes as base64 and a prompt describing what to analyze. Returns image metadata (dimensions/mode) and, when the vision model is available, an AI description.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "image_base64": {"type": "string", "description": "Base64-encoded image bytes"},
+                        "prompt": {"type": "string", "description": "Instruction for what to analyze (e.g. 'What does this screenshot show?')"},
+                        "mime_type": {"type": "string", "description": "Image MIME type (default image/png)"}
+                    },
+                    "required": ["image_base64"]
+                }
+            },
+            {
+                "name": "privacy_scan",
+                "description": "Run a privacy scan over the user's saved data and documents, reporting any exposed sensitive information (credentials, personal data, secrets).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
+                "name": "guardian_activity",
+                "description": "List recent Guardian security/safety events for the user (blocked risky actions, flagged commands, alerts).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "description": "Number of recent events to return (default 20)"}
+                    }
+                }
+            },
+            {
                 "name": "device_command",
                 "description": "Send a command to execute on the user's connected desktop/phone. Prefer this for creating folders, writing files, or running shell commands ON THE USER'S COMPUTER (not on the server).",
                 "parameters": {
@@ -998,6 +1029,12 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
                 return {"status": "ok", "mime_type": "image/png", "image_base64": base64.b64encode(png).decode()[:200000]}
             except Exception as exc:
                 return {"status": "screenshot_requested", "detail": f"Screenshot requires Tauri desktop app ({exc})"}
+        elif name == "analyze_image":
+            return await _analyze_image(args.get("image_base64", ""), args.get("prompt", "Describe this image."), args.get("mime_type", "image/png"))
+        elif name == "privacy_scan":
+            return await _privacy_scan(user_id, db_session)
+        elif name == "guardian_activity":
+            return await _guardian_activity(user_id, db_session, args.get("limit", 20))
         elif name == "create_task":
             return await _create_task(args.get("title", ""), args.get("description", ""), args.get("priority", "medium"), args.get("due_date", ""), user_id)
         elif name == "list_tasks":
@@ -1406,6 +1443,28 @@ async def _send_notification(title: str, body: str, device_id: str, user_id: str
     return {"status": "queued", "devices": created, "title": title, "body": body}
 
 
+async def _privacy_scan(user_id: str, db_session=None) -> Dict[str, Any]:
+    if not db_session:
+        return {"error": "No database session available"}
+    from .privacy_scanner import PrivacyScanner
+    try:
+        report = PrivacyScanner(db_session).scan_report(user_id)
+        return {"status": "ok", "report": report}
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+async def _guardian_activity(user_id: str, db_session=None, limit: int = 20) -> Dict[str, Any]:
+    if not db_session:
+        return {"error": "No database session available"}
+    from .intel.events import IntelEventStore
+    try:
+        events = IntelEventStore(db_session).recent(user_id, kinds=["guardian"], limit=limit)
+        return {"status": "ok", "events": [IntelEventStore.to_dict(e) for e in events]}
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
 CONFIRMATION_KINDS = {"reveal_path"}
 
 
@@ -1745,6 +1804,25 @@ async def _calendar_add_feed(name: str, url: str, color: str, user_id: str) -> D
         return await loop.run_in_executor(None, lambda: mgr.add_feed(name, url, color))
     except Exception as e:
         return {"error": str(e)}
+
+
+async def _analyze_image(image_base64: str, prompt: str, mime_type: str = "image/png") -> Dict[str, Any]:
+    import base64 as _b64
+    from .vision import VisionService
+    if not image_base64:
+        return {"error": "image_base64 is required"}
+    try:
+        image_bytes = _b64.b64decode(image_base64)
+    except Exception as exc:
+        return {"error": f"Invalid base64 image: {exc}"}
+    if not image_bytes:
+        return {"error": "Decoded image is empty"}
+    try:
+        vs = VisionService()
+        meta = vs.describe_image(image_bytes, mime_type)
+        return {"status": "ok", "metadata": meta, "analyses_possible_via": "/api/vision/analyze"}
+    except Exception as exc:
+        return {"error": str(exc)}
 
 
 def _get_browser():

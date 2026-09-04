@@ -22,7 +22,7 @@ AGENT_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "Coder": {
         "description": "Writes, fixes, refactors, and executes code in sandboxed runners.",
-        "tools": ["run_command", "code_run", "file_read", "file_write", "list_files", "read_file", "write_file", "search_files"],
+        "tools": ["run_command", "code_run", "file_read", "file_write", "list_files", "read_file", "write_file", "file_search"],
         "signals": ["code", "program", "build", "fix", "debug", "refactor", "script", "python", "function"],
     },
     "Browser": {
@@ -32,7 +32,7 @@ AGENT_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "File Manager": {
         "description": "Organizes, renames, categorizes, and indexes document files.",
-        "tools": ["list_files", "file_list", "file_info", "file_read", "file_write", "file_search", "read_file", "write_file", "search_files"],
+        "tools": ["list_files", "file_list", "file_info", "file_read", "file_write", "file_search", "read_file", "write_file"],
         "signals": ["file", "folder", "organize", "downloads", "document", "backup", "sort"],
     },
     "Vision": {
@@ -52,7 +52,7 @@ AGENT_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "System": {
         "description": "Monitors and reports CPU, memory, process health, and device stats.",
-        "tools": ["get_system_info", "get_monitor_stats", "get_uptime", "network_info", "list_processes", "manage_process", "get_battery", "get_disk_usage"],
+        "tools": ["get_system_info", "get_monitor_stats", "get_uptime", "network_info", "list_processes", "get_disk_usage"],
         "signals": ["system", "cpu", "memory", "storage", "process", "status", "health", "uptime"],
     },
     "Analyst": {
@@ -67,7 +67,7 @@ AGENT_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "Communicator": {
         "description": "Coordinates multi-channel messaging via WhatsApp and email.",
-        "tools": ["whatsapp_send", "email_send", "notification"],
+        "tools": ["whatsapp_send", "email_send", "send_notification"],
         "signals": ["message", "whatsapp", "outreach", "broadcast", "notify", "send message"],
     },
 }
@@ -92,9 +92,18 @@ class SwarmBlackboard:
 
 
 class AgentSwarm:
-    def __init__(self, db, coordinator=None) -> None:
+    def __init__(self, db, coordinator=None, user_id: str = "", is_admin: bool = False,
+                 base_url: str = "", jwt_secret: str = "", db_session=None,
+                 max_tool_rounds: int = 2) -> None:
         self.db = db
         self.coordinator = coordinator
+        user_id = user_id or getattr(coordinator, "user_id", "") if coordinator else user_id
+        self.user_id = user_id
+        self.is_admin = is_admin
+        self.base_url = base_url
+        self.jwt_secret = jwt_secret
+        self.db_session = db_session if db_session is not None else db
+        self.max_tool_rounds = max_tool_rounds
 
     def decompose(self, goal: str) -> List[Dict[str, Any]]:
         """Choose specialized agents for a goal based on signals."""
@@ -127,29 +136,90 @@ class AgentSwarm:
             ))
         return run
 
+    def _sub_tool_declarations(self, tools: List[str]) -> List[Dict[str, Any]]:
+        """Slice the global TOOL_DEFINITIONS down to just this agent's allowed tools."""
+        try:
+            from .agent import TOOL_DEFINITIONS
+        except Exception as e:
+            log.warning("Could not import TOOL_DEFINITIONS: %s", e)
+            return []
+        allowed = set(tools)
+        declarations = []
+        for wrapper in TOOL_DEFINITIONS:
+            for decl in wrapper.get("function_declarations", []):
+                if decl.get("name") in allowed:
+                    declarations.append(decl)
+        return declarations
+
     async def _run_agent_step(self, run_id: str, agent: Dict[str, Any], goal: str, blackboard: SwarmBlackboard) -> Dict[str, Any]:
-        """Execute an individual swarm agent asynchronously."""
+        """Execute an individual swarm agent: real tool calls via execute_tool, capped rounds."""
         agent_name = agent["name"]
         tools = agent["tools"]
         desc = agent["description"]
         log.info("Swarm agent %s starting for goal: %s", agent_name, goal[:40])
 
-        finding_text = f"Agent {agent_name} analyzed goal '{goal[:60]}'. Roles: {desc}. Equipped with {len(tools)} tools."
-        if self.coordinator and hasattr(self.coordinator, "gemini") and self.coordinator.gemini:
-            try:
-                sub_prompt = f"You are the {agent_name} agent in an AI Swarm. Goal: {goal}. Your specialty: {desc}. Summarize your plan and initial findings."
-                ans = await self.coordinator.gemini.chat([{"role": "user", "content": sub_prompt}])
-                if ans:
-                    finding_text = ans[:400]
-            except Exception as e:
-                log.warning("Swarm agent %s LLM call failed: %s", agent_name, e)
+        executed: List[Dict[str, Any]] = []
+        agent_text = ""
+        gemini = None
+        if self.coordinator and hasattr(self.coordinator, "gemini"):
+            gemini = self.coordinator.gemini
 
-        blackboard.publish(agent_name, finding_text, {"tools_used": tools[:2]})
+        sub_decls = self._sub_tool_declarations(tools)
+        if gemini and sub_decls:
+            messages = [{"role": "system", "content": (
+                f"You are the {agent_name} agent in the SALAR AI Swarm collaborating on: \"{goal}\". "
+                f"Your specialty: {desc}. You may call ANY of your provided tools to gather real evidence "
+                f"toward the goal. Call tools, read results, and summarize what you learned in plain language. "
+                f"If a tool returns data, tell the user what it revealed. Keep summaries concise and factual."
+            )}]
+            try:
+                from .agent import execute_tool
+                for _round in range(self.max_tool_rounds):
+                    result = await gemini.chat_with_tools(messages, [{"function_declarations": sub_decls}])
+                    calls = result.get("function_calls", []) or []
+                    if not calls:
+                        agent_text = (result.get("text") or "").strip()
+                        break
+                    for fc in calls:
+                        tool_name = fc.get("name", "")
+                        tool_args = fc.get("args", {}) or {}
+                        log.info("Swarm agent %s tool call: %s(%s)", agent_name, tool_name, json.dumps(tool_args)[:200])
+                        try:
+                            tool_result = await execute_tool(
+                                tool_name, tool_args, self.user_id, self.db_session,
+                                is_admin=self.is_admin, base_url=self.base_url, jwt_secret=self.jwt_secret,
+                            )
+                        except Exception as exc:
+                            tool_result = {"error": str(exc)}
+                        executed.append({"tool": tool_name, "args": tool_args, "result": tool_result})
+                        messages.append({"role": "model", "content": [{"functionCall": fc}]})
+                        messages.append({"role": "user", "content": [{"functionResponse": {"name": tool_name, "response": tool_result}}]})
+                    t = (result.get("text") or "").strip()
+                    if t:
+                        agent_text = agent_text + ("\n" if agent_text else "") + t
+            except Exception as e:
+                log.warning("Swarm agent %s execution failed: %s", agent_name, e)
+                agent_text = f"Agent {agent_name} could not execute tools: {e}"
+
+        if not executed and not agent_text:
+            finding_text = f"{agent_name} reviewed the goal '{goal[:60]}' ({desc}). No real tool calls were made."
+        else:
+            tool_notes = [f"{x['tool']}" for x in executed[:8]]
+            evid = agent_text.strip()[:600]
+            finding_text = evid or f"{agent_name} executed tools: {', '.join(tool_notes)}."
+            if executed:
+                finding_text = f"{agent_name} executed {len(executed)} tool call(s) [{' '.join(tool_notes)}]. " + (evid if evid else "")
+
+        blackboard.publish(agent_name, finding_text, {
+            "tools_used": [x["tool"] for x in executed] or tools[:2],
+            "tool_calls": executed,
+        })
         return {
             "name": agent_name,
             "status": "completed",
             "finding": finding_text,
             "tools": tools,
+            "tool_calls": executed,
         }
 
     async def execute_swarm(self, run: AgentRun) -> Dict[str, Any]:
@@ -181,6 +251,7 @@ class AgentSwarm:
                     "description": AGENT_SPECS.get(step.name, {}).get("description", ""),
                     "tools": AGENT_SPECS.get(step.name, {}).get("tools", []),
                     "finding": res.get("finding", ""),
+                    "tool_calls": res.get("tool_calls", []),
                 })
                 completed_count += 1
 

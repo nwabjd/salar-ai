@@ -44,7 +44,15 @@ async def create_and_execute_swarm_run(
     current_user: User = Depends(get_current_user),
 ):
     coordinator = getattr(request.app.state, "coordinator", None)
-    swarm = AgentSwarm(db, coordinator=coordinator)
+    swarm = AgentSwarm(
+        db,
+        coordinator=coordinator,
+        user_id=current_user.id,
+        is_admin=getattr(current_user, "is_admin", False),
+        base_url=str(request.base_url),
+        jwt_secret=getattr(request.app.state.settings, "jwt_secret", ""),
+        db_session=db,
+    )
     agents = swarm.decompose(body.goal)
     run = swarm.create_run(current_user.id, body.goal, agents)
     db.commit()
