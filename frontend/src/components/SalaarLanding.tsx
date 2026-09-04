@@ -2,7 +2,7 @@ import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState, type Cl
 import { createPortal } from "react-dom";
 import { cleanAuthFromUrl, isSupabaseConfigured, supabase } from "../lib/supabase";
 import { isDesktop } from "../access";
-import { api } from "../api";
+import { api, SITE_ORIGIN } from "../api";
 import LiquidEther from '../effects/LiquidEther.jsx'
 import OnboardingWizard from "./OnboardingWizard";
 
@@ -435,10 +435,10 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
       // NOTE: window.location.origin inside the Tauri webview is
       // http://tauri.localhost — never send THAT to the OAuth provider. The
       // browser must land on the real site so it can relay the tokens.
-      const siteOrigin = api.baseUrl;
+      const siteOrigin = SITE_ORIGIN;
       const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${siteOrigin}/auth-relay?handshake=${encodeURIComponent(handshake)}`, skipBrowserRedirect: true },
+        options: { redirectTo: `${siteOrigin}/?handshake=${encodeURIComponent(handshake)}`, skipBrowserRedirect: true },
       });
 
       if (authError) {

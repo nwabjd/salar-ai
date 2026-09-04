@@ -122,6 +122,16 @@ function getDefaultApi(): string {
 }
 export const DEFAULT_API = getDefaultApi()
 
+// Origin of the public website (a Supabase Site URL, always allowlisted for
+// OAuth redirects). The browser must land HERE (with ?handshake=…) so the
+// site's relay effect can forward tokens to the backend — NOT on the backend
+// host, whose /auth-relay URL is not in Supabase's allowlist.
+function getSiteOrigin(): string {
+  if (import.meta.env.VITE_SITE_URL) return import.meta.env.VITE_SITE_URL.replace(/\/$/, '')
+  return 'https://salaar.cloud'
+}
+export const SITE_ORIGIN = getSiteOrigin()
+
 const DEFAULT_TIMEOUT = 30000
 const STREAM_TIMEOUT = 120000
 
