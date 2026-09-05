@@ -204,7 +204,7 @@ function App() {
     setAccess('signed-out')
   }
 
-  const [shell, setShell] = useState<'workspace' | 'nova' | 'classic'>('workspace')
+  const [shell, setShell] = useState<'workspace' | 'nova' | 'classic'>('classic')
   const novaMode = shell === 'nova'
 
   if (launchMode === 'unknown') return null
