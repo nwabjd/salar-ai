@@ -4,12 +4,13 @@ import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status  # noqa: F811
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Command, Device, User
+from ..rate_limit import limiter
 from ..schemas import CommandCreate, CommandResponse, CommandResult, DeviceCreate, DeviceRegistration, DeviceResponse
 from ..security import get_current_user
 
@@ -49,7 +50,8 @@ def _command_response(command: Command) -> CommandResponse:
 
 
 @router.post("/api/devices", response_model=DeviceRegistration, status_code=status.HTTP_201_CREATED)
-def register_device(payload: DeviceCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def register_device(payload: DeviceCreate, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     token = secrets.token_urlsafe(32)
     device = Device(user_id=user.id, name=payload.name, platform=payload.platform, token_hash=_digest(token))
     db.add(device)

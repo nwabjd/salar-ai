@@ -5,9 +5,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import inspect, select, text
 
 from . import __version__
+from .rate_limit import limiter
 from .api.core import router as core_router
 from .api.world import router as world_router
 from .api.auth import router as auth_router
@@ -98,11 +101,6 @@ from .services.agents import AgentOrchestrator
 from .services.coordinator import AICoordinator
 from .services.gemini import GeminiClient
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
 log = logging.getLogger(__name__)
 
 
@@ -149,6 +147,14 @@ def create_app(settings: Settings = None) -> FastAPI:
                 "and no Supabase auth is configured."
             )
     engine, session_factory = create_session_factory(active_settings.database_url)
+
+    from pythonjsonlogger.json import JsonFormatter
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setFormatter(JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logging.basicConfig(
+        level=getattr(logging, active_settings.log_level.upper(), logging.INFO),
+        handlers=[_handler],
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -369,14 +375,18 @@ def create_app(settings: Settings = None) -> FastAPI:
     app = FastAPI(title="SALAR API", version=__version__, lifespan=lifespan)
     app.state.settings = active_settings
     app.state.SessionLocal = session_factory
-    app.add_middleware(
-        CORSMiddleware,
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    cors_kwargs = dict(
         allow_origins=active_settings.allowed_origins,
-        allow_origin_regex=r".*",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if active_settings.cors_allow_origin_regex:
+        cors_kwargs["allow_origin_regex"] = active_settings.cors_allow_origin_regex
+    app.add_middleware(CORSMiddleware, **cors_kwargs)
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):

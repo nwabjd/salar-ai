@@ -2,9 +2,11 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
+
+from ..rate_limit import limiter
 
 router = APIRouter(tags=["auth-relay"])
 
@@ -84,7 +86,8 @@ def _purge_expired() -> None:
 
 
 @router.post("/api/auth/handshake/{code}")
-def store_handshake(code: str, payload: HandshakePayload):
+@limiter.limit("10/minute")
+def store_handshake(code: str, payload: HandshakePayload, request: Request):
     if not code or len(code) < _MIN_CODE_LEN:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid handshake code")
     with _LOCK:

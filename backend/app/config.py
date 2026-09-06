@@ -63,3 +63,7 @@ class Settings(BaseSettings):
     intel_email_watch_interval_seconds: int = 900
     intel_morning_brief_hour: int = 7
     intel_email_watch_limit: int = 50
+
+    log_level: str = "INFO"
+    cors_allow_origin_regex: Optional[str] = None
+    rate_limit_default: str = "60/minute"

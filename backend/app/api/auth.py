@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import AuditEvent, User
+from ..rate_limit import limiter
 from ..schemas import LoginRequest, SupabaseExchangeRequest, TokenResponse, UserResponse
 from ..security import create_access_token, get_current_user, hash_password, verify_password, verify_supabase_jwt
 
@@ -16,6 +17,7 @@ SOLE_ADMIN_EMAIL = "nwabjd@gmail.com"
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == payload.email.strip().lower()))
     if user is None or not verify_password(payload.password, user.password_hash):
@@ -28,6 +30,7 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 
 
 @router.post("/supabase", response_model=TokenResponse)
+@limiter.limit("5/minute")
 def supabase_login(payload: SupabaseExchangeRequest, request: Request, db: Session = Depends(get_db)):
     settings = request.app.state.settings
     _sub, email = verify_supabase_jwt(payload.token, settings)

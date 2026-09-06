@@ -22,7 +22,7 @@
       "additionalBrowserArgs": "--disable-features=ServiceWorker,msWebOOUI,msPdfOOUI,msSmartScreenProtection"
     }],
     "withGlobalTauri": true,
-    "security": { "csp": null }
+    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:" }
   },
   "plugins": {
     "deep-link": { "desktop": { "schemes": ["salar"] } }
