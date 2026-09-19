@@ -23,9 +23,11 @@
     "three": "latest"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "postcss": "^8.5.25",
+    "tailwindcss": "^4.3.3",
     "typescript": "latest",
     "vite": "latest",
     "vite-plugin-pwa": "latest",
