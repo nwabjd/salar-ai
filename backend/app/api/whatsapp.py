@@ -1,4 +1,5 @@
 import asyncio
+import hmac
 import json
 import logging
 import re
@@ -7,7 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..models import AuditEvent, User
@@ -294,8 +295,8 @@ async def get_pass_messages(request: Request, user: User = Depends(get_current_u
 async def ack_pass_message(event_id: str, request: Request, user: User = Depends(get_current_user)):
     db = request.app.state.SessionLocal()
     try:
-        e = db.get(AuditEvent, int(event_id))
-        if e:
+        e = db.get(AuditEvent, event_id)
+        if e is not None and e.user_id == user.id:
             detail = json.loads(e.detail_json)
             detail["acknowledged"] = True
             e.detail_json = json.dumps(detail)
@@ -390,7 +391,18 @@ async def set_auto_reply(
 
 
 @router.post("/api/whatsapp/webhook")
-async def whatsapp_webhook(payload: WhatsAppWebhook, request: Request):
+async def whatsapp_webhook(
+    payload: WhatsAppWebhook,
+    request: Request,
+    x_whatsapp_secret: str = Header(default=""),
+):
+    # Shared-secret gate: only the co-located bridge (which holds
+    # SALAR_WHATSAPP_WEBHOOK_SECRET) may deliver inbound messages. Without it
+    # anyone could forge messages, burn auto-reply LLM credits and drive
+    # outbound WhatsApp sends.
+    configured = request.app.state.settings.whatsapp_webhook_secret
+    if not configured or not hmac.compare_digest(configured, x_whatsapp_secret):
+        raise HTTPException(status_code=403, detail="Invalid or missing webhook secret")
     db = request.app.state.SessionLocal()
     try:
         user_id = payload.user_id

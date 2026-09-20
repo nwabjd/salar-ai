@@ -123,7 +123,11 @@ class FileManager:
         old = self._resolve(old_path)
         if not old.exists():
             return {"error": f"Not found: {old_path}"}
-        new = old.parent / new_name
+        new = (old.parent / new_name).resolve()
+        try:
+            new.relative_to(self.root)
+        except ValueError:
+            return {"error": "Access denied: path outside root"}
         try:
             old.rename(new)
             return {"status": "renamed", "old_path": old_path, "new_path": str(new.relative_to(self.root))}

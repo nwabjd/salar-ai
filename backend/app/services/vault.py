@@ -17,7 +17,13 @@ class Vault:
     """Fernet (AES-128-CBC + HMAC-SHA256) encryption for data at rest."""
 
     def __init__(self, master_key: Optional[str] = None) -> None:
-        key = master_key or os.environ.get("SALAR_VAULT_KEY") or "default-dev-key-not-for-prod"
+        key = master_key or os.environ.get("SALAR_VAULT_KEY")
+        if not key:
+            # Fail closed in production: a known public key makes encryption
+            # useless. In development the dev key keeps local flows working.
+            if os.environ.get("SALAR_ENVIRONMENT", "development").lower() == "production":
+                raise VaultError("SALAR_VAULT_KEY is required when SALAR_ENVIRONMENT=production")
+            key = "default-dev-key-not-for-prod"
         encoded = key if isinstance(key, bytes) else key.encode()
         if len(encoded) != 44:
             encoded = base64.urlsafe_b64encode(encoded.ljust(32, b"0")[:32])

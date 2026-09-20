@@ -10,14 +10,27 @@ services:
         value: production
       - key: SALAR_JWT_SECRET
         generateValue: true
+      # Project URL for Supabase auth (the only login method in production).
+      # Required: the backend returns 503 for Supabase login without it. Entered
+      # manually in the Render dashboard (same pattern as SALAR_GEMINI_API_KEY).
+      - key: SALAR_SUPABASE_URL
+        sync: false
       - key: SALAR_GEMINI_API_KEY
         sync: false
       - key: SALAR_GEMINI_MODEL
         value: gemini-3.1-flash-lite
       - key: SALAR_ALLOWED_ORIGINS
-        value: '["https://salaar.cloud","https://www.salaar.cloud","https://api.salaar.cloud"]'
+        value: '["https://salaar.cloud","https://www.salaar.cloud"]'
       - key: SALAR_PUBLIC_API_URL
-        value: https://api.salar.cloud
+        value: https://salar-backend.onrender.com
+      # Data-at-rest encryption key for /api/vault (Fernet). Required in
+      # production; the backend refuses to start vault work without it.
+      - key: SALAR_VAULT_KEY
+        generateValue: true
+      # Shared secret between the WhatsApp bridge and the backend webhook.
+      # Set once here; both processes in the container read the same value.
+      - key: SALAR_WHATSAPP_WEBHOOK_SECRET
+        generateValue: true
       - key: WA_BRIDGE_PORT
         value: "3100"
       - key: PORT

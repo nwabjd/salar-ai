@@ -8,8 +8,24 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+from app.rate_limit import limiter
 from app.services.agents import PreparedAgentContext
 from app.services.coordinator import AICoordinator
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Clear shared slowapi limiter state between tests.
+
+    The limiter is a single process-global instance (`app/rate_limit.py`) whose
+    in-memory bucket storage is shared by every TestClient — all requests come
+    from one client host ("testclient"), so auth requests accumulate in one
+    bucket across the whole run and tests start receiving HTTP 429 from the real
+    5/minute auth rate limit. Resetting before each test isolates the run without
+    weakening production rate limiting.
+    """
+    limiter.reset()
+    yield
 
 
 PREPARED_AGENT_CONTEXT = (

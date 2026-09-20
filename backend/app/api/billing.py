@@ -276,6 +276,7 @@ def _paypal_order(request: Request, rec: dict, email: Optional[str], price_id: s
 def verify(
     request: Request,
     body: VerifyRequest,
+    user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """Verify a signed wallet-intent message and upgrade the user's plan."""
@@ -293,16 +294,12 @@ def verify(
     if signer.lower() != body.address.lower():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Signer address does not match.")
 
-    # upgrade the matching user (by address or email)
-    email = body.email or intent.get("email")
-    user = None
-    if email:
-        user = db.query(User).filter(User.email == email).first()
-    if user is None:
-        # try matching by stripe_customer field reuse or create a ghost record
-        user = db.query(User).filter(User.wallet_address == body.address).first() if False else None  # no wallet col; skip
-    if user is not None:
-        user.plan = intent["plan"]
+    # Upgrade the matching user. An authenticated caller's plan is updated for
+    # that caller only — the email field must not let one account change another.
+    target_email = user.email if user is not None else (body.email or intent.get("email"))
+    owner = db.query(User).filter(User.email == target_email).first() if target_email else None
+    if owner is not None:
+        owner.plan = intent["plan"]
         db.commit()
     _INTENTS.pop(body.intent_id, None)
     return {"verified": True, "plan": intent["plan"]}

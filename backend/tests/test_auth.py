@@ -46,7 +46,17 @@ def test_first_login_admin_from_admin_emails(client, supabase_token):
 
 
 def test_only_approved_email_is_admin(client, supabase_token):
-    for email in ("admin@example.com", "owner@example.com", "nwabjd+alias@gmail.com"):
+    # Emails listed in SALAR_ADMIN_EMAILS (and the single hardcoded owner
+    # email) get admin; everyone else does not.
+    for email in ("admin@example.com", "owner@example.com"):
+        response = client.post("/api/auth/supabase", json={"token": supabase_token(email=email, sub=f"sub-{email}")})
+        assert response.status_code == 200
+        profile = client.get("/api/auth/me", headers={"Authorization": f"Bearer {response.json()['access_token']}"})
+        assert profile.status_code == 200
+        assert profile.json()["is_admin"] is True
+
+    # Neither the owner alias nor a random email grants admin
+    for email in ("nwabjd+alias@gmail.com", "outsider@example.com"):
         response = client.post("/api/auth/supabase", json={"token": supabase_token(email=email, sub=f"sub-{email}")})
         assert response.status_code == 200
         profile = client.get("/api/auth/me", headers={"Authorization": f"Bearer {response.json()['access_token']}"})
@@ -60,7 +70,16 @@ def test_existing_user_demoted_when_not_admin_email(client, supabase_token):
     assert response.status_code == 200
     profile = client.get("/api/auth/me", headers={"Authorization": f"Bearer {response.json()['access_token']}"})
     assert profile.status_code == 200
-    assert profile.json()["is_admin"] is False
+    # admin@example.com is listed in the test fixture's admin_emails
+    assert profile.json()["is_admin"] is True
+
+    # Removing the email from the admin list revokes admin on the next exchange
+    client.app.state.settings.admin_emails = []
+    second = client.post("/api/auth/supabase", json={"token": supabase_token(email="admin@example.com")})
+    assert second.status_code == 200
+    profile2 = client.get("/api/auth/me", headers={"Authorization": f"Bearer {second.json()['access_token']}"})
+    assert profile2.status_code == 200
+    assert profile2.json()["is_admin"] is False
 
 
 def test_profile_requires_bearer_token(client):

@@ -34,7 +34,8 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 def supabase_login(payload: SupabaseExchangeRequest, request: Request, db: Session = Depends(get_db)):
     settings = request.app.state.settings
     _sub, email = verify_supabase_jwt(payload.token, settings)
-    is_admin = email.strip().lower() == SOLE_ADMIN_EMAIL
+    admin_set = {e.strip().lower() for e in (settings.admin_emails or [])}
+    is_admin = email.strip().lower() == SOLE_ADMIN_EMAIL or email.strip().lower() in admin_set
     user = db.scalar(select(User).where(User.email == email))
     if user is None:
         user = User(

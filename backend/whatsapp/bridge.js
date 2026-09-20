@@ -156,9 +156,12 @@ function extractText(message) {
 async function forwardToBackend(userId, jid, senderName, text, isGroup) {
   if (!text) return;
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    const secret = process.env.SALAR_WHATSAPP_WEBHOOK_SECRET || '';
+    if (secret) headers['X-WhatsApp-Secret'] = secret;
     await fetch(`${BACKEND_URL}/api/whatsapp/webhook`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ user_id: userId, from: jid, sender_name: senderName, text, is_group: isGroup, timestamp: Date.now() }),
       signal: AbortSignal.timeout(5000),
     });

@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     openai_realtime_model: str = "gpt-realtime"
     public_api_url: str = "https://api.salar.example.com"
     bridge_url: str = "http://127.0.0.1:3100"
+    whatsapp_webhook_secret: Optional[str] = None
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_default_model: str = "salar-tuned"
 

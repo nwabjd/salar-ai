@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import mimetypes
 import time
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
@@ -102,15 +103,39 @@ def search_files(q: str, path: str = "", request: Request = None, user: User = D
 @router.post("/upload")
 async def upload_file(path: str = "", file: UploadFile = File(...), request: Request = None, user: User = Depends(get_current_user)):
     fm = _get_fm(request, user)
-    target = fm._resolve(path) / file.filename
+    # Sanitize the client filename: strip any directory components so a name
+    # like "../secret.txt" or "..\\secret.txt" cannot escape the user sandbox.
+    safe_name = Path(file.filename or "upload").name
+    if not safe_name or safe_name in {".", ".."}:
+        raise HTTPException(status_code=400, detail="Invalid file name")
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with open(str(target), "wb") as f:
-            content = await file.read()
-            f.write(content)
-        return {"status": "uploaded", "path": str(target.relative_to(fm.root)), "size": len(content)}
+        target = fm._resolve(str(Path(path) / safe_name))
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    max_bytes = request.app.state.settings.max_upload_mb * 1024 * 1024
+    size = 0
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(str(target), "wb") as out:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File exceeds {request.app.state.settings.max_upload_mb} MB limit",
+                    )
+                out.write(chunk)
+    except HTTPException:
+        target.unlink(missing_ok=True)
+        raise
     except Exception as e:
+        target.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "uploaded", "path": str(target.relative_to(fm.root)), "size": size}
 
 
 @router.get("/download")

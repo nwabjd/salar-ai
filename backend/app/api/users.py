@@ -1,6 +1,7 @@
 """
 Multi-user & Workspace Sharing API.
 """
+import secrets
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User, Workspace, WorkspaceMember, AuditEvent, token_id
-from ..security import get_current_user, hash_password
+from ..security import get_current_user, hash_password, require_admin
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -62,7 +63,7 @@ def get_current_user_profile(
 
 @router.get("/list")
 def list_users(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     users = list(db.scalars(select(User).order_by(User.created_at.desc())))
@@ -89,9 +90,24 @@ def invite_or_create_user(
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
 
+    # Inviting a user into a workspace is restricted to that workspace's owner
+    # (or an admin). Creating accounts without a workspace is admin-only, so a
+    # random authenticated user cannot inject themselves or spam accounts.
+    ws = None
+    if body.workspace_id:
+        ws = db.scalar(select(Workspace).where(Workspace.id == body.workspace_id))
+        if not ws:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        if ws.user_id != user.id and not user.is_admin:
+            raise HTTPException(status_code=403, detail="You do not manage this workspace")
+    elif not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can create users without a workspace")
+
     target = db.scalar(select(User).where(User.email == email))
     if target is None:
-        raw_pw = body.password or "SalarUser123!"
+        # Never seed a new account with a predictable default password. When the
+        # inviter supplies no password, the user signs in via Supabase instead.
+        raw_pw = body.password or secrets.token_urlsafe(24)
         target = User(
             email=email,
             password_hash=hash_password(raw_pw),
@@ -101,11 +117,7 @@ def invite_or_create_user(
         db.flush()
         db.add(AuditEvent(user_id=user.id, action="user.created", detail_json=f'{{"created_user_id":"{target.id}"}}'))
 
-    if body.workspace_id:
-        ws = db.scalar(select(Workspace).where(Workspace.id == body.workspace_id))
-        if not ws:
-            raise HTTPException(status_code=404, detail="Workspace not found")
-
+    if ws is not None:
         existing_member = db.scalar(
             select(WorkspaceMember).where(
                 WorkspaceMember.workspace_id == ws.id,
@@ -143,6 +155,16 @@ def list_workspace_members(
     ws = db.scalar(select(Workspace).where(Workspace.id == workspace_id))
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
+
+    if ws.user_id != user.id and not user.is_admin:
+        is_member = db.scalar(
+            select(WorkspaceMember.id).where(
+                WorkspaceMember.workspace_id == ws.id,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if is_member is None:
+            raise HTTPException(status_code=403, detail="You do not have access to this workspace")
 
     members = list(
         db.execute(
@@ -189,6 +211,12 @@ def remove_workspace_member(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    ws = db.scalar(select(Workspace).where(Workspace.id == workspace_id))
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    if ws.user_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only the workspace owner can remove members")
+
     member = db.scalar(
         select(WorkspaceMember).where(
             WorkspaceMember.workspace_id == workspace_id,
