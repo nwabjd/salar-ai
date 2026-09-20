@@ -97,32 +97,74 @@ function App() {
   }, [])
 
   // Desktop sign-in relay (runs before anything else): when the browser lands
-  // back on salaar.cloud carrying ?handshake=… plus OAuth tokens in the hash,
-  // forward those tokens to the backend so the waiting desktop app can
+  // back on salaar.cloud carrying ?handshake=… plus a fresh OAuth session,
+  // forward the session tokens to the backend so the waiting desktop app can
   // collect them. Must live here — the landing page never renders once the
   // browser session becomes authenticated.
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search)
-      const handshake = params.get('handshake')
-      if (!handshake || !window.location.hash.includes('access_token')) return
-      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-      const accessToken = hash.get('access_token')
-      const refreshToken = hash.get('refresh_token')
-      if (!accessToken || !refreshToken) return
+    // The handshake query parameter is required — without it no desktop
+    // session is waiting, and the normal website flow must be unaffected.
+    const handshake = new URLSearchParams(window.location.search).get('handshake')
+    if (!handshake) return
+
+    const relay = (session: {
+      access_token: string
+      refresh_token: string
+      expires_in?: number
+      token_type?: string
+      provider_token?: string
+      provider_refresh_token?: string
+    }) =>
+      api
+        .relayAuthStore(handshake, session)
+        .then(() => {
+          document.title = 'SALAR — sign-in complete'
+          window.history.replaceState({}, '', window.location.origin + window.location.pathname)
+        })
+        .catch(() => {
+          /* Relay failures are non-fatal: the desktop app keeps polling until
+             the session appears. Never log tokens here. */
+        })
+
+    // A) The OAuth tokens may still be in the URL hash — relay them directly.
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const accessToken = hash.get('access_token')
+    const refreshToken = hash.get('refresh_token')
+    if (accessToken && refreshToken) {
       const expiresIn = Number(hash.get('expires_in') ?? '')
-      api.relayAuthStore(handshake, {
+      relay({
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_in: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : undefined,
         token_type: hash.get('token_type') ?? 'bearer',
         provider_token: hash.get('provider_token') ?? undefined,
         provider_refresh_token: hash.get('provider_refresh_token') ?? undefined,
-      }).then(() => {
-        document.title = 'SALAR — sign-in complete'
-        window.history.replaceState({}, '', window.location.origin + window.location.pathname)
-      }).catch(() => { /* ignore */ })
-    } catch { /* ignore */ }
+      })
+      return
+    }
+
+    // B) Supabase (`detectSessionInUrl`) usually consumes the callback tokens
+    //    and strips them from the URL before this effect reads the hash — fall
+    //    back to the session Supabase has already stored. No access_token in
+    //    the hash is required here; an absent session just skips the relay.
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.access_token || !session.refresh_token) return
+      const remaining =
+        typeof session.expires_at === 'number'
+          ? session.expires_at - Math.floor(Date.now() / 1000)
+          : session.expires_in
+      relay({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_in: Number.isFinite(remaining) && remaining > 0 ? remaining : undefined,
+        token_type: session.token_type ?? 'bearer',
+        provider_token: session.provider_token ?? undefined,
+        provider_refresh_token: session.provider_refresh_token ?? undefined,
+      })
+    }).catch(() => {
+      /* No session available to relay — stay silent. */
+    })
   }, [])
 
   const enterApp = useCallback(async (supabaseToken?: string | null) => {
