@@ -956,7 +956,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
           <div className="download-heading">
             <span className="chapter-index">04 / Available everywhere</span>
             <h2>SALAR, closer<br />to your world.</h2>
-            <p>Install the complete SALAR experience on Windows. Your conversations, memory, Live voice, and connected tools stay in sync with salaar.cloud.</p>
+            <p>Install the complete SALAR experience on Windows and macOS. Your conversations, memory, Live voice, and connected tools stay in sync with salaar.cloud.</p>
           </div>
           <div className="platform-grid" aria-label="SALAR app availability">
             <article className="platform-card platform-ready">
@@ -966,8 +966,14 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
               <a className="platform-download" href="/downloads/SALAR-Setup.exe" download>Download for Windows <Icon.Arrow size={16} /></a>
               <small>64-bit · SALAR Desktop 1.0</small>
             </article>
+            <article className="platform-card platform-ready">
+              <div className="platform-top"><span className="platform-icon">MAC</span><span className="platform-status available">Available now</span></div>
+              <h3>macOS</h3>
+              <p>Native desktop app for macOS 11 and later. One installer for Apple Silicon and Intel Macs.</p>
+              <a className="platform-download" href="/downloads/SALAR-Setup.dmg" download>Download for macOS <Icon.Arrow size={16} /></a>
+              <small>Universal · SALAR Desktop 1.0</small>
+            </article>
             {[
-              ["macOS", "MAC"],
               ["iOS", "IOS"],
               ["Android", "AND"],
             ].map(([platform, mark]) => (

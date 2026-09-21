@@ -5,24 +5,33 @@ const landing = readFileSync(new URL('./components/SalaarLanding.tsx', import.me
 const releaseScript = readFileSync(new URL('../../scripts/build-release.ps1', import.meta.url), 'utf8')
 
 describe('SALAR desktop release', () => {
-  it('offers one stable Windows installer URL', () => {
+  it('offers stable Windows and macOS installer URLs', () => {
     expect(landing).toContain('href="/downloads/SALAR-Setup.exe"')
     expect(landing).toContain('Download for Windows')
+    expect(landing).toContain('href="/downloads/SALAR-Setup.dmg"')
+    expect(landing).toContain('Download for macOS')
     expect(releaseScript).toContain('SALAR-Setup.exe')
+    expect(releaseScript).toContain('SALAR-Setup.dmg')
     expect(releaseScript).toContain('Get-FileHash')
   })
 
-  it('sets clear expectations for future platforms', () => {
-    for (const platform of ['macOS', 'iOS', 'Android']) expect(landing).toContain(platform)
-    expect(landing).toContain('["macOS", "MAC"]')
+  it('marks macOS as available and only iOS/Android as coming soon', () => {
+    expect(landing).toContain(
+      '<span className="platform-icon">MAC</span><span className="platform-status available">Available now</span>'
+    )
+    // The macOS placeholder must no longer appear in the "coming soon" list.
+    expect(landing).not.toContain('["macOS", "MAC"]')
     expect(landing).toContain('["iOS", "IOS"]')
     expect(landing).toContain('["Android", "AND"]')
+    for (const platform of ['iOS', 'Android']) expect(landing).toContain(platform)
     expect(landing).toContain('Coming soon')
   })
 
-  it('builds desktop from the shared production frontend', () => {
+  it('builds every platform bundle the host OS supports', () => {
     expect(releaseScript).toContain('npm run build')
     expect(releaseScript).toContain('frontend\\dist')
     expect(releaseScript).toContain('desktop')
+    expect(releaseScript).toContain('bundle\\dmg')
+    expect(releaseScript).toContain('bundle\\nsis')
   })
 })
