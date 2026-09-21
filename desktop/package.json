@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "tauri": "tauri",
     "icon": "tauri icon",
     "android:init": "tauri android init",
     "android:build": "tauri android build"
