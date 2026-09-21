@@ -969,9 +969,9 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
             <article className="platform-card platform-ready">
               <div className="platform-top"><span className="platform-icon">MAC</span><span className="platform-status available">Available now</span></div>
               <h3>macOS</h3>
-              <p>Native desktop app for macOS 11 and later. One installer for Apple Silicon and Intel Macs.</p>
-              <a className="platform-download" href="/downloads/SALAR-Setup.dmg" download>Download for macOS <Icon.Arrow size={16} /></a>
-              <small>Universal · SALAR Desktop 1.0</small>
+              <p>Native desktop app for macOS 11 and later. Download, unzip, and drag SALAR into your Applications folder.</p>
+              <a className="platform-download" href="/downloads/SALAR.app.zip" download>Download for macOS <Icon.Arrow size={16} /></a>
+              <small>SALAR Desktop 1.0</small>
             </article>
             {[
               ["iOS", "IOS"],

@@ -47,30 +47,39 @@ Pop-Location
 $Downloads = Join-Path $Website "downloads"
 New-Item -ItemType Directory -Force $Downloads | Out-Null
 
-# Stage every platform bundle the host produced. Each OS builds its own
-# bundle target set: base tauri.conf.json targets "nsis" on Windows, while
-# tauri.macos.conf.json overrides to ["app", "dmg"] on macOS.
-#   Windows -> desktop/src-tauri/target/release/bundle/nsis  *.exe
-#   macOS   -> desktop/src-tauri/target/release/bundle/dmg   *.dmg
-$Artifacts = @(
-  @{ Dir = Join-Path $Workspace "desktop\src-tauri\target\release\bundle\nsis"; Filter = "*.exe"; Stable = "SALAR-Setup.exe"; Platform = "Windows" },
-  @{ Dir = Join-Path $Workspace "desktop\src-tauri\target\release\bundle\dmg";  Filter = "*.dmg"; Stable = "SALAR-Setup.dmg"; Platform = "macOS" }
-)
 $Published = @()
-foreach ($Artifact in $Artifacts) {
-  $Found = @(Get-ChildItem -LiteralPath $Artifact.Dir -Filter $Artifact.Filter -ErrorAction SilentlyContinue)
-  if ($Found.Count -eq 0) { continue }
-  $Versioned = $Found | Select-Object -First 1
-  Copy-Item -LiteralPath $Versioned.FullName -Destination (Join-Path $Installer $Versioned.Name) -Force
-  $StablePath = Join-Path $Downloads $Artifact.Stable
-  Copy-Item -LiteralPath $Versioned.FullName -Destination $StablePath -Force
+
+# Windows: stage the NSIS installer under a stable name.
+#   desktop/src-tauri/target/release/bundle/nsis  SALAR_*.exe
+$NsisDir = Join-Path $Workspace "desktop\src-tauri\target\release\bundle\nsis"
+$Exe = Get-ChildItem -LiteralPath $NsisDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($Exe) {
+  $StablePath = Join-Path $Downloads "SALAR-Setup.exe"
+  Copy-Item -LiteralPath $Exe.FullName -Destination $StablePath -Force
+  Copy-Item -LiteralPath $Exe.FullName -Destination (Join-Path $Installer $Exe.Name) -Force
   $Hash = Get-FileHash -LiteralPath $StablePath -Algorithm SHA256
-  Set-Content -LiteralPath "$($StablePath).sha256" -Value "$($Hash.Hash.ToLower())  $($Artifact.Stable)"
-  Write-Host "Published $($Artifact.Platform) download: $StablePath ($($Hash.Hash.ToLower()))"
-  $Published += $Artifact.Stable
+  Set-Content -LiteralPath "$($StablePath).sha256" -Value "$($Hash.Hash.ToLower())  SALAR-Setup.exe"
+  Write-Host "Published Windows download: $StablePath ($($Hash.Hash.ToLower()))"
+  $Published += "SALAR-Setup.exe"
 }
+
+# macOS: zip the .app bundle under a stable name (the unsigned app ships as a
+# zip, matching the current salaar.cloud download).
+#   desktop/src-tauri/target/release/bundle/macos  SALAR.app
+$MacBundleDir = Join-Path $Workspace "desktop\src-tauri\target\release\bundle\macos"
+$AppBundle = Get-ChildItem -LiteralPath $MacBundleDir -Filter "*.app" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($AppBundle) {
+  $StablePath = Join-Path $Downloads "SALAR.app.zip"
+  Compress-Archive -Path $AppBundle.FullName -DestinationPath $StablePath -Force
+  Copy-Item -LiteralPath $StablePath -Destination (Join-Path $Installer "SALAR.app.zip") -Force
+  $Hash = Get-FileHash -LiteralPath $StablePath -Algorithm SHA256
+  Set-Content -LiteralPath "$($StablePath).sha256" -Value "$($Hash.Hash.ToLower())  SALAR.app.zip"
+  Write-Host "Published macOS download: $StablePath ($($Hash.Hash.ToLower()))"
+  $Published += "SALAR.app.zip"
+}
+
 if ($Published.Count -eq 0) {
-  throw "Tauri did not produce an NSIS installer or a macOS DMG"
+  throw "Tauri did not produce an NSIS installer or a macOS .app bundle"
 }
 Write-Host "Website: $Website"
 Write-Host "Installer: $Installer"

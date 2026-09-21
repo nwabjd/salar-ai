@@ -5,13 +5,13 @@ const landing = readFileSync(new URL('./components/SalaarLanding.tsx', import.me
 const releaseScript = readFileSync(new URL('../../scripts/build-release.ps1', import.meta.url), 'utf8')
 
 describe('SALAR desktop release', () => {
-  it('offers stable Windows and macOS installer URLs', () => {
+  it('offers stable Windows and macOS download URLs', () => {
     expect(landing).toContain('href="/downloads/SALAR-Setup.exe"')
     expect(landing).toContain('Download for Windows')
-    expect(landing).toContain('href="/downloads/SALAR-Setup.dmg"')
+    expect(landing).toContain('href="/downloads/SALAR.app.zip"')
     expect(landing).toContain('Download for macOS')
     expect(releaseScript).toContain('SALAR-Setup.exe')
-    expect(releaseScript).toContain('SALAR-Setup.dmg')
+    expect(releaseScript).toContain('SALAR.app.zip')
     expect(releaseScript).toContain('Get-FileHash')
   })
 
@@ -27,11 +27,12 @@ describe('SALAR desktop release', () => {
     expect(landing).toContain('Coming soon')
   })
 
-  it('builds every platform bundle the host OS supports', () => {
+  it('builds the desktop from the shared production frontend and zips the macOS app', () => {
     expect(releaseScript).toContain('npm run build')
     expect(releaseScript).toContain('frontend\\dist')
     expect(releaseScript).toContain('desktop')
-    expect(releaseScript).toContain('bundle\\dmg')
+    expect(releaseScript).toContain('bundle\\macos')
     expect(releaseScript).toContain('bundle\\nsis')
+    expect(releaseScript).toContain('Compress-Archive')
   })
 })
