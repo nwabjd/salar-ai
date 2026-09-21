@@ -25,6 +25,7 @@ const viewTitles: Record<WorkspaceView, string> = {
   memory: 'Memory',
   vision: 'Vision',
   commands: 'Commands',
+  'whatsapp-cs': 'WhatsApp CS',
 }
 
 function ModeSelector() {

@@ -25,6 +25,7 @@ from .api.tts import router as tts_router
 from .api.stt import router as stt_router
 from .api.agent import router as agent_router
 from .api.whatsapp import router as whatsapp_router
+from .api.whatsapp_cs import router as whatsapp_cs_router
 from .api.email import router as email_router
 from .api.monitor import router as monitor_router
 from .api.calendar import router as calendar_router
@@ -296,6 +297,14 @@ def create_app(settings: Settings = None) -> FastAPI:
         )
         log.info("WhatsApp bridge client initialized")
 
+        from .services.whatsapp_cs_cloud import WhatsAppCloudClient as CSCloudClient
+        app.state.whatsapp_cs_cloud = CSCloudClient(
+            access_token=active_settings.whatsapp_cs_access_token,
+            phone_number_id=active_settings.whatsapp_cs_phone_number_id,
+            api_version=active_settings.whatsapp_cs_api_version,
+        )
+        log.info("WhatsApp Customer Service Cloud API client initialized")
+
         from .api.alerts import get_engine
         alert_engine = get_engine()
         await alert_engine.start(interval=60)
@@ -355,6 +364,11 @@ def create_app(settings: Settings = None) -> FastAPI:
                 await app.state.whatsapp.close()
             except Exception:
                 pass
+        if hasattr(app.state, "whatsapp_cs_cloud"):
+            try:
+                await app.state.whatsapp_cs_cloud.close()
+            except Exception:
+                pass
         if hasattr(app.state, "intel_scheduler"):
             try:
                 await app.state.intel_scheduler.stop()
@@ -411,6 +425,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(stt_router)
     app.include_router(agent_router)
     app.include_router(whatsapp_router)
+    app.include_router(whatsapp_cs_router)
     app.include_router(email_router)
     app.include_router(monitor_router)
     app.include_router(calendar_router)

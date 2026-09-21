@@ -59,6 +59,8 @@ def test_dashboard_shape(tmp_path):
         "bootstrap_email": "test@test.local",
         "bootstrap_password": "pass",
         "allowed_origins": ["*"],
+        "cors_allow_origin_regex": None,
+        "log_level": "INFO",
         "storage_dir": tmp_path / "uploads",
         "gemini_api_key": None,
         "gemini_model": "gemini-3.1-flash-lite",

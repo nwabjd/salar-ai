@@ -11,6 +11,7 @@ import ResearchView from './ResearchView'
 import CodeView from './CodeView'
 import AutomationsView from './AutomationsView'
 import CommandsView from './CommandsView'
+import WhatsAppCSView from './WhatsAppCSView'
 import FilesView from './FilesView'
 import ScreenshotIntelView from './ScreenshotIntelView'
 import { useSettings } from '../contexts/SettingsContext'
@@ -358,6 +359,7 @@ function ShellInner({ api, onShowPricing, onShowTerms, onSignOut, onLive, usageL
         {view === 'vision' && <ScreenshotIntelView api={api} />}
         {view === 'automations' && <AutomationsView api={api} />}
         {view === 'commands' && <CommandsView api={api} />}
+        {view === 'whatsapp-cs' && <WhatsAppCSView api={api} />}
         {view === 'files' && <FilesView api={api} />}
         {view === 'code' && <CodeView api={api} />}
       </div>

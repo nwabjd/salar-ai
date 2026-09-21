@@ -30,14 +30,14 @@ $env:VITE_API_URL="http://127.0.0.1:8000"
 npm run dev
 ```
 
-SALAR Desktop opens directly without an account form. On first setup, open **Settings**, enter the public API address and the one-time provisioning key from your private backend `.env`, then connect the desktop. The key is exchanged for a revocable machine session and is never stored by the client.
+SALAR Desktop opens directly without an account form. On first setup, open **Settings**, set the public API address to your backend, and sign in with your Supabase account. The hosted Supabase sign-in runs outside the client window and the resulting access token is stored locally by the client.
 
-To connect the web app or iPhone, choose **Pair another device** in Desktop Settings and enter the displayed six-digit code. The code expires after five minutes and works once. Email/password authentication remains available through the backend API for recovery but is not part of the normal client experience.
+The web app and mobile clients sign in directly through Supabase with the same account. Email/password authentication remains available through Supabase for recovery but is not part of the normal client experience.
 
 ## Deploy on your domain
 
 1. Point two DNS records at the server: for example `salar.example.com` and `api.salar.example.com`.
-2. Copy `.env.example` to `.env`, replace every secret and domain, and set `SALAR_WEB_DOMAIN` / `SALAR_API_DOMAIN`. Generate `SALAR_PROVISIONING_KEY` with at least 32 random bytes. Rotate it after provisioning your private desktops.
+2. Copy `.env.example` to `.env`, replace every secret and domain, and set `SALAR_WEB_DOMAIN` / `SALAR_API_DOMAIN`.
 3. Ensure Ollama runs only on the backend machine or a private network. Do not expose port 11434 publicly.
 4. Build the clients with the real public API URL:
 

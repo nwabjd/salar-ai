@@ -6,6 +6,53 @@ export type AttachmentItem = { id: string; filename: string; media_type: string;
 export type Device = { id: string; name: string; platform: string; last_seen_at: string | null }
 export type WhatsAppChat = { jid: string; name: string; lastMessage: string | null }
 export type WhatsAppMessage = { id: string; fromMe: boolean; text: string; senderName: string; pushName: string; timestamp: number }
+
+// --- WhatsApp Customer Service (official Meta Cloud API) ---
+export type WhatsAppCsCustomer = { id: string; wa_id: string; profile_name: string; language: string; created_at: string | null; updated_at: string | null }
+export type WhatsAppCsMessage = { id: string; external_message_id: string | null; conversation_id: string; direction: 'incoming' | 'outgoing'; type: string; body: string; media: Record<string, unknown>; delivery_status: string; error: Record<string, unknown>; created_at: string | null }
+export type WhatsAppCsConversation = {
+  id: string
+  account_id: string
+  customer_id: string
+  customer: WhatsAppCsCustomer
+  status: string
+  handling_mode: string
+  assigned_rep_id: string | null
+  assigned_rep_name: string
+  escalation_reason: string
+  notes: string
+  last_message_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+export type WhatsAppCsKnowledgeEntry = { id: string; category: string; title: string; body: string; tags: string; is_active: boolean; created_by: string | null; created_at: string | null; updated_at: string | null }
+export type WhatsAppCsConnection = {
+  enabled: boolean
+  status: string
+  phone_number_id: string
+  business_account_id: string
+  api_version: string
+  has_access_token: boolean
+  has_app_secret: boolean
+  has_verify_token: boolean
+  display_name: string
+  last_error: string
+  verified_at: string | null
+  secrets_in_db: boolean
+}
+export type WhatsAppCsAiSettings = { enabled: boolean; provider: string; model: string; max_response_length: number; fallback: string; escalation_enabled: boolean; sensitive_escalation: boolean; env_enabled: boolean }
+export type WhatsAppCsActivity = { message: WhatsAppCsMessage; conversation_id: string; customer_name: string; last_message_at: string | null; handling_mode: string }
+export type WhatsAppCsOverview = {
+  conversations_total: number
+  active_conversations: number
+  ai_handled: number
+  human_handled: number
+  unresolved: number
+  resolved: number
+  new_leads_7d: number
+  delivery: Record<string, number>
+  recent_activity: WhatsAppCsActivity[]
+}
 export type Project = { id: string; name: string; description: string; status: string; goals: string[]; deadline: string | null; created_at: string }
 export type EmailAccount = { address: string; password: string; imap_host?: string; smtp_host?: string }
 export type EmailMessage = { id: string; from: string; to: string; subject: string; date: string }
@@ -447,6 +494,99 @@ export class SalarApi {
 
   whatsappLogout(): Promise<{ ok: boolean }> {
     return this.request('/api/whatsapp/logout', { method: 'POST' })
+  }
+
+  // --- WhatsApp Customer Service (official Meta Cloud API) ---
+
+  whatsappCsStatus(): Promise<WhatsAppCsConnection> {
+    return this.request('/api/whatsapp-cs/status')
+  }
+
+  whatsappCsOverview(): Promise<WhatsAppCsOverview> {
+    return this.request('/api/whatsapp-cs/overview')
+  }
+
+  whatsappCsConversations(params: { status?: string; search?: string; limit?: number; offset?: number } = {}): Promise<{ items: WhatsAppCsConversation[]; total: number }> {
+    const q = new URLSearchParams()
+    if (params.status) q.set('status', params.status)
+    if (params.search) q.set('search', params.search)
+    if (params.limit != null) q.set('limit', String(params.limit))
+    if (params.offset != null) q.set('offset', String(params.offset))
+    const suffix = q.toString() ? `?${q.toString()}` : ''
+    return this.request(`/api/whatsapp-cs/conversations${suffix}`)
+  }
+
+  whatsappCsConversation(id: string): Promise<{ conversation: WhatsAppCsConversation; messages: WhatsAppCsMessage[] }> {
+    return this.request(`/api/whatsapp-cs/conversations/${encodeURIComponent(id)}`)
+  }
+
+  whatsappCsAssign(id: string, repEmail: string): Promise<WhatsAppCsConversation> {
+    return this.request(`/api/whatsapp-cs/conversations/${encodeURIComponent(id)}/assign`, { method: 'POST', body: JSON.stringify({ rep_email: repEmail }) })
+  }
+
+  whatsappCsUnassign(id: string): Promise<WhatsAppCsConversation> {
+    return this.request(`/api/whatsapp-cs/conversations/${encodeURIComponent(id)}/unassign`, { method: 'POST' })
+  }
+
+  whatsappCsReply(id: string, text: string): Promise<{ ok: boolean; message: WhatsAppCsMessage | null }> {
+    return this.request(`/api/whatsapp-cs/conversations/${encodeURIComponent(id)}/reply`, { method: 'POST', body: JSON.stringify({ text }) })
+  }
+
+  whatsappCsResumeAi(id: string): Promise<WhatsAppCsConversation> {
+    return this.request(`/api/whatsapp-cs/conversations/${encodeURIComponent(id)}/resume-ai`, { method: 'POST' })
+  }
+
+  whatsappCsResolve(id: string): Promise<WhatsAppCsConversation> {
+    return this.request(`/api/whatsapp-cs/conversations/${encodeURIComponent(id)}/resolve`, { method: 'POST' })
+  }
+
+  whatsappCsReopen(id: string): Promise<WhatsAppCsConversation> {
+    return this.request(`/api/whatsapp-cs/conversations/${encodeURIComponent(id)}/reopen`, { method: 'POST' })
+  }
+
+  whatsappCsNotes(id: string, text: string): Promise<{ notes: string }> {
+    return this.request(`/api/whatsapp-cs/conversations/${encodeURIComponent(id)}/notes`, { method: 'POST', body: JSON.stringify({ text }) })
+  }
+
+  whatsappCsKnowledge(params: { search?: string; category?: string; active_only?: boolean } = {}): Promise<{ items: WhatsAppCsKnowledgeEntry[] }> {
+    const q = new URLSearchParams()
+    if (params.search) q.set('search', params.search)
+    if (params.category) q.set('category', params.category)
+    if (params.active_only) q.set('active_only', 'true')
+    const suffix = q.toString() ? `?${q.toString()}` : ''
+    return this.request(`/api/whatsapp-cs/knowledge${suffix}`)
+  }
+
+  whatsappCsKnowledgeCreate(entry: { category: string; title: string; body: string; tags?: string; is_active?: boolean }): Promise<WhatsAppCsKnowledgeEntry> {
+    return this.request('/api/whatsapp-cs/knowledge', { method: 'POST', body: JSON.stringify(entry) })
+  }
+
+  whatsappCsKnowledgeUpdate(id: string, patch: Partial<Pick<WhatsAppCsKnowledgeEntry, 'category' | 'title' | 'body' | 'tags' | 'is_active'>>): Promise<WhatsAppCsKnowledgeEntry> {
+    return this.request(`/api/whatsapp-cs/knowledge/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(patch) })
+  }
+
+  whatsappCsKnowledgeToggle(id: string): Promise<WhatsAppCsKnowledgeEntry> {
+    return this.request(`/api/whatsapp-cs/knowledge/${encodeURIComponent(id)}/toggle`, { method: 'POST' })
+  }
+
+  whatsappCsKnowledgeDelete(id: string): Promise<{ ok: boolean }> {
+    return this.request(`/api/whatsapp-cs/knowledge/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
+  whatsappCsAiSettingsGet(): Promise<WhatsAppCsAiSettings> {
+    return this.request('/api/whatsapp-cs/ai-settings')
+  }
+
+  whatsappCsAiSettingsSet(patch: Partial<WhatsAppCsAiSettings>): Promise<WhatsAppCsAiSettings> {
+    return this.request('/api/whatsapp-cs/ai-settings', { method: 'PUT', body: JSON.stringify(patch) })
+  }
+
+  whatsappCsConnectionGet(): Promise<WhatsAppCsConnection> {
+    return this.request('/api/whatsapp-cs/connection')
+  }
+
+  whatsappCsConnectionUpdate(patch: { phone_number_id?: string; business_account_id?: string; display_name?: string }): Promise<WhatsAppCsConnection> {
+    return this.request('/api/whatsapp-cs/connection', { method: 'PUT', body: JSON.stringify(patch) })
   }
 
   emailConnect(config: EmailAccount): Promise<{ status: string; folders: EmailFolder[] }> {

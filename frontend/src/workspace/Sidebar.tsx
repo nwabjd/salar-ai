@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Bot, ChevronLeft, ChevronRight, Code2, FileBox,
-  FolderKanban, HelpCircle, Home, MessageSquare,
+  FolderKanban, Headset, HelpCircle, Home, MessageSquare,
   Network, Rocket,
   ScanLine, Search, Settings, Wrench,
 } from 'lucide-react'
@@ -15,6 +15,7 @@ export type WorkspaceView =
   | 'files'
   | 'automations'
   | 'commands'
+  | 'whatsapp-cs'
   | 'settings'
   | 'memory'
   | 'vision'
@@ -35,6 +36,7 @@ export const VIEWS: ViewItem[] = [
   { id: 'files', label: 'Files', icon: FileBox, section: 'workspace' },
   { id: 'automations', label: 'Automations', icon: Wrench, section: 'workspace' },
   { id: 'commands', label: 'Commands', icon: Rocket, section: 'workspace' },
+  { id: 'whatsapp-cs', label: 'WhatsApp CS', icon: Headset, section: 'workspace' },
   { id: 'memory', label: 'Memory', icon: Network, section: 'workspace' },
   { id: 'settings', label: 'Settings', icon: Settings, section: 'system' },
 ]

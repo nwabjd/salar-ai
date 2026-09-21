@@ -29,6 +29,7 @@ def paypal_client(tmp_path):
         allowed_origins=["https://salar.example.com"],
         storage_dir=tmp_path / "uploads",
         environment="test",
+        gemini_api_key="test-gemini-key",
         paypal_client_id="paypal-test-client",
         paypal_secret="paypal-test-secret",
     )

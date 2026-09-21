@@ -784,3 +784,174 @@ class WorldActionPolicy(Base):
     score: Mapped[float] = mapped_column(Float, default=0.0)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__ = (UniqueConstraint("user_id", "situation_kind", "action_title", name="uq_world_policy_user_kind_action"),)
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp Customer Service (official Meta WhatsApp Business Platform / Cloud API)
+#
+# This capability is intentionally isolated from the existing per-user WhatsApp
+# *bridge* automation (services/whatsapp.py, api/whatsapp.py). It represents a
+# business-level customer-service inbox that uses the official Cloud API.
+# Tables are prefixed `whatsapp_cs_` and reference a single business account row
+# (`WhatsAppCSAccount`) so multi-business tenancy can be added later by scoping
+# queries on account_id without a rewrite.
+# ---------------------------------------------------------------------------
+
+
+class WhatsAppCSAccount(Base):
+    """Metadata about the connected WhatsApp Business account.
+
+    Credentials themselves (access token, app secret, verify token) live ONLY
+    in server environment variables and are never persisted here.
+    """
+
+    __tablename__ = "whatsapp_cs_accounts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    phone_number_id: Mapped[str] = mapped_column(String(64), default="")
+    business_account_id: Mapped[str] = mapped_column(String(64), default="")
+    display_name: Mapped[str] = mapped_column(String(255), default="")
+    # not_configured | incomplete | verified | failed
+    status: Mapped[str] = mapped_column(String(24), default="not_configured", index=True)
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WhatsAppCSCustomer(Base):
+    __tablename__ = "whatsapp_cs_customers"
+    __table_args__ = (UniqueConstraint("account_id", "wa_id", name="uq_wa_cs_account_customer"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    account_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_accounts.id", ondelete="CASCADE"), index=True)
+    wa_id: Mapped[str] = mapped_column(String(32), index=True)
+    profile_name: Mapped[str] = mapped_column(String(255), default="")
+    language: Mapped[str] = mapped_column(String(16), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WhatsAppCSConversation(Base):
+    __tablename__ = "whatsapp_cs_conversations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    account_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_accounts.id", ondelete="CASCADE"), index=True)
+    customer_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_customers.id", ondelete="CASCADE"), index=True)
+    # open | human | resolved
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)
+    # ai | human  — AI pauses automatically when this becomes `human` unless `resume-ai` is called.
+    handling_mode: Mapped[str] = mapped_column(String(10), default="ai")
+    assigned_rep_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_rep_name: Mapped[str] = mapped_column(String(255), default="")
+    escalation_reason: Mapped[str] = mapped_column(Text, default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WhatsAppCSMessage(Base):
+    __tablename__ = "whatsapp_cs_messages"
+    __table_args__ = (
+        UniqueConstraint("external_message_id", name="uq_wa_cs_external_message_id"),
+        UniqueConstraint("idempotency_key", name="uq_wa_cs_message_idempotency_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    account_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_accounts.id", ondelete="CASCADE"), index=True)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_conversations.id", ondelete="CASCADE"), index=True)
+    external_message_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # incoming | outgoing
+    direction: Mapped[str] = mapped_column(String(10), index=True)
+    # text | image | video | document | audio | sticker | location | contacts | template | status | unsupported
+    message_type: Mapped[str] = mapped_column(String(20), default="text")
+    body: Mapped[str] = mapped_column(Text, default="")
+    media_json: Mapped[str] = mapped_column(Text, default="{}")
+    # received | sent | delivered | read | failed | pending
+    delivery_status: Mapped[str] = mapped_column(String(20), default="", index=True)
+    error_json: Mapped[str] = mapped_column(Text, default="{}")
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WhatsAppCSKnowledgeEntry(Base):
+    __tablename__ = "whatsapp_cs_knowledge"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    account_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_accounts.id", ondelete="CASCADE"), index=True)
+    # company | product | faq | pricing | shipping | returns | booking | troubleshooting | sales | policy | other
+    category: Mapped[str] = mapped_column(String(30), default="faq", index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    body: Mapped[str] = mapped_column(Text)
+    tags: Mapped[str] = mapped_column(Text, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_by: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WhatsAppCSOutbound(Base):
+    """Outgoing message queue with idempotency and delivery-status tracking.
+
+    Every send creates one row (unique idempotency_key) so a retry can never
+    produce a duplicate customer-visible message. Delivery statuses received
+    from Meta (`statuses` webhook objects) reconcile `whatsapp_message_id`.
+    """
+
+    __tablename__ = "whatsapp_cs_outbound"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    account_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_accounts.id", ondelete="CASCADE"), index=True)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_conversations.id", ondelete="CASCADE"), index=True)
+    wa_phone: Mapped[str] = mapped_column(String(32), index=True)
+    # text | template
+    message_type: Mapped[str] = mapped_column(String(20), default="text")
+    text: Mapped[str] = mapped_column(Text, default="")
+    template_json: Mapped[str] = mapped_column(Text, default="{}")
+    idempotency_key: Mapped[str] = mapped_column(String(80), unique=True)
+    whatsapp_message_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    # pending | sending | sent | delivered | read | failed | permanent_failed
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    scheduled_for: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    status_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WhatsAppCSWebhookEvent(Base):
+    """Dedupe ledger for Meta webhook deliveries.
+
+    Meta may redeliver the same event. `external_id` (the WhatsApp message id)
+    is unique, so a re-delivered event is acknowledged but never re-processed.
+    """
+
+    __tablename__ = "whatsapp_cs_webhook_events"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=token_id)
+    account_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_accounts.id", ondelete="CASCADE"), index=True)
+    external_id: Mapped[str] = mapped_column(String(64), unique=True)
+    event_type: Mapped[str] = mapped_column(String(24), default="message")
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class WhatsAppCSSetting(Base):
+    """Per-account runtime settings (AI behaviour etc).
+
+    Secrets are NOT stored here — only non-sensitive runtime preferences that
+    administrators may adjust from the dashboard without redeploying.
+    """
+
+    __tablename__ = "whatsapp_cs_settings"
+
+    account_id: Mapped[str] = mapped_column(ForeignKey("whatsapp_cs_accounts.id", ondelete="CASCADE"), primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

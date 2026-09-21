@@ -1,5 +1,6 @@
 # backend/app/api/dev_docs.py
 from fastapi import APIRouter, Request
+from fastapi.routing import iter_route_contexts
 
 router = APIRouter(prefix="/api/dev", tags=["dev-docs"])
 
@@ -7,13 +8,13 @@ router = APIRouter(prefix="/api/dev", tags=["dev-docs"])
 @router.get("/endpoints")
 def list_endpoints(request: Request):
     routes = []
-    for route in request.app.routes:
-        methods = getattr(route, "methods", None)
+    for route_ctx in iter_route_contexts(request.app.routes):
+        methods = route_ctx.methods
         if not methods:
             continue
         if "GET" not in methods and "POST" not in methods:
             continue
-        path = getattr(route, "path", "")
+        path = route_ctx.path or ""
         if not path.startswith("/api") or "{" in path:
             continue
         routes.append({"path": path, "methods": sorted(methods - {"HEAD", "OPTIONS"})})

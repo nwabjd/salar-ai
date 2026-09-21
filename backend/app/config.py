@@ -45,6 +45,28 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_default_model: str = "salar-tuned"
 
+    # --- WhatsApp Customer Service (official Meta WhatsApp Business Platform) ---
+    # Backend/env-only credentials for the flagship customer-service capability.
+    # NEVER expose these to frontend JavaScript; never log them. When unset the
+    # webhook returns 503 ("not configured") and the admin UI shows
+    # "Configuration incomplete" rather than a false positive.
+    whatsapp_cs_enabled: bool = False
+    whatsapp_cs_access_token: Optional[str] = None
+    whatsapp_cs_phone_number_id: Optional[str] = None
+    whatsapp_cs_business_account_id: Optional[str] = None
+    whatsapp_cs_verify_token: Optional[str] = None
+    whatsapp_cs_app_secret: Optional[str] = None
+    # Graph API version for the Cloud API (https://developers.facebook.com/docs/graph-api/changelog).
+    # Keep this in sync with the currently supported stable version; it is
+    # configurable per deployment instead of being hardcoded.
+    whatsapp_cs_api_version: str = "v23.0"
+    # AI defaults (can be overridden per-account via /api/whatsapp-cs/ai-settings).
+    whatsapp_cs_ai_enabled: bool = True
+    whatsapp_cs_ai_model: Optional[str] = None  # falls back to SALAR_GEMINI_MODEL
+    whatsapp_cs_default_fallback: str = (
+        "Thank you for reaching out. Our team has been notified and will get back to you shortly."
+    )
+
     # NVIDIA NIM (OpenAI-compatible, server-side only)
     nim_api_key: Optional[str] = None
     nim_base_url: str = "https://integrate.api.nvidia.com/v1"
