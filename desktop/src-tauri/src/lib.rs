@@ -488,10 +488,17 @@ fn live_metrics() -> Result<Value, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        // Must be the first plugin: a second launch (e.g. the OS routing
-        // salar:// here) forwards its argv to this instance and exits itself.
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+    let mut builder = tauri::Builder::default();
+    // Desktop-only plugins and behaviors: the single-instance crate and the
+    // tray/menu modules do not exist on Android/iOS (cfg'd out upstream), so
+    // they must be gated here for the mobile build to compile.
+
+    // Must be the first plugin on desktop: a second launch (e.g. the OS
+    // routing salar:// here) forwards its argv to this instance and exits
+    // itself.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             for arg in argv {
                 if arg.starts_with("salar://") {
                     debug_log_deeplink("single-instance-forward", &arg);
@@ -502,14 +509,22 @@ pub fn run() {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
             }
-        }))
-        .plugin(tauri_plugin_deep_link::init())
-        .on_window_event(|window, event| {
+        }));
+    }
+
+    // Hide to tray instead of quitting (desktop only).
+    #[cfg(desktop)]
+    {
+        builder = builder.on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
                 api.prevent_close();
             }
-        })
+        });
+    }
+
+    builder
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
@@ -557,40 +572,44 @@ pub fn run() {
                     });
                 });
             }
-            // System tray — hide to tray instead of quitting
-            use tauri::menu::{MenuBuilder, MenuItemBuilder};
-            let show_mi = MenuItemBuilder::with_id("show", "Show SALAR").build(app)?;
-            let quit_mi = MenuItemBuilder::with_id("quit", "Quit SALAR").build(app)?;
-            let tray_menu = MenuBuilder::new(app).item(&show_mi).item(&quit_mi).build()?;
-            let handle = app.handle().clone();
-            let _tray = tauri::tray::TrayIconBuilder::new()
-                .icon(app.default_window_icon().cloned().expect("no icon"))
-                .menu(&tray_menu)
-                .tooltip("SALAR — Personal Intelligence")
-                .on_menu_event(move |app, event| match event.id().as_ref() {
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.unminimize();
-                            let _ = w.set_focus();
+            // System tray — hide to tray instead of quitting. Desktop only:
+            // the tray and menu modules are cfg'd out on Android/iOS.
+            #[cfg(desktop)]
+            {
+                use tauri::menu::{MenuBuilder, MenuItemBuilder};
+                let show_mi = MenuItemBuilder::with_id("show", "Show SALAR").build(app)?;
+                let quit_mi = MenuItemBuilder::with_id("quit", "Quit SALAR").build(app)?;
+                let tray_menu = MenuBuilder::new(app).item(&show_mi).item(&quit_mi).build()?;
+                let _handle = app.handle().clone();
+                let _tray = tauri::tray::TrayIconBuilder::new()
+                    .icon(app.default_window_icon().cloned().expect("no icon"))
+                    .menu(&tray_menu)
+                    .tooltip("SALAR — Personal Intelligence")
+                    .on_menu_event(move |app, event| match event.id().as_ref() {
+                        "show" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
                         }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.unminimize();
-                            let _ = w.set_focus();
+                        "quit" => {
+                            app.exit(0);
                         }
-                    }
-                })
-                .build(app)?;
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                            let app = tray.app_handle();
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                        }
+                    })
+                    .build(app)?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![execute_device_command, save_token, load_token, clear_token, live_metrics, open_external, get_launch_mode, install_copy_files, install_register_protocol, install_create_shortcuts, install_finish])
@@ -602,7 +621,15 @@ pub fn run() {
 mod tests {
     use super::*;
     #[test]
-    fn rejects_unknown_commands() { assert!(execute_device_command("shell".into(), json!({})).is_err()); }
+    fn rejects_unknown_commands() {
+        tauri::async_runtime::block_on(async {
+            assert!(execute_device_command("shell".into(), json!({})).await.is_err());
+        });
+    }
     #[test]
-    fn rejects_non_http_urls() { assert!(execute_device_command("open_url".into(), json!({"url":"file:///secret"})).is_err()); }
+    fn rejects_non_http_urls() {
+        tauri::async_runtime::block_on(async {
+            assert!(execute_device_command("open_url".into(), json!({"url":"file:///secret"})).await.is_err());
+        });
+    }
 }

@@ -16,6 +16,19 @@ The release script builds and tests the shared frontend, builds the Tauri instal
 
 Add `Get SALAR` to the main navigation and a dedicated cross-platform section before pricing. Windows and macOS are active cards with direct downloads (`SALAR-Setup.exe`, `SALAR.app.zip`) and concise compatibility notes. iOS and Android remain visible with non-interactive `Coming soon` badges. On narrow screens the cards stack without changing the landing page's visual language or Liquid Ether performance profile.
 
+## Android via CI
+
+The Android APK is built in GitHub Actions (`.github/workflows/android-apk.yml`) instead of on a developer machine, so no Android SDK/NDK is required locally. The workflow:
+
+- Runs on demand (`Actions → Android APK → Run workflow`) and on every `v*` tag push.
+- Installs the toolchain (SDK preinstalled on the runner, NDK r27b, JDK 17, Rust targets for `aarch64`/`armv7`/`x86_64`), scaffolds the mobile project with `npm run android:init -- --ci`, builds the shared production frontend, and produces universal release APKs with `npm run android:build -- --target … --apk`. The generated `gen/android` project is a build artifact, never committed.
+- Signs and verifies the release APKs with `apksigner` (keystore restored from secrets). With no signing secrets configured it falls back to a debug APK (auto-signed, sideload-only) so the pipeline stays runnable.
+- Uploads the APKs as a workflow artifact and, on a tag push, attaches them to the GitHub release.
+
+Signing setup (one time): create a keystore with `keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`, then add GitHub secrets `ANDROID_KEY_BASE64` (base64 of the keystore), `ANDROID_KEY_PASSWORD`, and `ANDROID_KEY_ALIAS`.
+
+Publishing to the website: take the signed APK from the release/artifact, upload it to `website/downloads/SALAR.apk` (with a matching `.sha256`), then flip the Android card from `Coming soon` to `Available now`.
+
 ## WhatsApp behavior
 
 SALAR identifies itself as `JD's assistant`, answers concrete queries directly when it has reliable information, and asks a focused follow-up when the sender has not provided enough detail. It never pretends to be JD, never fabricates, and does not respond with blunt refusal language. Requests to pass something to JD continue through the existing audited pass-message mechanism.

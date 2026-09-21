@@ -1,0 +1,135 @@
+name: Android APK
+
+# Builds the SALAR Android APK on demand (Actions → Android APK → Run
+# workflow) and automatically for every `v*` tag push. No Android SDK is
+# needed on the developer machine.
+#
+# Signing (production APK):
+#   Create a keystore once (JDK keytool):
+#     keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA \
+#       -keysize 2048 -validity 10000 -alias upload
+#   Then add three repository secrets:
+#     ANDROID_KEY_BASE64   = base64 of upload-keystore.jks   (base64 -i upload-keystore.jks)
+#     ANDROID_KEY_PASSWORD = the keystore/key password
+#     ANDROID_KEY_ALIAS    = the key alias (upload)
+#   Release APKs are then signed and verified with apksigner. Without these
+#   secrets the workflow falls back to a debug APK (auto-signed, sideload only).
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      SIGNING_READY: ${{ secrets.ANDROID_KEY_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27b
+          add-to-path: false
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Initialize Android project
+        working-directory: desktop
+        env:
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: npm run android:init -- --ci --skip-targets-install
+
+      - name: Restore Android signing keystore
+        if: env.SIGNING_READY == 'true'
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/signing"
+          base64 -d <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/signing/upload-keystore.jks"
+          chmod 600 "$RUNNER_TEMP/signing/upload-keystore.jks"
+          echo "KEYSTORE=$RUNNER_TEMP/signing/upload-keystore.jks" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Build release APK (signed)
+        if: env.SIGNING_READY == 'true'
+        working-directory: desktop
+        env:
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: npm run android:build -- --target aarch64 --target armv7 --target x86_64 --apk
+
+      - name: Build debug APK (no signing secrets configured)
+        if: env.SIGNING_READY != 'true'
+        working-directory: desktop
+        env:
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: npm run android:build -- --debug --target aarch64 --target armv7 --target x86_64 --apk
+
+      - name: Sign and verify release APKs
+        if: env.SIGNING_READY == 'true'
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS=$(find "$ANDROID_HOME" -maxdepth 2 -type d -path '*/build-tools/*' | sort -V | tail -n 1)
+          APKS_DIR=desktop/src-tauri/gen/android/app/build/outputs/apk
+          while IFS= read -r src; do
+            "$BUILD_TOOLS/zipalign" -p -f 4 "$src" "$src.aligned"
+            "$BUILD_TOOLS/apksigner" sign \
+              --ks "$KEYSTORE" \
+              --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass "pass:$KEY_PASSWORD" \
+              --key-pass "pass:$KEY_PASSWORD" \
+              --out "$src.signed" "$src.aligned"
+            mv "$src.signed" "$src"
+            rm -f "$src.aligned"
+            echo "signed: $src"
+            "$BUILD_TOOLS/apksigner" verify --print-certs "$src" | head -n 3
+          done < <(find "$APKS_DIR" -name '*.apk' -type f)
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: salar-android-apk
+          path: desktop/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+
+      - name: Attach APKs to GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: desktop/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
