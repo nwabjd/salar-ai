@@ -17,7 +17,7 @@ Pop-Location
 Write-Host "Syncing frontend/dist to dist/website"
 $Website = Join-Path $Workspace "dist\website"
 if (Test-Path -LiteralPath $Website) {
-  Remove-Item -LiteralPath (Join-Path $Website "assets\*") -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -Path (Join-Path $Website "assets\*") -Recurse -Force -ErrorAction SilentlyContinue
 }
 New-Item -ItemType Directory -Force $Website | Out-Null
 Copy-Item -Path (Join-Path $Frontend "dist\*") -Destination $Website -Recurse -Force

@@ -956,7 +956,7 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
           <div className="download-heading">
             <span className="chapter-index">04 / Available everywhere</span>
             <h2>SALAR, closer<br />to your world.</h2>
-            <p>Install the complete SALAR experience on Windows and macOS. Your conversations, memory, Live voice, and connected tools stay in sync with salaar.cloud.</p>
+            <p>Install the complete SALAR experience on Windows, macOS, and Android. Your conversations, memory, Live voice, and connected tools stay in sync with salaar.cloud.</p>
           </div>
           <div className="platform-grid" aria-label="SALAR app availability">
             <article className="platform-card platform-ready">
@@ -973,9 +973,15 @@ export default function SalaarLanding({ onEnterApp }: { onEnterApp?: (supabaseTo
               <a className="platform-download" href="/downloads/SALAR.app.zip" download>Download for macOS <Icon.Arrow size={16} /></a>
               <small>SALAR Desktop 1.0</small>
             </article>
+            <article className="platform-card platform-ready">
+              <div className="platform-top"><span className="platform-icon">AND</span><span className="platform-status available">Available now</span></div>
+              <h3>Android</h3>
+              <p>Native Android app. Download the APK and allow installation from unknown sources when prompted.</p>
+              <a className="platform-download" href="/downloads/SALAR.apk" download>Download for Android <Icon.Arrow size={16} /></a>
+              <small>Universal APK · Android 7.0+</small>
+            </article>
             {[
               ["iOS", "IOS"],
-              ["Android", "AND"],
             ].map(([platform, mark]) => (
               <article className="platform-card platform-future" key={platform}>
                 <div className="platform-top"><span className="platform-icon">{mark}</span><span className="platform-status">Coming soon</span></div>
