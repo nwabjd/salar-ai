@@ -29,6 +29,18 @@ Signing setup (one time): create a keystore with `keytool -genkey -v -keystore u
 
 Publishing to the website: take the APK from the release/artifact, upload it to `website/downloads/SALAR.apk` (with a matching `.sha256`), and switch the Android card from `Coming soon` to `Available now` in the landing page. As of the first CI-built APK, the site card is live at `/downloads/SALAR.apk`; iOS is the only remaining `Coming soon` platform. A click-through production release (signed APK) is pending the signing secrets above.
 
+## iOS status (decision: stays Coming soon)
+
+Decision recorded 2026-09-22: **iOS remains `Coming soon` on the landing page and no iOS signing/TestFlight pipeline is built until the user opts into a paid Apple Developer account.**
+
+Rationale:
+
+- iOS builds require macOS + Xcode and cannot run on a developer's Windows box. This is not a blocker by itself: a GitHub Actions `macos-latest` runner (free on this public repo) can run `tauri ios init --ci` and `tauri ios build`, so the build could happen entirely in CI without a Mac on the desk — mirroring the Android approach.
+- Distribution is fundamentally different from Android: there is no "download the IPA" website flow. Real installs go through **TestFlight / App Store**, which requires the **paid Apple Developer account ($99/yr)** for code signing, certificates, and provisioning profiles (stored as GitHub secrets). Without the account, `tauri ios build` can only produce unsigned, simulator-only builds — and the iOS Simulator only runs on a Mac, so nothing installable on a real iPhone is produced.
+- Because of that, wiring the iOS workflow now would be dead infrastructure: the site card cannot offer a download like `SALAR.apk`, and there is no TestFlight invite to link to until the account exists.
+
+State when the decision changes (user purchases the account): the Rust code is already iOS-ready from the mobile gating work (`mobile_entry_point`, tray/menu and single-instance under `#[cfg(desktop)]` — the same gates that made Android compile). The remaining work is adding a `macos-latest` workflow (init/build → `.ipa` artifact → App Store Connect upload), filing signing certs + provisioning as secrets, and pointing the landing card at the TestFlight invite instead of a download.
+
 ## WhatsApp behavior
 
 SALAR identifies itself as `JD's assistant`, answers concrete queries directly when it has reliable information, and asks a focused follow-up when the sender has not provided enough detail. It never pretends to be JD, never fabricates, and does not respond with blunt refusal language. Requests to pass something to JD continue through the existing audited pass-message mechanism.
