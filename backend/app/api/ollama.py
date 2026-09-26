@@ -37,7 +37,7 @@ _OLLAMA_TOOLS = [
     }},
     {"type": "function", "function": {
         "name": "list_files",
-        "description": "List a directory on the user's PC. Relative paths resolve against home.",
+        "description": "List all entries in a directory on the user's PC. Relative paths resolve against home; Desktop/Documents/Downloads/Pictures map to the user's real (OneDrive-aware) folders. Returns every entry (up to 2000; when truncated=true there are more, so drill into a subfolder).",
         "parameters": {"type": "object", "properties": {"path": {"type": "string"}}},
     }},
     {"type": "function", "function": {

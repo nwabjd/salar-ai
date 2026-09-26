@@ -184,6 +184,75 @@ fn install_finish() -> Result<Value, String> {
     std::process::exit(0);
 }
 
+/// Resolve a user-supplied path to an absolute path on this PC.
+///
+/// Absolute paths pass through. Relative paths resolve against the real shell
+/// folders so OneDrive redirection on Windows is honoured: `~` → home,
+/// `Desktop` / `Documents` / `Downloads` / `Pictures` → the user's actual
+/// (redirect-aware) folders via `dirs`, everything else → home.
+fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
+    let path = std::path::PathBuf::from(raw);
+    if path.is_absolute() {
+        return Ok(path);
+    }
+    let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
+    let first = path
+        .components()
+        .next()
+        .map(|c| c.as_os_str())
+        .map(|s| s.to_string_lossy().to_lowercase());
+    let base = match first.as_deref() {
+        Some("~") => home.clone(),
+        Some("desktop") => dirs::desktop_dir().unwrap_or_else(|| home.join("Desktop")),
+        Some("documents") => dirs::document_dir().unwrap_or_else(|| home.join("Documents")),
+        Some("downloads") => dirs::download_dir().unwrap_or_else(|| home.join("Downloads")),
+        Some("pictures") => dirs::picture_dir().unwrap_or_else(|| home.join("Pictures")),
+        _ => home.clone(),
+    };
+    let mut resolved = base;
+    for comp in path.components().skip(1) {
+        resolved.push(comp.as_os_str());
+    }
+    Ok(resolved)
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::resolve_user_path;
+
+    #[test]
+    fn maps_shell_folders_via_dirs() {
+        // "Desktop" must resolve to the real shell Desktop (OneDrive-aware on
+        // Windows) — regression test for home.join("Desktop") listing the
+        // stale non-redirected folder.
+        let resolved = resolve_user_path("Desktop").unwrap();
+        let expected = dirs::desktop_dir()
+            .unwrap_or_else(|| dirs::home_dir().unwrap().join("Desktop"));
+        assert_eq!(resolved, expected);
+        assert!(resolved.to_string_lossy().contains("Desktop"));
+    }
+
+    #[test]
+    fn keeps_relative_tail_under_mapped_base() {
+        let resolved = resolve_user_path("Desktop/readme.txt").unwrap();
+        assert!(resolved.ends_with("readme.txt"));
+        assert_eq!(resolved.parent().unwrap(), dirs::desktop_dir().unwrap());
+    }
+
+    #[test]
+    fn tilde_resolves_to_home() {
+        let home = dirs::home_dir().unwrap();
+        assert_eq!(resolve_user_path("~").unwrap(), home);
+        assert_eq!(resolve_user_path("~/x").unwrap(), home.join("x"));
+    }
+
+    #[test]
+    fn absolute_paths_pass_through() {
+        let p = dirs::home_dir().unwrap().join("Everything");
+        assert_eq!(resolve_user_path(&p.to_string_lossy()).unwrap(), p);
+    }
+}
+
 fn run_local_action(kind: String, payload: Value) -> Result<Value, String> {
     match kind.as_str() {
         "open_url" => {
@@ -204,28 +273,20 @@ fn run_local_action(kind: String, payload: Value) -> Result<Value, String> {
         }
         "reveal_path" => {
             let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
-            let path = fs::canonicalize(raw).map_err(|_| "Path does not exist")?;
+            let path = fs::canonicalize(resolve_user_path(&raw)?).map_err(|_| "Path does not exist")?;
             open::that(&path).map_err(|e| e.to_string())?;
             Ok(json!({"revealed": path}))
         }
         "create_directory" => {
             let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
-            let path = std::path::PathBuf::from(raw);
-            let path = if path.is_absolute() { path } else {
-                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-                home.join(path)
-            };
+            let path = resolve_user_path(&raw)?;
             fs::create_dir_all(&path).map_err(|e| e.to_string())?;
             Ok(json!({"created": path}))
         }
         "write_file" => {
             let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
             let content = payload.get("content").and_then(Value::as_str).ok_or("Missing content")?;
-            let path = std::path::PathBuf::from(raw);
-            let path = if path.is_absolute() { path } else {
-                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-                home.join(path)
-            };
+            let path = resolve_user_path(&raw)?;
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
@@ -236,11 +297,7 @@ fn run_local_action(kind: String, payload: Value) -> Result<Value, String> {
         "delete_file" => {
             let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
             let recursive = payload.get("recursive").and_then(Value::as_bool).unwrap_or(false);
-            let path = std::path::PathBuf::from(raw);
-            let path = if path.is_absolute() { path } else {
-                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-                home.join(path)
-            };
+            let path = resolve_user_path(&raw)?;
             if !path.exists() { return Err(format!("Path not found: {}", path.display())); }
             if path.is_dir() {
                 if !recursive { return Err("Is a folder. Pass recursive=true to delete a folder and its contents.".into()); }
@@ -252,14 +309,13 @@ fn run_local_action(kind: String, payload: Value) -> Result<Value, String> {
         }
         "list_files" => {
             let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
-            let path = std::path::PathBuf::from(raw);
-            let path = if path.is_absolute() { path } else {
-                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-                home.join(path)
-            };
+            let path = resolve_user_path(&raw)?;
             if !path.is_dir() { return Err(format!("Not a directory: {}", path.display())); }
             let mut entries = Vec::new();
-            for entry in fs::read_dir(&path).map_err(|e| e.to_string())?.take(100) {
+            const MAX_ENTRIES: usize = 2000;
+            let mut truncated = false;
+            for entry in fs::read_dir(&path).map_err(|e| e.to_string())? {
+                if entries.len() >= MAX_ENTRIES { truncated = true; break; }
                 let entry = entry.map_err(|e| e.to_string())?;
                 let meta = entry.metadata().map_err(|e| e.to_string())?;
                 entries.push(json!({
@@ -268,15 +324,11 @@ fn run_local_action(kind: String, payload: Value) -> Result<Value, String> {
                     "size": meta.len(),
                 }));
             }
-            Ok(json!({"path": path, "entries": entries, "count": entries.len()}))
+            Ok(json!({"path": path, "entries": entries, "count": entries.len(), "truncated": truncated}))
         }
         "read_file" => {
             let raw = payload.get("path").and_then(Value::as_str).ok_or("Missing path")?;
-            let path = std::path::PathBuf::from(raw);
-            let path = if path.is_absolute() { path } else {
-                let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-                home.join(path)
-            };
+            let path = resolve_user_path(&raw)?;
             let meta = fs::metadata(&path).map_err(|e| e.to_string())?;
             if meta.len() > 1_000_000 { return Err("File too large (>1MB)".into()); }
             let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
