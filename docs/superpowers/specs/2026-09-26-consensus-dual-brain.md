@@ -94,7 +94,7 @@ The chat UI renders a small "🧠 agreed / ⚠️ 1 discrepancy" chip under the 
 
 ## Milestones
 
-- **M1:** backend `consensus_model` passthrough + response metadata.
-- **M2:** `handle_ollama_chat_consensus` two-lane execution + merge in `lib.rs`.
+- **M1:** ✅ built — backend `consensus_model` passthrough + response metadata (`build_ollama_chat_payload`, tested).
+- **M2:** ✅ built — `run_ollama_lane` + `handle_ollama_chat_consensus` two-lane execution + `consensus_merge` in `lib.rs` (8 unit tests).
 - **M3:** picker "Consensus" option + agreement chip in chat UI.
 - **M4:** release build → installer so users get it.

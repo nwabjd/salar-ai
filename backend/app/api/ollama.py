@@ -87,6 +87,19 @@ async def get_models(request: Request, user=Depends(get_current_user), db: Sessi
     return {"available": available, "models": models, "default": default}
 
 
+def build_ollama_chat_payload(model, messages, tools, consensus_model=None):
+    """Build the payload routed to the user's desktop for a local chat.
+
+    When consensus_model is provided (and differs from the base model) it is
+    passed through so the desktop runs Consensus Dual-Brain Mode (primary +
+    verifier lanes in parallel) instead of a single model.
+    """
+    payload = {"model": model, "messages": messages, "tools": tools}
+    if consensus_model and consensus_model != model:
+        payload["consensus_model"] = consensus_model
+    return payload
+
+
 @router.post("/api/ollama/chat")
 async def chat(
     request: Request,
@@ -95,12 +108,20 @@ async def chat(
 ):
     """Chat with the local fine-tuned SALAR model. Routed through the user's
     desktop app so Ollama (localhost:11434) and tool execution both happen on
-    their own machine."""
+    their own machine. Pass `consensus_model` to run Consensus Dual-Brain
+    Mode (the desktop runs primary + verifier in parallel and returns one
+    merged answer with an agreement signal)."""
     body = await request.json()
     messages = body.get("messages") or []
     if not messages:
         return {"error": "No messages provided"}
     model = body.get("model") or request.app.state.settings.ollama_default_model
+    payload = build_ollama_chat_payload(
+        model,
+        messages,
+        _OLLAMA_TOOLS,
+        consensus_model=body.get("consensus_model"),
+    )
 
     result = await _route_to_local_device(
         "ollama_chat",

@@ -420,14 +420,7 @@ fn run_local_action(kind: String, payload: Value) -> Result<Value, String> {
     }
 }
 
-fn handle_ollama_chat(payload: Value) -> Result<Value, String> {
-    // Proxy a chat request to the local Ollama server, executing any tool
-    // calls the model makes via the local device handlers. Runs on a blocking
-    // thread so the UI never freezes during inference.
-    let model = payload.get("model").and_then(Value::as_str).unwrap_or("salar-gemma4-e2b").to_string();
-    let mut messages: Vec<Value> = payload.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
-    if messages.is_empty() { return Err("No messages provided".into()); }
-    let tools = payload.get("tools").cloned().unwrap_or(Value::Null);
+fn ensure_ollama_running() -> Result<(), String> {
     // Auto-start Ollama if it isn't running.
     let ollama_up = ureq::get("http://127.0.0.1:11434/api/tags")
         .timeout(std::time::Duration::from_secs(3))
@@ -442,10 +435,36 @@ fn handle_ollama_chat(payload: Value) -> Result<Value, String> {
         }
         if !up { return Err("Ollama is not installed or failed to start".into()); }
     }
-    let mut executed: Vec<Value> = Vec::new();
-    let mut content = String::new();
+    Ok(())
+}
+
+/// Local actions that only read the user's machine. In Consensus mode these
+/// are the only tools the verifier brain may execute; anything else would
+/// risk a second (duplicate) side effect.
+fn is_readonly_action(kind: &str) -> bool {
+    matches!(kind, "list_files" | "read_file" | "system_info")
+}
+
+/// Outcome of one Ollama chat lane (a complete model+tool round trip).
+#[derive(Default)]
+struct LaneResult {
+    content: String,
+    executed: Vec<Value>,
+    raw_snippet: String,
+    error: Option<String>,
+}
+
+/// Run one full Ollama chat loop against a single model, executing any tool
+/// calls the model makes via the local device handlers.
+///
+/// When `allow_mutating` is false (consensus verifier lane), read-only tools
+/// still execute but mutating tools are *proposed and skipped* — recorded in
+/// `executed` with `"skipped": true` — so side effects always originate from
+/// exactly one lane.
+fn run_ollama_lane(model: &str, messages_in: Vec<Value>, tools: &Value, allow_mutating: bool) -> LaneResult {
+    let mut messages = messages_in;
+    let mut out = LaneResult::default();
     let mut last_err = String::new();
-    let mut raw_snippet = String::new();
     for _round in 0..8 {
         let mut body = json!({"model": model, "messages": messages, "stream": false});
         if !tools.is_null() { body["tools"] = tools.clone(); }
@@ -474,9 +493,9 @@ fn handle_ollama_chat(payload: Value) -> Result<Value, String> {
         let msg = data.get("message").cloned().unwrap_or(json!({}));
         let calls = msg.get("tool_calls").and_then(Value::as_array).cloned().unwrap_or_default();
         if calls.is_empty() {
-            content = msg.get("content").and_then(Value::as_str).unwrap_or("").to_string();
-            if content.is_empty() {
-                raw_snippet = serde_json::to_string(&data).unwrap_or_default().chars().take(800).collect();
+            out.content = msg.get("content").and_then(Value::as_str).unwrap_or("").to_string();
+            if out.content.is_empty() {
+                out.raw_snippet = serde_json::to_string(&data).unwrap_or_default().chars().take(800).collect();
             }
             break;
         }
@@ -484,13 +503,211 @@ fn handle_ollama_chat(payload: Value) -> Result<Value, String> {
         for call in calls {
             let fname = call.pointer("/function/name").and_then(Value::as_str).unwrap_or("").to_string();
             let fargs = call.pointer("/function/arguments").cloned().unwrap_or(json!({}));
-            let result = run_local_action(fname.clone(), fargs).unwrap_or_else(|e| json!({"error": e}));
-            executed.push(json!({"tool": fname, "result": result}));
+            let readonly = is_readonly_action(&fname);
+            let mut skipped = false;
+            let result = if allow_mutating || readonly {
+                run_local_action(fname.clone(), fargs.clone()).unwrap_or_else(|e| json!({"error": e}))
+            } else {
+                skipped = true;
+                json!({"skipped_in_consensus": true, "reason": "mutating action reserved for the primary brain"})
+            };
+            out.executed.push(json!({"tool": fname, "args": fargs, "result": result, "skipped": skipped}));
             messages.push(json!({"role": "tool", "content": serde_json::to_string(&result).unwrap_or_default()}));
         }
     }
-    if content.is_empty() && !last_err.is_empty() { return Err(last_err); }
-    Ok(json!({"content": content, "executed": executed, "raw": raw_snippet}))
+    if out.content.is_empty() && !last_err.is_empty() { out.error = Some(last_err); }
+    out
+}
+
+fn handle_ollama_chat(payload: Value) -> Result<Value, String> {
+    // Proxy a chat request to the local Ollama server, executing any tool
+    // calls the model makes via the local device handlers. Runs on a blocking
+    // thread so the UI never freezes during inference.
+    let model = payload.get("model").and_then(Value::as_str).unwrap_or("salar-gemma4-e2b").to_string();
+    let messages: Vec<Value> = payload.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
+    if messages.is_empty() { return Err("No messages provided".into()); }
+    let tools = payload.get("tools").cloned().unwrap_or(Value::Null);
+    ensure_ollama_running()?;
+    let lane = run_ollama_lane(&model, messages, &tools, true);
+    if let Some(err) = lane.error { return Err(err); }
+    Ok(json!({"content": lane.content, "executed": lane.executed, "raw": lane.raw_snippet}))
+}
+
+fn same_call(x: &Value, y: &Value) -> bool {
+    x.get("tool") == y.get("tool") && x.get("args") == y.get("args")
+}
+
+/// Merge the primary and verifier lanes into the final Consensus response.
+///
+/// * Identical `(tool, args)` executed by both lanes (or proposed-then-matched)
+///   count as verified.
+/// * Same call with different results → `conflict` discrepancy.
+/// * Verifier mutating proposal the primary never took → `warning` discrepancy.
+/// * Agreement is `both` (identical content, no discrepancies), `partial`
+///   (different phrasing or warnings), `conflict`, or `fallback` (primary
+///   lane failed, answer comes from the verifier).
+fn consensus_merge(primary_model: &str, verifier_model: &str, a: &LaneResult, b: &LaneResult) -> Value {
+    let mut verified: u32 = 0;
+    let mut discrepancies: Vec<Value> = Vec::new();
+    let a_exec: Vec<&Value> = a.executed.iter().filter(|e| e.get("skipped").and_then(Value::as_bool) != Some(true)).collect();
+    let b_exec: Vec<&Value> = b.executed.iter().filter(|e| e.get("skipped").and_then(Value::as_bool) != Some(true)).collect();
+    let b_proposals: Vec<&Value> = b.executed.iter().filter(|e| e.get("skipped").and_then(Value::as_bool) == Some(true)).collect();
+
+    for ae in &a_exec {
+        if let Some(be) = b_exec.iter().find(|be| same_call(ae, be)) {
+            verified += 1;
+            if ae.get("result") != be.get("result") {
+                discrepancies.push(json!({
+                    "type": "conflict",
+                    "tool": ae.get("tool"),
+                    "primary_result": ae.get("result"),
+                    "verifier_result": be.get("result"),
+                }));
+            }
+        }
+    }
+    for bp in &b_proposals {
+        if a_exec.iter().any(|ae| same_call(ae, bp)) {
+            verified += 1;
+        } else {
+            discrepancies.push(json!({
+                "type": "warning",
+                "tool": bp.get("tool"),
+                "note": "verifier proposed this action but the primary brain did not take it",
+            }));
+        }
+    }
+    let fallback = a.content.is_empty() && !b.content.is_empty();
+    let content = if !a.content.is_empty() { a.content.clone() } else { b.content.clone() };
+    let has_conflict = discrepancies.iter().any(|d| d.get("type") == Some(&json!("conflict")));
+    let has_warning = discrepancies.iter().any(|d| d.get("type") == Some(&json!("warning")));
+    let agreement = if fallback {
+        "fallback"
+    } else if has_conflict {
+        "conflict"
+    } else if has_warning || a.content.trim() != b.content.trim() {
+        "partial"
+    } else {
+        "both"
+    };
+    json!({
+        "content": content,
+        "executed": a.executed,
+        "consensus": {
+            "used": true,
+            "primary": primary_model,
+            "verifier": verifier_model,
+            "agreement": agreement,
+            "verified_calls": verified,
+            "discrepancies": discrepancies,
+        },
+    })
+}
+
+fn handle_ollama_chat_consensus(payload: Value) -> Result<Value, String> {
+    // Consensus Dual-Brain Mode: primary + verifier models answer in parallel.
+    // Only the primary lane may mutate; the verifier lane is read-only and its
+    // mutating proposals are recorded as skipped. Results are merged so the
+    // user gets one answer plus an agreement signal.
+    let primary = payload.get("model").and_then(Value::as_str).unwrap_or("salar-gemma4-e2b").to_string();
+    let verifier = payload.get("consensus_model")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty() && *s != primary)
+        .unwrap_or("salar-gemma4-e4b")
+        .to_string();
+    let messages: Vec<Value> = payload.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
+    if messages.is_empty() { return Err("No messages provided".into()); }
+    let tools = payload.get("tools").cloned().unwrap_or(Value::Null);
+    ensure_ollama_running()?;
+
+    let (primary_lane, verifier_lane) = std::thread::scope(|s| {
+        let a = s.spawn(|| run_ollama_lane(&primary, messages.clone(), &tools, true));
+        let b = s.spawn(|| run_ollama_lane(&verifier, messages.clone(), &tools, false));
+        (
+            a.join().unwrap_or_else(|_| LaneResult { error: Some("primary lane panicked".into()), ..Default::default() }),
+            b.join().unwrap_or_else(|_| LaneResult { error: Some("verifier lane panicked".into()), ..Default::default() }),
+        )
+    });
+
+    if primary_lane.error.is_some() && verifier_lane.error.is_some() {
+        return Err(primary_lane.error.unwrap_or_else(|| "Both lanes failed".into()));
+    }
+    Ok(consensus_merge(&primary, &verifier, &primary_lane, &verifier_lane))
+}
+
+#[cfg(test)]
+mod consensus_tests {
+    use super::*;
+
+    fn lane(content: &str, executed: Vec<Value>, error: Option<&str>) -> LaneResult {
+        LaneResult {
+            content: content.to_string(),
+            executed,
+            raw_snippet: String::new(),
+            error: error.map(|s| s.to_string()),
+        }
+    }
+
+    #[test]
+    fn readonly_action_classification() {
+        assert!(is_readonly_action("list_files"));
+        assert!(is_readonly_action("read_file"));
+        assert!(is_readonly_action("system_info"));
+        assert!(!is_readonly_action("write_file"));
+        assert!(!is_readonly_action("delete_file"));
+        assert!(!is_readonly_action("run_command"));
+        assert!(!is_readonly_action("set_volume"));
+        assert!(!is_readonly_action("open_url"));
+    }
+
+    #[test]
+    fn identical_executions_are_verified() {
+        let call = json!({"tool": "list_files", "args": {"path": "Desktop"}, "result": {"count": 8}, "skipped": false});
+        let a = lane("Both brains see eight items", vec![call.clone()], None);
+        let b = lane("Both brains see eight items", vec![call], None);
+        let m = consensus_merge("salar-gemma4-e2b", "salar-gemma4-e4b", &a, &b);
+        assert_eq!(m["consensus"]["agreement"], "both");
+        assert_eq!(m["consensus"]["verified_calls"], 1);
+        assert_eq!(m["consensus"]["discrepancies"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn conflicting_results_are_flagged() {
+        let a = lane("I see eight items", vec![json!({"tool": "list_files", "args": {"path": "Desktop"}, "result": {"count": 8}, "skipped": false})], None);
+        let b = lane("I see eight items", vec![json!({"tool": "list_files", "args": {"path": "Desktop"}, "result": {"count": 2}, "skipped": false})], None);
+        let m = consensus_merge("e2b", "e4b", &a, &b);
+        assert_eq!(m["consensus"]["agreement"], "conflict");
+        assert_eq!(m["consensus"]["discrepancies"].as_array().unwrap()[0]["type"], "conflict");
+    }
+
+    #[test]
+    fn matched_mutating_proposal_counts_verified() {
+        let prim = vec![json!({"tool": "write_file", "args": {"path": "a.txt", "content": "x"}, "result": {"ok": true}, "skipped": false})];
+        let verifier = vec![json!({"tool": "write_file", "args": {"path": "a.txt", "content": "x"}, "result": {"skipped_in_consensus": true}, "skipped": true})];
+        let a = lane("done", prim, None);
+        let b = lane("done", verifier, None);
+        let m = consensus_merge("e2b", "e4b", &a, &b);
+        assert_eq!(m["consensus"]["verified_calls"], 1);
+        assert_eq!(m["consensus"]["agreement"], "both");
+    }
+
+    #[test]
+    fn unmatched_verifier_proposal_yields_warning_partial() {
+        let a = lane("ok", vec![], None);
+        let b = lane("ok", vec![json!({"tool": "set_volume", "args": {"level": 50}, "result": {"skipped_in_consensus": true}, "skipped": true})], None);
+        let m = consensus_merge("e2b", "e4b", &a, &b);
+        assert_eq!(m["consensus"]["discrepancies"].as_array().unwrap()[0]["type"], "warning");
+        assert_eq!(m["consensus"]["agreement"], "partial");
+    }
+
+    #[test]
+    fn fallback_to_verifier_when_primary_fails() {
+        let a = LaneResult { content: String::new(), executed: vec![], raw_snippet: String::new(), error: Some("timeout".into()) };
+        let b = lane("Here is the answer from the verifier.", vec![], None);
+        let m = consensus_merge("e2b", "e4b", &a, &b);
+        assert_eq!(m["consensus"]["agreement"], "fallback");
+        assert_eq!(m["content"], "Here is the answer from the verifier.");
+    }
 }
 
 fn handle_ollama_models() -> Result<Value, String> {
@@ -517,9 +734,16 @@ fn handle_ollama_models() -> Result<Value, String> {
 #[tauri::command]
 async fn execute_device_command(kind: String, payload: Value) -> Result<Value, String> {
     if kind == "ollama_chat" {
-        return tauri::async_runtime::spawn_blocking(move || handle_ollama_chat(payload))
-            .await
-            .map_err(|e| format!("Background task failed: {e}"))?;
+        let use_consensus = payload
+            .get("consensus_model")
+            .and_then(Value::as_str)
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+        return tauri::async_runtime::spawn_blocking(move || {
+            if use_consensus { handle_ollama_chat_consensus(payload) } else { handle_ollama_chat(payload) }
+        })
+        .await
+        .map_err(|e| format!("Background task failed: {e}"))?;
     }
     if kind == "ollama_models" {
         // Snapshot of the models Ollama on this PC has installed, for the
