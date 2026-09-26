@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_default_model: str = "salar-gemma4-e2b"
 
+    # --- Model Context Protocol (MCP) ---
+    # JSON list of external stdio MCP servers SALAR's agent tools can call
+    # (mcp_tools / mcp_call), e.g.:
+    #   SALAR_MCP_SERVERS='[{"name":"github","command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_PERSONAL_ACCESS_TOKEN":"..."}}]'
+    mcp_servers: str = "[]"
+    # Identity used by `python -m app.mcp_server` (SALAR as an MCP server).
+    # When unset, falls back to the first user in the database.
+    mcp_user_id: Optional[str] = None
+
     # --- WhatsApp Customer Service (official Meta WhatsApp Business Platform) ---
     # Backend/env-only credentials for the flagship customer-service capability.
     # NEVER expose these to frontend JavaScript; never log them. When unset the

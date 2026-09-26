@@ -91,3 +91,17 @@ Unlocks every downstream feature. Build first.
 56. **Creation Studio** — image/video/voice/music/scripts workspace
 57. **Adaptive Interface** — context-aware dashboard
 58. **Emotion-Aware Interface** — respond to urgency/frustration cues
+
+## Phase 13 — Ecosystem & Local Intelligence
+Net-new items that extend the shipped local-brain stack (Gemma 4 E2B/E4B) and the multi-device footprint.
+
+59. **MCP Server + Client** ✅ built — SALAR's agent tool set exposed as a Model Context Protocol stdio server (any MCP client can drive SALAR: OpenCode, Claude Desktop, Cursor, OpenClaw), plus SALAR agent tools `mcp_tools`/`mcp_call` that call external MCP servers configured via `SALAR_MCP_SERVERS`.
+60. **Consensus Dual-Brain Mode** — run the same prompt on E2B + E4B in parallel, compare tool-call plans, synthesize one answer with a confidence note (both models already ship installed).
+61. **Local-Only Document RAG** — index the user's files with a local embedding model; answer questions exclusively from those documents with zero cloud uploads (privacy flagship; rides OneDrive-aware file layer).
+62. **Model A/B Tester** — productize `tools/nim-diagnostic`: pick two models, same prompt, side-by-side results + voting, inside the app.
+63. **Voice-Note Ingestion (WhatsApp)** — user sends a voice note to SALAR on WhatsApp; local STT transcribes, tool-calling acts, reply flows back to the chat.
+64. **Meeting Huddle Bot** — join a call, live notes, extracted action items routed to WhatsApp/email/tasks.
+65. **Hotkey Launcher** — Ctrl+Space opens a SALAR prompt from anywhere (Spotlight-style; complements Universal Search + Context Menu).
+66. **Phone-as-Confirmation Device** — sensitive actions (delete, send, pay) require OK from the user's phone, not just an in-app dialog (gives Android APK a concrete role).
+67. **Agent Handoff** — SALAR pushes a task to another agent (OpenClaw/OpenCode/Claude) with a context summary and ingests the result.
+68. **One-Click Diagnostic Bundle** — system info + recent SALAR logs + config as a shareable snapshot for support.

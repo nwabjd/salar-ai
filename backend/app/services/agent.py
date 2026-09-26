@@ -923,6 +923,30 @@ TOOL_DEFINITIONS = [
                     "required": ["changes"]
                 }
             },
+            {
+                "name": "mcp_tools",
+                "description": "List tools exposed by an external MCP server configured via SALAR_MCP_SERVERS (e.g. GitHub, filesystem, browser servers). Pass the server name; returns each tool's name, description and input schema. Use before mcp_call.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server": {"type": "string", "description": "MCP server name from SALAR_MCP_SERVERS config"}
+                    },
+                    "required": ["server"]
+                }
+            },
+            {
+                "name": "mcp_call",
+                "description": "Call a tool on an external MCP server configured via SALAR_MCP_SERVERS. Discover valid tool names and argument shapes with mcp_tools first. For file-system, browser or GitHub operations that SALAR does not already cover natively.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server": {"type": "string", "description": "MCP server name from SALAR_MCP_SERVERS config"},
+                        "tool": {"type": "string", "description": "Tool name on that server"},
+                        "arguments": {"type": "object", "description": "Arguments to pass to the tool"}
+                    },
+                    "required": ["server", "tool"]
+                }
+            },
         ]
     }
 ]
@@ -1135,6 +1159,12 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
             return await _run_workflow(args.get("workflow_id", ""), user_id)
         elif name == "world_simulate":
             return await _world_simulate(args.get("changes", []), user_id, db_session)
+        elif name == "mcp_tools":
+            from .mcp_bridge import mcp_list_tools
+            return await mcp_list_tools(args.get("server", ""))
+        elif name == "mcp_call":
+            from .mcp_bridge import mcp_call_tool
+            return await mcp_call_tool(args.get("server", ""), args.get("tool", ""), args.get("arguments") or {})
         else:
             return {"error": f"Unknown tool: {name}"}
     except Exception as e:

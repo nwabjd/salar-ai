@@ -47,6 +47,27 @@ Install on any machine with Ollama:
 
 The Modelfiles (`Modelfile.gemma4-e2b`, `Modelfile.gemma4-e4b`) carry the SALAR PC-control persona; Gemma 4's native function calling and system-role support mean no custom chat template is needed. The default model name is configurable via `SALAR_OLLAMA_DEFAULT_MODEL` (server) and is passed through the desktop app unchanged.
 
+## Model Context Protocol (MCP)
+
+SALAR speaks MCP in **both directions**:
+
+**SALAR as an MCP server** — any MCP client (OpenCode, Claude Desktop, Cursor, OpenClaw, the `mcp` CLI) can drive SALAR's full agent tool set (file ops, email, calendar, WhatsApp, browser, tasks, world model, …):
+
+```powershell
+cd backend
+python -m app.mcp_server --list-tools     # prints the ~88 exposed tools
+$env:SALAR_MCP_USER_ID="<your-user-id>"   # defaults to the first DB user when unset
+python -m app.mcp_server
+```
+
+**SALAR as an MCP client** — SALAR's agent can call tools on external MCP servers (GitHub, filesystem, browser, databases…) via the `mcp_tools` / `mcp_call` agent tools. Configure the servers once:
+
+```
+SALAR_MCP_SERVERS='[{"name":"github","command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_PERSONAL_ACCESS_TOKEN":"..."}}]'
+```
+
+then ask SALAR in chat: *"list what the github MCP server can do"* / *"use the github server to open an issue"*. The MCP identity (`SALAR_MCP_USER_ID`) is set in the backend env or `.env`; when running through a client that passes its own env, put the variable in the client's server config `env` block.
+
 ## Deploy on your domain
 
 1. Point two DNS records at the server: for example `salar.example.com` and `api.salar.example.com`.
