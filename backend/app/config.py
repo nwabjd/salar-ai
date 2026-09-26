@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     gemini_live_model: str = "gemini-3.1-flash-live-preview"
     openai_api_key: Optional[str] = None
     openai_realtime_model: str = "gpt-realtime"
+    n8n_base_url: Optional[str] = None
+    n8n_api_key: Optional[str] = None
     public_api_url: str = "https://api.salar.example.com"
     bridge_url: str = "http://127.0.0.1:3100"
     whatsapp_webhook_secret: Optional[str] = None

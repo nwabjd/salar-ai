@@ -17,6 +17,13 @@ services:
         sync: false
       - key: SALAR_GEMINI_API_KEY
         sync: false
+      # n8n workflow automation instance for the SALAR agent (self-hosted n8n,
+      # driven over its public REST API). Optional: leave empty to rely on
+      # per-user connections via /api/n8n/connect.
+      - key: SALAR_N8N_BASE_URL
+        sync: false
+      - key: SALAR_N8N_API_KEY
+        sync: false
       - key: SALAR_GEMINI_MODEL
         value: gemini-3.1-flash-lite
       - key: SALAR_ALLOWED_ORIGINS

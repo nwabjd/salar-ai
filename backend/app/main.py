@@ -27,6 +27,7 @@ from .api.agent import router as agent_router
 from .api.whatsapp import router as whatsapp_router
 from .api.whatsapp_cs import router as whatsapp_cs_router
 from .api.email import router as email_router
+from .api.n8n import router as n8n_router
 from .api.monitor import router as monitor_router
 from .api.calendar import router as calendar_router
 from .api.alerts import router as alerts_router
@@ -427,6 +428,7 @@ def create_app(settings: Settings = None) -> FastAPI:
     app.include_router(whatsapp_router)
     app.include_router(whatsapp_cs_router)
     app.include_router(email_router)
+    app.include_router(n8n_router)
     app.include_router(monitor_router)
     app.include_router(calendar_router)
     app.include_router(alerts_router)

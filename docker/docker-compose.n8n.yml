@@ -1,0 +1,34 @@
+# Local n8n sidecar for SALAR.
+#
+# Runs n8n bound to 127.0.0.1 only (privacy-first, matches SALAR's local
+# Gemma-on-device model). SALAR's agent reaches it over the public REST API:
+#
+#   docker compose -f docker/docker-compose.n8n.yml up -d
+#   # open http://127.0.0.1:5678 once to create the owner account,
+#   # then Settings -> n8n API -> Create an API key, and set
+#   # SALAR_N8N_BASE_URL=http://127.0.0.1:5678  SALAR_N8N_API_KEY=<key>
+#
+# The instance stays a separate service — n8n's engine is NOT bundled into
+# SALAR. Per n8n's Sustainable Use License this self-hosted, personal-use
+# setup is free; embedding n8n inside a commercial product would need a
+# commercial agreement.
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      - N8N_HOST=127.0.0.1
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_SECURE_COOKIE=false
+      - N8N_RUNNERS_ENABLED=true
+      - GENERIC_TIMEZONE=UTC
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      # The public REST API (X-N8N-API-KEY) is on by default; keep it enabled.
+      # - N8N_PUBLIC_API_DISABLED=true
+    volumes:
+      - n8n-data:/home/node/.n8n
+volumes:
+  n8n-data:

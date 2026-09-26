@@ -947,6 +947,50 @@ TOOL_DEFINITIONS = [
                     "required": ["server", "tool"]
                 }
             },
+            {
+                "name": "n8n_instance_info",
+                "description": "Check the connected n8n workflow-automation instance. Returns whether it is reachable, its host, and how many workflows are visible. Use before the other n8n tools to confirm SALAR is connected to an n8n instance.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+            {
+                "name": "n8n_list_workflows",
+                "description": "List workflows on the connected n8n instance. Can filter to active (published) workflows or by name. Each workflow reports its id, name, active state, tags, trigger count, and any Webhook trigger path/method — the mechanism SALAR uses to run it.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "active_only": {"type": "boolean", "description": "Only return active workflows"},
+                        "name": {"type": "string", "description": "Case-insensitive substring filter on the workflow name"},
+                        "limit": {"type": "integer", "description": "Max workflows to return (default 100, max 250)"}
+                    },
+                },
+            },
+            {
+                "name": "n8n_execute_workflow",
+                "description": "Run a workflow on the connected n8n instance. If the workflow has a Webhook trigger, the payload is sent to that webhook (works with any workflow that exposes one). Otherwise SALAR tries n8n's legacy API execution endpoint. Returns how the run started and, when available, an execution id to poll with n8n_workflow_result.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "workflow_id": {"type": "string", "description": "n8n workflow id (from n8n_list_workflows)"},
+                        "payload": {"type": "object", "description": "Optional JSON data passed to the workflow; its first node receives it as input"}
+                    },
+                    "required": ["workflow_id"]
+                },
+            },
+            {
+                "name": "n8n_workflow_result",
+                "description": "Fetch the status and result of an n8n workflow run. Pass an execution id from n8n_execute_workflow, or just a workflow_id to inspect the most recent run of that workflow. Returns status (success/error/running/waiting/canceled), timing, and a compact summary of the last node outputs. When status is 'running' or 'new', wait a few seconds and poll again.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "execution_id": {"type": "string", "description": "n8n execution id (preferred when known)"},
+                        "workflow_id": {"type": "string", "description": "n8n workflow id — checks the latest run when execution_id is omitted"},
+                        "include_data": {"type": "boolean", "description": "Include the detailed output-data summary (default true)"}
+                    },
+                },
+            },
         ]
     }
 ]
@@ -1165,6 +1209,14 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
         elif name == "mcp_call":
             from .mcp_bridge import mcp_call_tool
             return await mcp_call_tool(args.get("server", ""), args.get("tool", ""), args.get("arguments") or {})
+        elif name == "n8n_instance_info":
+            return await _n8n_instance_info(user_id)
+        elif name == "n8n_list_workflows":
+            return await _n8n_list_workflows(args.get("active_only", False), args.get("name"), args.get("limit") or 100, user_id)
+        elif name == "n8n_execute_workflow":
+            return await _n8n_execute_workflow(args.get("workflow_id", ""), args.get("payload") or {}, user_id)
+        elif name == "n8n_workflow_result":
+            return await _n8n_workflow_result(args.get("execution_id"), args.get("workflow_id"), args.get("include_data", True), user_id)
         else:
             return {"error": f"Unknown tool: {name}"}
     except Exception as e:
@@ -2457,3 +2509,97 @@ async def _run_workflow(workflow_id: str, user_id: str) -> Dict[str, Any]:
         return {"status": "triggered", "workflow": wf.name, "run_id": run.id}
     except Exception as e:
         return {"error": str(e)}
+
+
+# --------------------------------------------------------------------------- #
+# n8n automation integration
+#
+# SALAR drives a *separate, self-hosted* n8n instance over its public REST API
+# (X-N8N-API-KEY). Nothing of n8n is bundled into SALAR — this keeps the
+# integration inside n8n's Sustainable Use License (personal / self-hosted use).
+# See services/n8n_client.py for the client and config resolution.
+# --------------------------------------------------------------------------- #
+
+
+def _get_n8n_client(user_id: str):
+    from .n8n_client import N8NError, get_n8n_client
+
+    client = get_n8n_client(user_id)
+    if client is None:
+        raise N8NError(
+            "No n8n instance configured. Set SALAR_N8N_BASE_URL and SALAR_N8N_API_KEY "
+            "(env / Render dashboard) or connect one via POST /api/n8n/connect.",
+            kind="invalid_config",
+        )
+    return client
+
+
+async def _n8n_instance_info(user_id: str) -> Dict[str, Any]:
+    from .n8n_client import N8NError
+
+    try:
+        client = _get_n8n_client(user_id)
+    except N8NError as e:
+        return {"error": str(e)}
+    try:
+        return await client.health()
+    except N8NError as e:
+        return {"error": f"n8n {e.kind}: {e}"}
+    finally:
+        await client.close()
+
+
+async def _n8n_list_workflows(active_only: bool, name: Optional[str], limit: int, user_id: str) -> Dict[str, Any]:
+    from .n8n_client import N8NError
+
+    try:
+        client = _get_n8n_client(user_id)
+    except N8NError as e:
+        return {"error": str(e)}
+    try:
+        return await client.list_workflows(active=bool(active_only) or None, name=name or None, limit=int(limit or 100))
+    except N8NError as e:
+        return {"error": f"n8n {e.kind}: {e}"}
+    finally:
+        await client.close()
+
+
+async def _n8n_execute_workflow(workflow_id: str, payload: Dict[str, Any], user_id: str) -> Dict[str, Any]:
+    from .n8n_client import N8NError
+
+    if not workflow_id:
+        return {"error": "workflow_id is required"}
+    try:
+        client = _get_n8n_client(user_id)
+    except N8NError as e:
+        return {"error": str(e)}
+    try:
+        return await client.trigger_workflow(workflow_id, payload or {})
+    except N8NError as e:
+        return {"error": f"n8n {e.kind}: {e}"}
+    finally:
+        await client.close()
+
+
+async def _n8n_workflow_result(
+    execution_id: Optional[str], workflow_id: Optional[str], include_data: bool, user_id: str
+) -> Dict[str, Any]:
+    from .n8n_client import N8NError
+
+    if not execution_id and not workflow_id:
+        return {"error": "Pass execution_id or workflow_id"}
+    try:
+        client = _get_n8n_client(user_id)
+    except N8NError as e:
+        return {"error": str(e)}
+    try:
+        if execution_id:
+            return await client.get_execution(str(execution_id), include_data=bool(include_data))
+        runs = await client.list_executions(workflow_id=workflow_id, limit=5)
+        if not runs:
+            return {"error": f"No executions found for workflow '{workflow_id}' yet."}
+        return await client.get_execution(str(runs[0]["id"]), include_data=bool(include_data))
+    except N8NError as e:
+        return {"error": f"n8n {e.kind}: {e}"}
+    finally:
+        await client.close()
