@@ -75,6 +75,9 @@ def test_dashboard_shape(tmp_path):
         "payment_wallet_address": "0x0",
         "free_monthly_quota": 500,
         "pro_monthly_quota": 5000,
+        "whatsapp_cs_access_token": None,
+        "whatsapp_cs_phone_number_id": None,
+        "whatsapp_cs_api_version": "v23.0",
     })()
     app = create_app(settings)
     app.state.SessionLocal = sf
