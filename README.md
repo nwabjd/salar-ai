@@ -49,24 +49,17 @@ The Modelfiles (`Modelfile.gemma4-e2b`, `Modelfile.gemma4-e4b`) carry the SALAR 
 
 ## Model Context Protocol (MCP)
 
-SALAR speaks MCP in **both directions**:
+MCP is used **by SALAR, for SALAR** — it extends what SALAR can do for you; SALAR's own capabilities stay inside the assistant and are never exposed as a service for other assistants.
 
-**SALAR as an MCP server** — any MCP client (OpenCode, Claude Desktop, Cursor, OpenClaw, the `mcp` CLI) can drive SALAR's full agent tool set (file ops, email, calendar, WhatsApp, browser, tasks, world model, …):
-
-```powershell
-cd backend
-python -m app.mcp_server --list-tools     # prints the ~88 exposed tools
-$env:SALAR_MCP_USER_ID="<your-user-id>"   # defaults to the first DB user when unset
-python -m app.mcp_server
-```
-
-**SALAR as an MCP client** — SALAR's agent can call tools on external MCP servers (GitHub, filesystem, browser, databases…) via the `mcp_tools` / `mcp_call` agent tools. Configure the servers once:
+**SALAR as an MCP client** — SALAR's agent can call tools on external MCP servers (GitHub, filesystem, browser, databases…) via its own `mcp_tools` / `mcp_call` agent tools. Configure the servers once:
 
 ```
 SALAR_MCP_SERVERS='[{"name":"github","command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_PERSONAL_ACCESS_TOKEN":"..."}}]'
 ```
 
-then ask SALAR in chat: *"list what the github MCP server can do"* / *"use the github server to open an issue"*. The MCP identity (`SALAR_MCP_USER_ID`) is set in the backend env or `.env`; when running through a client that passes its own env, put the variable in the client's server config `env` block.
+then ask SALAR in chat: *"list what the github MCP server can do"* / *"use the github server to open an issue"*.
+
+Developer note: the backend also ships `app/mcp_server.py`, a stdio server exposing the same tool set — used only for SALAR's own internal automation (e.g., connecting to itself on the desktop), not as a product surface for other assistants.
 
 ## Deploy on your domain
 

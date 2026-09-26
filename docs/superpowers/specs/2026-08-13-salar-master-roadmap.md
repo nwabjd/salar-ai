@@ -95,7 +95,7 @@ Unlocks every downstream feature. Build first.
 ## Phase 13 — Ecosystem & Local Intelligence
 Net-new items that extend the shipped local-brain stack (Gemma 4 E2B/E4B) and the multi-device footprint.
 
-59. **MCP Server + Client** ✅ built — SALAR's agent tool set exposed as a Model Context Protocol stdio server (any MCP client can drive SALAR: OpenCode, Claude Desktop, Cursor, OpenClaw), plus SALAR agent tools `mcp_tools`/`mcp_call` that call external MCP servers configured via `SALAR_MCP_SERVERS`.
+59. **MCP Client Tools** ✅ built — SALAR's agent calls external MCP servers (GitHub, filesystem, browser, databases) configured via `SALAR_MCP_SERVERS` through its own `mcp_tools`/`mcp_call` tools. Pure SALAR-side capability: it extends what SALAR can do for you; SALAR's own features are never exposed as a service for other assistants.
 60. **Consensus Dual-Brain Mode** — run the same prompt on E2B + E4B in parallel, compare tool-call plans, synthesize one answer with a confidence note (both models already ship installed).
 61. **Local-Only Document RAG** — index the user's files with a local embedding model; answer questions exclusively from those documents with zero cloud uploads (privacy flagship; rides OneDrive-aware file layer).
 62. **Model A/B Tester** — productize `tools/nim-diagnostic`: pick two models, same prompt, side-by-side results + voting, inside the app.
@@ -103,5 +103,5 @@ Net-new items that extend the shipped local-brain stack (Gemma 4 E2B/E4B) and th
 64. **Meeting Huddle Bot** — join a call, live notes, extracted action items routed to WhatsApp/email/tasks.
 65. **Hotkey Launcher** — Ctrl+Space opens a SALAR prompt from anywhere (Spotlight-style; complements Universal Search + Context Menu).
 66. **Phone-as-Confirmation Device** — sensitive actions (delete, send, pay) require OK from the user's phone, not just an in-app dialog (gives Android APK a concrete role).
-67. **Agent Handoff** — SALAR pushes a task to another agent (OpenClaw/OpenCode/Claude) with a context summary and ingests the result.
+67. **Self-Hosted Capability Packs** — install SALAR capability packs from a local folder or git URL — every new feature stays inside SALAR, with no central marketplace or external agent dependency.
 68. **One-Click Diagnostic Bundle** — system info + recent SALAR logs + config as a shareable snapshot for support.
