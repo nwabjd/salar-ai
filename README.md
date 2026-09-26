@@ -34,6 +34,19 @@ SALAR Desktop opens directly without an account form. On first setup, open **Set
 
 The web app and mobile clients sign in directly through Supabase with the same account. Email/password authentication remains available through Supabase for recovery but is not part of the normal client experience.
 
+## Local model (Gemma 4 on-device brain)
+
+Local mode routes chat through the SALAR desktop app to Ollama on the user's PC (`127.0.0.1:11434`), where the model can call the same PC-control tools as the cloud brain. The default local model is **`salar-gemma4-e2b`** (Gemma 4 E2B, ~7.2 GB, 2.3B effective params — built for laptops/edge), with **`salar-gemma4-e4b`** (4.5B effective, more reliable tool-calling) available as an alternative in the local-mode dropdown.
+
+Install on any machine with Ollama:
+
+```powershell
+.\scripts\install-local-models.ps1          # pulls gemma4:e2b/e4b + creates salar-gemma4-*
+.\scripts\install-local-models.ps1 -SkipPull # recreate the models without re-downloading
+```
+
+The Modelfiles (`Modelfile.gemma4-e2b`, `Modelfile.gemma4-e4b`) carry the SALAR PC-control persona; Gemma 4's native function calling and system-role support mean no custom chat template is needed. The default model name is configurable via `SALAR_OLLAMA_DEFAULT_MODEL` (server) and is passed through the desktop app unchanged.
+
 ## Deploy on your domain
 
 1. Point two DNS records at the server: for example `salar.example.com` and `api.salar.example.com`.

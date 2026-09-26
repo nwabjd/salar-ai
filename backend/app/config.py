@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     bridge_url: str = "http://127.0.0.1:3100"
     whatsapp_webhook_secret: Optional[str] = None
     ollama_base_url: str = "http://127.0.0.1:11434"
-    ollama_default_model: str = "salar-tuned"
+    ollama_default_model: str = "salar-gemma4-e2b"
 
     # --- WhatsApp Customer Service (official Meta WhatsApp Business Platform) ---
     # Backend/env-only credentials for the flagship customer-service capability.

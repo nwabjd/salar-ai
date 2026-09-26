@@ -18,6 +18,23 @@ function LocalToggle({ localMode, onToggle }: { localMode: boolean; onToggle: ()
   )
 }
 
+function LocalModelPicker({ localMode, models, value, onChange }: { localMode: boolean; models: string[]; value: string; onChange: (m: string) => void }) {
+  if (!localMode || models.length === 0) return null
+  return (
+    <select
+      className="local-model-picker"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      title="Local model (installed in Ollama)"
+      aria-label="Local model"
+    >
+      {models.map((m) => (
+        <option key={m} value={m}>{m}</option>
+      ))}
+    </select>
+  )
+}
+
 function TypingDots() {
   return (
     <span className="typing-dots">
@@ -55,6 +72,8 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const [streaming, setStreaming] = useState('')
   const [toolActivity, setToolActivity] = useState('')
   const [localMode, setLocalMode] = useState(false)
+  const [localModels, setLocalModels] = useState<string[]>([])
+  const [localModel, setLocalModel] = useState('')
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
   const { mode } = useMode()
@@ -75,6 +94,19 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streaming, toolActivity])
 
+  // When local mode is enabled, list the models Ollama has installed on this
+  // PC (fetched through the desktop app) and default to the server's choice.
+  useEffect(() => {
+    if (!localMode) return
+    api.ollamaModels()
+      .then((r) => {
+        const list = (r.models || []).filter(Boolean)
+        setLocalModels(list)
+        setLocalModel((prev) => prev || (list.includes(r.default) ? r.default : list[0] || ''))
+      })
+      .catch(() => setLocalModels([]))
+  }, [localMode])
+
   function handleSend(content: string) {
     if (!content.trim() || !conversation || busy) return
     const modePrompt = MODE_INFO[mode].prompt
@@ -88,7 +120,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     if (localMode) {
       setToolActivity('Running on your PC (local model)…')
       const history = messages.filter(m => !m.id.startsWith('tmp-') && !m.id.startsWith('err-')).slice(-10).map(m => ({ role: m.role, content: m.content }))
-      api.ollamaChat([...history, { role: 'user', content: fullContent }])
+      api.ollamaChat([...history, { role: 'user', content: fullContent }], localModel || undefined)
         .then((result) => {
           if (result.error) throw new Error(String(result.error))
           const toolsNote = result.executed?.length ? `\n\n[${result.executed.map(e => e.tool).join(', ')} executed on your PC]` : ''
@@ -154,6 +186,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
             <div className="cc-composer-wrap">
               <div className="composer-row">
                 <LocalToggle localMode={localMode} onToggle={() => setLocalMode(v => !v)} />
+                <LocalModelPicker localMode={localMode} models={localModels} value={localModel} onChange={setLocalModel} />
                 <OrbInput onSubmit={handleSend} onOrbClick={onLive} />
               </div>
             </div>
@@ -203,6 +236,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           <div className="orb-composer-inner">
             <div className="composer-row">
               <LocalToggle localMode={localMode} onToggle={() => setLocalMode(v => !v)} />
+              <LocalModelPicker localMode={localMode} models={localModels} value={localModel} onChange={setLocalModel} />
               <OrbInput
                 onSubmit={handleSend}
                 onOrbClick={onLive}

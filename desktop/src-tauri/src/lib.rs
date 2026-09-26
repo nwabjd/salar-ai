@@ -372,7 +372,7 @@ fn handle_ollama_chat(payload: Value) -> Result<Value, String> {
     // Proxy a chat request to the local Ollama server, executing any tool
     // calls the model makes via the local device handlers. Runs on a blocking
     // thread so the UI never freezes during inference.
-    let model = payload.get("model").and_then(Value::as_str).unwrap_or("salar-tuned").to_string();
+    let model = payload.get("model").and_then(Value::as_str).unwrap_or("salar-gemma4-e2b").to_string();
     let mut messages: Vec<Value> = payload.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
     if messages.is_empty() { return Err("No messages provided".into()); }
     let tools = payload.get("tools").cloned().unwrap_or(Value::Null);
@@ -441,10 +441,38 @@ fn handle_ollama_chat(payload: Value) -> Result<Value, String> {
     Ok(json!({"content": content, "executed": executed, "raw": raw_snippet}))
 }
 
+fn handle_ollama_models() -> Result<Value, String> {
+    // List the models installed on the local Ollama server so the frontend's
+    // local-mode picker can offer a choice (default stays the SALAR Gemma 4
+    // model; the server default is the same unless overridden by env).
+    let resp = ureq::get("http://127.0.0.1:11434/api/tags")
+        .timeout(std::time::Duration::from_secs(5))
+        .call()
+        .map_err(|e| format!("Ollama unreachable: {e}"))?;
+    let data: Value = resp.into_json().map_err(|e| format!("Bad Ollama response: {e}"))?;
+    let models: Vec<String> = data
+        .get("models")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("name").and_then(Value::as_str).map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(json!({"models": models, "default": "salar-gemma4-e2b"}))
+}
+
 #[tauri::command]
 async fn execute_device_command(kind: String, payload: Value) -> Result<Value, String> {
     if kind == "ollama_chat" {
         return tauri::async_runtime::spawn_blocking(move || handle_ollama_chat(payload))
+            .await
+            .map_err(|e| format!("Background task failed: {e}"))?;
+    }
+    if kind == "ollama_models" {
+        // Snapshot of the models Ollama on this PC has installed, for the
+        // local-mode model picker. Payload is unused (an empty query).
+        return tauri::async_runtime::spawn_blocking(handle_ollama_models)
             .await
             .map_err(|e| format!("Background task failed: {e}"))?;
     }

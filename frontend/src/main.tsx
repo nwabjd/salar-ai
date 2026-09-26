@@ -405,11 +405,21 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
   const [streaming, setStreaming] = useState('')
   const [toolActivity, setToolActivity] = useState('')
   const [localMode, setLocalMode] = useState(false)
+  const [localModels, setLocalModels] = useState<string[]>([])
+  const [localModel, setLocalModel] = useState('')
   const streamBuf = useRef('')
   const end = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
   useEffect(() => { if (!connected) return; api.conversations().then(async list => { const item = list[0] || await api.createConversation(); setConversation(item); if (list[0]) setMessages((await api.conversation(item.id)).messages || []) }).catch(e => setError(e.message)) }, [connected])
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streaming, toolActivity])
+  useEffect(() => {
+    if (!localMode) return
+    api.ollamaModels().then(r => {
+      const list = (r.models || []).filter(Boolean)
+      setLocalModels(list)
+      setLocalModel(prev => prev || (list.includes(r.default) ? r.default : (list[0] || '')))
+    }).catch(() => setLocalModels([]))
+  }, [localMode])
   function send() {
     if (!input.trim() || !conversation || busy) return
     sendContent(input)
@@ -424,7 +434,7 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
     if (localMode) {
       setToolActivity('Running on your PC (local model)…')
       const history = messages.filter(m => !m.id.startsWith('tmp-') && !m.id.startsWith('err-')).slice(-10).map(m => ({ role: m.role, content: m.content }))
-      api.ollamaChat([...history, { role: 'user', content }])
+      api.ollamaChat([...history, { role: 'user', content }], localModel || undefined)
         .then(result => {
           const toolsNote = result.executed?.length ? `\n\n[${result.executed.map(e => e.tool).join(', ')} executed on your PC]` : ''
           setMessages(current => [...current, { id: 'local-' + Date.now(), role: 'assistant', content: (result.content || '(empty response)') + toolsNote, created_at: new Date().toISOString() }])
@@ -464,7 +474,7 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
       <SituationStrip onAsk={(summary) => { setInput(summary) }} onAct={(action) => { sendContent(action) }}/>
       <div className="messages" ref={messagesRef}><div className="messages-spacer"/>{messages.map(message => <article key={message.id} className={message.role}><span>{message.role === 'assistant' ? 'SALAR' : 'YOU'}</span><p>{message.content}</p></article>)}{streaming && <article className="assistant thinking"><span>SALAR</span><p>{streaming}</p></article>}{toolActivity && !streaming && <article className="assistant thinking tool-activity"><span>SALAR</span><p className="tool-hint">{toolActivity}</p></article>}{busy && !streaming && !toolActivity && <article className="assistant thinking"><span>SALAR</span><p>Reasoning across your private context…</p></article>}<div ref={end}/></div>
       {error && <div className="toast">{error}</div>}
-      <div className="composer"><button className={`icon-control live-control${localMode ? ' local-active' : ''}`} onClick={() => setLocalMode(v => !v)} title={localMode ? 'Switch to cloud model' : 'Switch to local model (runs on your PC)'}><Cpu/></button><button className="icon-control live-control" onClick={onLive} title="Enter Live mode"><Mic2/></button><textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder={localMode ? 'Ask your local SALAR model…' : 'Ask, create, search, or control…'} disabled={!connected} rows={1}/><button className="icon-control send-control" onClick={send} disabled={!connected || busy || !input.trim()} title="Send command"><Send/></button></div>
+      <div className="composer"><button className={`icon-control live-control${localMode ? ' local-active' : ''}`} onClick={() => setLocalMode(v => !v)} title={localMode ? 'Switch to cloud model' : 'Switch to local model (runs on your PC)'}><Cpu/></button>{localMode && localModels.length > 0 && <select className="local-model-picker" value={localModel} onChange={e => setLocalModel(e.target.value)} title="Local model (installed in Ollama)" aria-label="Local model">{localModels.map(m => <option key={m} value={m}>{m}</option>)}</select>}<button className="icon-control live-control" onClick={onLive} title="Enter Live mode"><Mic2/></button><textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder={localMode ? 'Ask your local SALAR model…' : 'Ask, create, search, or control…'} disabled={!connected} rows={1}/><button className="icon-control send-control" onClick={send} disabled={!connected || busy || !input.trim()} title="Send command"><Send/></button></div>
   </div>
 }
 

@@ -71,11 +71,20 @@ async def status(request: Request, user=Depends(get_current_user)):
 
 
 @router.get("/api/ollama/models")
-async def get_models(request: Request, user=Depends(get_current_user)):
+async def get_models(request: Request, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """List models on the user's local Ollama. Ollama runs on the user's PC,
+    so the list is fetched through their connected desktop app (same path as
+    /api/ollama/chat); falls back to a server-side check when no device is
+    registered."""
+    default = request.app.state.settings.ollama_default_model
+    routed = await _route_to_local_device("ollama_models", {}, user.id, db, wait_seconds=15)
+    if routed and not routed.get("error"):
+        models = routed.get("models") or []
+        return {"available": bool(models), "models": models, "default": default}
     base_url = request.app.state.settings.ollama_base_url
     models = await list_ollama_models(base_url)
     available = await ollama_is_available(base_url)
-    return {"available": available, "models": models, "default": request.app.state.settings.ollama_default_model}
+    return {"available": available, "models": models, "default": default}
 
 
 @router.post("/api/ollama/chat")

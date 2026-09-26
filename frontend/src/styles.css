@@ -705,3 +705,9 @@
 .tb-btn{width:36px;height:36px;display:grid;place-items:center;border:0;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;transition:background .15s,color .15s}
 .tb-btn:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9)}
 .tb-close:hover{background:rgba(239,68,68,.85);color:#fff}
+
+/* Local-mode model picker (Ollama models installed on the user's PC) */
+.local-model-picker{height:36px;max-width:150px;padding:0 10px;flex-shrink:0;border:1px solid var(--line);border-radius:11px;background:rgba(7,6,12,.7);color:var(--muted);font-size:8px;letter-spacing:.05em;outline:none;cursor:pointer}
+.local-model-picker:focus{border-color:rgba(141,112,239,.6);color:var(--ink)}
+.composer-row .local-model-picker{height:38px}
+@media(max-width:640px){.local-model-picker{max-width:104px;font-size:7px}}

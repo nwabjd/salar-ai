@@ -366,6 +366,28 @@ MODELS: Dict[str, ModelSpec] = {m.id: m for m in [
         priority=70,
         tags=("local",),
     ),
+    ModelSpec(
+        id="salar-gemma4-e2b",
+        provider="ollama",
+        category="chat",
+        capabilities=("chat", "tools"),
+        supports_tools=True,
+        context=131_072,
+        latency="fast",
+        priority=72,
+        tags=("local", "gemma4"),
+    ),
+    ModelSpec(
+        id="salar-gemma4-e4b",
+        provider="ollama",
+        category="chat",
+        capabilities=("chat", "tools"),
+        supports_tools=True,
+        context=131_072,
+        latency="fast",
+        priority=68,
+        tags=("local", "gemma4"),
+    ),
 ]}
 
 
