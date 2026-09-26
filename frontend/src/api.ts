@@ -1,4 +1,5 @@
 export type Message = { id: string; role: 'user' | 'assistant'; content: string; created_at: string }
+import type { ConsensusMeta } from './consensus'
 export type Conversation = { id: string; title: string; messages?: Message[] }
 export type Memory = { id: string; title: string; content: string; layer: string; project_id?: string; tags?: string[]; strength?: number; expired?: boolean; created_at: string; updated_at?: string }
 export type DocumentItem = { id: string; filename: string; media_type: string; created_at: string }
@@ -381,11 +382,11 @@ export class SalarApi {
 
   async ollamaStatus() { return this.request<{available:boolean;models:string[];default:string}>('/api/ollama/status') }
   async ollamaModels() { return this.request<{available:boolean;models:string[];default:string}>('/api/ollama/models') }
-  async ollamaChat(messages:{role:string;content:string}[], model?:string): Promise<{content:string;executed:{tool:string;result:unknown}[];raw?:string;error?:string}> {
+  async ollamaChat(messages:{role:string;content:string}[], model?:string, consensusModel?:string): Promise<{content:string;executed:{tool:string;result:unknown}[];raw?:string;error?:string;consensus?:ConsensusMeta}> {
     const response = await fetch(`${this.baseUrl}/api/ollama/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` },
-      body: JSON.stringify({ messages, model }),
+      body: JSON.stringify(consensusModel ? { messages, model, consensus_model: consensusModel } : { messages, model }),
     })
     if (!response.ok) throw new Error(`Local model error (${response.status})`)
     return response.json()

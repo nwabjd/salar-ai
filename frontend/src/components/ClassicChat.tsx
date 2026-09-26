@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Copy, RefreshCcw, Share, ThumbsUp, ThumbsDown, Check, Cpu } from 'lucide-react'
 import { OrbInput } from './ui/animated-input'
 import { Conversation, Message, SalarApi } from '../api'
+import { CONSENSUS_VALUE, consensusChip, pickConsensusVerifier } from '../consensus'
 import { useMode, MODE_INFO } from '../contexts/ModeContext'
 import { useSettings } from '../contexts/SettingsContext'
 
@@ -18,16 +19,20 @@ function LocalToggle({ localMode, onToggle }: { localMode: boolean; onToggle: ()
   )
 }
 
-function LocalModelPicker({ localMode, models, value, onChange }: { localMode: boolean; models: string[]; value: string; onChange: (m: string) => void }) {
+function LocalModelPicker({ localMode, models, value, onChange, consensus, onConsensus }: { localMode: boolean; models: string[]; value: string; onChange: (m: string) => void; consensus: boolean; onConsensus: (c: boolean) => void }) {
   if (!localMode || models.length === 0) return null
   return (
     <select
       className="local-model-picker"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      title="Local model (installed in Ollama)"
+      value={consensus ? CONSENSUS_VALUE : value}
+      onChange={(e) => {
+        if (e.target.value === CONSENSUS_VALUE) onConsensus(true)
+        else { onConsensus(false); onChange(e.target.value) }
+      }}
+      title="Local mode: single brain or Consensus Dual-Brain (runs both on your PC)"
       aria-label="Local model"
     >
+      {models.length > 1 && <option value={CONSENSUS_VALUE}>Consensus (E2B + E4B)</option>}
       {models.map((m) => (
         <option key={m} value={m}>{m}</option>
       ))}
@@ -74,6 +79,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
   const [localMode, setLocalMode] = useState(false)
   const [localModels, setLocalModels] = useState<string[]>([])
   const [localModel, setLocalModel] = useState('')
+  const [localConsensus, setLocalConsensus] = useState(false)
   const streamBuf = useRef('')
   const endRef = useRef<HTMLDivElement>(null)
   const { mode } = useMode()
@@ -118,14 +124,17 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
     const finish = () => { if (done) return; done = true; setStreaming(''); streamBuf.current = ''; setToolActivity(''); setBusy(false) }
 
     if (localMode) {
-      setToolActivity('Running on your PC (local model)…')
+      const primary = localModel || undefined
+      const verifier = localConsensus ? pickConsensusVerifier(localModels, localModel) : undefined
+      setToolActivity(localConsensus ? 'Running both local brains (Consensus mode)…' : 'Running on your PC (local model)…')
       const history = messages.filter(m => !m.id.startsWith('tmp-') && !m.id.startsWith('err-')).slice(-10).map(m => ({ role: m.role, content: m.content }))
-      api.ollamaChat([...history, { role: 'user', content: fullContent }], localModel || undefined)
+      api.ollamaChat([...history, { role: 'user', content: fullContent }], primary, verifier)
         .then((result) => {
           if (result.error) throw new Error(String(result.error))
           const toolsNote = result.executed?.length ? `\n\n[${result.executed.map(e => e.tool).join(', ')} executed on your PC]` : ''
+          const consNote = verifier ? consensusChip(result.consensus) : ''
           const body = result.content || (result.raw ? `[empty — raw: ${result.raw}]` : '(empty response)')
-          setMessages((prev) => [...prev.slice(0, -1), userMsg, { id: 'local-' + Date.now(), role: 'assistant', content: body + toolsNote, created_at: new Date().toISOString() }])
+          setMessages((prev) => [...prev.slice(0, -1), userMsg, { id: 'local-' + Date.now(), role: 'assistant', content: body + toolsNote + consNote, created_at: new Date().toISOString() }])
           finish()
         })
         .catch((err) => {
@@ -186,7 +195,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
             <div className="cc-composer-wrap">
               <div className="composer-row">
                 <LocalToggle localMode={localMode} onToggle={() => setLocalMode(v => !v)} />
-                <LocalModelPicker localMode={localMode} models={localModels} value={localModel} onChange={setLocalModel} />
+                <LocalModelPicker localMode={localMode} models={localModels} value={localModel} onChange={setLocalModel} consensus={localConsensus} onConsensus={setLocalConsensus} />
                 <OrbInput onSubmit={handleSend} onOrbClick={onLive} />
               </div>
             </div>
@@ -236,7 +245,7 @@ export function ClassicChat({ api, onLive }: { api: SalarApi; onLive: () => void
           <div className="orb-composer-inner">
             <div className="composer-row">
               <LocalToggle localMode={localMode} onToggle={() => setLocalMode(v => !v)} />
-              <LocalModelPicker localMode={localMode} models={localModels} value={localModel} onChange={setLocalModel} />
+              <LocalModelPicker localMode={localMode} models={localModels} value={localModel} onChange={setLocalModel} consensus={localConsensus} onConsensus={setLocalConsensus} />
               <OrbInput
                 onSubmit={handleSend}
                 onOrbClick={onLive}

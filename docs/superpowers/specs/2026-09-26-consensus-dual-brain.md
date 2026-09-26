@@ -96,5 +96,5 @@ The chat UI renders a small "🧠 agreed / ⚠️ 1 discrepancy" chip under the 
 
 - **M1:** ✅ built — backend `consensus_model` passthrough + response metadata (`build_ollama_chat_payload`, tested).
 - **M2:** ✅ built — `run_ollama_lane` + `handle_ollama_chat_consensus` two-lane execution + `consensus_merge` in `lib.rs` (8 unit tests).
-- **M3:** picker "Consensus" option + agreement chip in chat UI.
+- **M3:** ✅ built — picker "Consensus (E2B + E4B)" option + agreement chip appended to local answers in chat UI (`main.tsx`, `ClassicChat.tsx`, helpers in `consensus.ts`, 8 tests; 138 frontend tests pass).
 - **M4:** release build → installer so users get it.

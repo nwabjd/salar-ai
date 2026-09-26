@@ -8,6 +8,7 @@ import { AccessState, clearSession, isDesktop, saveSession, storedSession } from
 import { createSessionCoordinator } from './auth/session-coordinator'
 import { cleanAuthFromUrl, supabase } from './lib/supabase'
 import { Conversation, Message, SalarApi, WorldAction, WorldSituation } from './api'
+import { CONSENSUS_VALUE, consensusChip, pickConsensusVerifier } from './consensus'
 import { startDevicePolling } from './device-poll'
 import { PricingPage } from './components/PricingPage'
 import { ClassicChat } from './components/ClassicChat'
@@ -407,6 +408,7 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
   const [localMode, setLocalMode] = useState(false)
   const [localModels, setLocalModels] = useState<string[]>([])
   const [localModel, setLocalModel] = useState('')
+  const [localConsensus, setLocalConsensus] = useState(false)
   const streamBuf = useRef('')
   const end = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
@@ -432,12 +434,15 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
     let done = false
     const finish = () => { if (done) return; done = true; setStreaming(''); streamBuf.current = ''; setToolActivity(''); setBusy(false) }
     if (localMode) {
-      setToolActivity('Running on your PC (local model)…')
+      const primary = localModel || undefined
+      const verifier = localConsensus ? pickConsensusVerifier(localModels, localModel) : undefined
+      setToolActivity(localConsensus ? 'Running both local brains (Consensus mode)…' : 'Running on your PC (local model)…')
       const history = messages.filter(m => !m.id.startsWith('tmp-') && !m.id.startsWith('err-')).slice(-10).map(m => ({ role: m.role, content: m.content }))
-      api.ollamaChat([...history, { role: 'user', content }], localModel || undefined)
+      api.ollamaChat([...history, { role: 'user', content }], primary, verifier)
         .then(result => {
           const toolsNote = result.executed?.length ? `\n\n[${result.executed.map(e => e.tool).join(', ')} executed on your PC]` : ''
-          setMessages(current => [...current, { id: 'local-' + Date.now(), role: 'assistant', content: (result.content || '(empty response)') + toolsNote, created_at: new Date().toISOString() }])
+          const consNote = verifier ? consensusChip(result.consensus) : ''
+          setMessages(current => [...current, { id: 'local-' + Date.now(), role: 'assistant', content: (result.content || '(empty response)') + toolsNote + consNote, created_at: new Date().toISOString() }])
         })
         .catch(err => {
           setError(String(err?.message || err).includes('No connected device') ? 'Local model needs the SALAR desktop app running with Ollama.' : 'Local model failed — try again')
@@ -474,7 +479,7 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
       <SituationStrip onAsk={(summary) => { setInput(summary) }} onAct={(action) => { sendContent(action) }}/>
       <div className="messages" ref={messagesRef}><div className="messages-spacer"/>{messages.map(message => <article key={message.id} className={message.role}><span>{message.role === 'assistant' ? 'SALAR' : 'YOU'}</span><p>{message.content}</p></article>)}{streaming && <article className="assistant thinking"><span>SALAR</span><p>{streaming}</p></article>}{toolActivity && !streaming && <article className="assistant thinking tool-activity"><span>SALAR</span><p className="tool-hint">{toolActivity}</p></article>}{busy && !streaming && !toolActivity && <article className="assistant thinking"><span>SALAR</span><p>Reasoning across your private context…</p></article>}<div ref={end}/></div>
       {error && <div className="toast">{error}</div>}
-      <div className="composer"><button className={`icon-control live-control${localMode ? ' local-active' : ''}`} onClick={() => setLocalMode(v => !v)} title={localMode ? 'Switch to cloud model' : 'Switch to local model (runs on your PC)'}><Cpu/></button>{localMode && localModels.length > 0 && <select className="local-model-picker" value={localModel} onChange={e => setLocalModel(e.target.value)} title="Local model (installed in Ollama)" aria-label="Local model">{localModels.map(m => <option key={m} value={m}>{m}</option>)}</select>}<button className="icon-control live-control" onClick={onLive} title="Enter Live mode"><Mic2/></button><textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder={localMode ? 'Ask your local SALAR model…' : 'Ask, create, search, or control…'} disabled={!connected} rows={1}/><button className="icon-control send-control" onClick={send} disabled={!connected || busy || !input.trim()} title="Send command"><Send/></button></div>
+      <div className="composer"><button className={`icon-control live-control${localMode ? ' local-active' : ''}`} onClick={() => setLocalMode(v => !v)} title={localMode ? 'Switch to cloud model' : 'Switch to local model (runs on your PC)'}><Cpu/></button>{localMode && localModels.length > 0 && <select className="local-model-picker" value={localConsensus ? CONSENSUS_VALUE : localModel} onChange={e => { if (e.target.value === CONSENSUS_VALUE) setLocalConsensus(true); else { setLocalConsensus(false); setLocalModel(e.target.value) } }} title="Local mode: single brain or Consensus Dual-Brain (runs both on your PC)" aria-label="Local model">{localModels.length > 1 && <option value={CONSENSUS_VALUE}>Consensus (E2B + E4B)</option>}{localModels.map(m => <option key={m} value={m}>{m}</option>)}</select>}<button className="icon-control live-control" onClick={onLive} title="Enter Live mode"><Mic2/></button><textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder={localMode ? 'Ask your local SALAR model…' : 'Ask, create, search, or control…'} disabled={!connected} rows={1}/><button className="icon-control send-control" onClick={send} disabled={!connected || busy || !input.trim()} title="Send command"><Send/></button></div>
   </div>
 }
 
