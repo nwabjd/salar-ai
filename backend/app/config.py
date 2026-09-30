@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     bootstrap_email: str = "owner@salar.local"
     bootstrap_password: str = "ChangeMeImmediately!"
     allowed_origins: List[str] = Field(
-        default_factory=lambda: ["http://127.0.0.1:4173", "http://localhost:4173", "http://127.0.0.1:5173", "http://localhost:5173", "tauri://localhost", "https://tauri.localhost"]
+        default_factory=lambda: ["http://127.0.0.1:4173", "http://localhost:4173", "http://127.0.0.1:5173", "http://localhost:5173", "http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"]
     )
     storage_dir: Path = _data_dir / "uploads"
     max_upload_mb: int = 25
