@@ -106,6 +106,48 @@ Restart the backend and ask: *"are my Amazon and noon accounts connected?"* →
 `marketplace_status`. Then try *"what's the price of SKU X on noon UAE?"* →
 `noon_pricing`.
 
+## Step 6 — Putting the keys onto your hosted SALAR (Render)
+
+SALAR's backend on a server (Render now, `salaar.cloud` later) cannot read a
+file from your PC — **each deployed instance needs its own copy of the
+credentials**, and it must be running the code that knows the marketplace
+tools. In order:
+
+1. **Deploy the latest `main`.** The marketplace feature must be live before
+   the `noon_*` tools exist on the instance: Render → backend service →
+   **Manual Deploy → Deploy latest commit** (or confirm auto-deploy-on-push
+   picked it up; check the deploy log for success).
+2. **Add the credentials** under Render → backend service → **Environment**.
+   Pick one option:
+
+   **Option A — env vars (simplest):**
+   ```env
+   SALAR_NOON_ENABLED=true
+   SALAR_NOON_KEY_ID=noon-partners-key-id-…
+   SALAR_NOON_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----… (full PEM, keep the newlines)
+   SALAR_NOON_PROJECT_CODE=PRJ…
+   SALAR_NOON_COUNTRY_CODES=ae,sa,eg
+   ```
+   Paste the private key straight into the value box (no quotes) — Render
+   preserves literal newlines. Only you can see it; it is never committed.
+
+   **Option B — key file + Disk (alternative):** enable a **Disk** on the
+   service (mounted at `/data`), upload the service-account JSON to it, and set:
+   ```env
+   SALAR_NOON_ENABLED=true
+   SALAR_NOON_KEY_FILE=/data/noon-credentials.json
+   SALAR_NOON_COUNTRY_CODES=ae,sa,eg
+   ```
+3. **Save & redeploy**, then in the app ask: *"are my noon account
+   connected?"* → `marketplace_status` should return
+   `"noon": {"configured": true}`. If it reports `configured: false`, the
+   instance is either still running old code (step 1) or the env vars have a
+   typo — the local backend in the repo is the reference for what works.
+
+> Local dev uses the same mechanism: the repo-root `.env` sets
+> `SALAR_NOON_KEY_FILE` to the repo's `backend/data/noon-credentials.json`,
+> which is gitignored
+
 ---
 
 ## Platform reference (the details SALAR knows)
