@@ -11,6 +11,10 @@ _SAFE = {
     "list_workspaces", "list_alert_rules", "list_triggered_alerts", "list_workflow_runs",
     "search_apps", "clipboard", "file_list", "file_read", "file_info", "file_search",
     "calculate", "get_weather",
+    # seller marketplace reads
+    "marketplace_status", "amazon_seller_info", "amazon_sales",
+    "amazon_recent_orders", "amazon_inventory", "amazon_listing",
+    "noon_pricing", "noon_stock", "marketplace_daily_summary",
 }
 
 _CAUTION = {
@@ -26,6 +30,9 @@ _DANGEROUS = {
     "run_command", "email_send", "device_command", "power_control",
     "manage_process", "code_run", "delete_memory", "delete_task",
     "delete_reminder", "screenshot",
+    # seller marketplace writes (money/stock changes -> always ask)
+    "amazon_update_price", "amazon_update_quantity",
+    "noon_update_price", "noon_update_stock",
 }
 
 _READONLY_CMD = re.compile(

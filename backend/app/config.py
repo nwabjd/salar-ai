@@ -84,6 +84,34 @@ class Settings(BaseSettings):
     nim_enabled: bool = True # auto-disabled if no key
     nim_default_model: str = "nvidia/nemotron-3-super-120b-a12b"
 
+    # --- Seller marketplace (Amazon SP-API + noon Partner API) ---
+    # Credentials come from the setup checklists (docs/marketplace/*). SALAR only
+    # uses them server-side and never exposes them to the frontend. Both platforms
+    # accept a per-user registration via /api/marketplace/*/connect as an override.
+    # Amazon requires a self-authorized private SP-API app (LWA client id/secret +
+    # refresh token) plus an IAM role ARN for request signing (SigV4).
+    amazon_spapi_enabled: bool = False
+    amazon_spapi_region: str = "EU"  # NA | EU | FE (AE/SA marketplaces are in EU)
+    amazon_lwa_client_id: Optional[str] = None
+    amazon_lwa_client_secret: Optional[str] = None
+    amazon_lwa_refresh_token: Optional[str] = None
+    amazon_iam_access_key: Optional[str] = None
+    amazon_iam_secret_key: Optional[str] = None
+    amazon_spapi_role_arn: Optional[str] = None
+    # Comma-separated marketplace ids (AE=A2VIGQ35RCS4UG, SA=A17E79C6D8DWNP).
+    amazon_marketplace_ids: str = "A2VIGQ35RCS4UG,A17E79C6D8DWNP"
+    amazon_seller_id: Optional[str] = None  # auto-detected from SP-API when empty
+    # noon: a service-account key from the noon Developer Portal. Either give the
+    # three fields directly or point noon_key_file at the downloaded JSON.
+    noon_enabled: bool = False
+    noon_base_url: str = "https://noon-api-gateway.noon.partners"
+    noon_key_id: Optional[str] = None
+    noon_private_key: Optional[str] = None
+    noon_project_code: Optional[str] = None
+    noon_key_file: Optional[str] = None
+    noon_country_codes: str = "ae,sa,eg"  # ae | sa | eg
+    noon_warehouse_code: Optional[str] = None
+
     stripe_secret_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
     stripe_price_pro: Optional[str] = None

@@ -24,6 +24,42 @@ services:
         sync: false
       - key: SALAR_N8N_API_KEY
         sync: false
+      # Seller marketplace (Amazon SP-API + noon Partner API). All credentials
+      # are entered manually in the Render dashboard (never committed).
+      - key: SALAR_AMAZON_SPAPI_ENABLED
+        sync: false
+      - key: SALAR_AMAZON_SPAPI_REGION
+        sync: false
+      - key: SALAR_AMAZON_LWA_CLIENT_ID
+        sync: false
+      - key: SALAR_AMAZON_LWA_CLIENT_SECRET
+        sync: false
+      - key: SALAR_AMAZON_LWA_REFRESH_TOKEN
+        sync: false
+      - key: SALAR_AMAZON_IAM_ACCESS_KEY
+        sync: false
+      - key: SALAR_AMAZON_IAM_SECRET_KEY
+        sync: false
+      - key: SALAR_AMAZON_SPAPI_ROLE_ARN
+        sync: false
+      - key: SALAR_AMAZON_MARKETPLACE_IDS
+        sync: false
+      - key: SALAR_AMAZON_SELLER_ID
+        sync: false
+      - key: SALAR_NOON_ENABLED
+        sync: false
+      - key: SALAR_NOON_KEY_FILE
+        sync: false
+      - key: SALAR_NOON_KEY_ID
+        sync: false
+      - key: SALAR_NOON_PRIVATE_KEY
+        sync: false
+      - key: SALAR_NOON_PROJECT_CODE
+        sync: false
+      - key: SALAR_NOON_COUNTRY_CODES
+        sync: false
+      - key: SALAR_NOON_WAREHOUSE_CODE
+        sync: false
       - key: SALAR_GEMINI_MODEL
         value: gemini-3.1-flash-lite
       - key: SALAR_ALLOWED_ORIGINS

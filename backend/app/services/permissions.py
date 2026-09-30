@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 DEFAULT_LEVEL = "ask"
 LEVELS = {"observe", "suggest", "ask", "autonomous"}
-CATEGORIES = ["files", "camera", "microphone", "screen", "browser", "email", "calendar", "terminal", "system", "smart_home"]
+CATEGORIES = ["files", "camera", "microphone", "screen", "browser", "email", "calendar", "terminal", "system", "smart_home", "marketplace"]
 
 _WRITE_TOOLS = {
     "file_write", "write_file", "save_memory", "delete_memory", "email_send",
@@ -19,6 +19,9 @@ _WRITE_TOOLS = {
     "code_run", "manage_process", "power_control", "device_command", "set_volume",
     "set_brightness", "media_control", "window_control", "open_app", "open_url",
     "open_explorer", "screenshot", "clipboard",
+    # seller marketplace writes
+    "amazon_update_price", "amazon_update_quantity",
+    "noon_update_price", "noon_update_stock",
 }
 
 _TOOL_CATEGORY = {
@@ -40,6 +43,14 @@ _TOOL_CATEGORY = {
     "set_reminder": "calendar", "list_reminders": "calendar",
     "update_reminder": "calendar", "mark_reminder_done": "calendar",
     "delete_reminder": "calendar",
+    # seller marketplace
+    "marketplace_status": "marketplace", "amazon_seller_info": "marketplace",
+    "amazon_sales": "marketplace", "amazon_recent_orders": "marketplace",
+    "amazon_inventory": "marketplace", "amazon_listing": "marketplace",
+    "amazon_update_price": "marketplace", "amazon_update_quantity": "marketplace",
+    "noon_pricing": "marketplace", "noon_stock": "marketplace",
+    "noon_update_price": "marketplace", "noon_update_stock": "marketplace",
+    "marketplace_daily_summary": "marketplace",
     # email + whatsapp
     "email_folders": "email", "email_read": "email", "email_search": "email",
     "email_send": "email", "email_unread": "email",

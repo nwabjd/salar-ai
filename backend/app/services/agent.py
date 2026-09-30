@@ -991,6 +991,147 @@ TOOL_DEFINITIONS = [
                     },
                 },
             },
+            {
+                "name": "marketplace_status",
+                "description": "Check which seller marketplaces SALAR is connected to (Amazon SP-API and/or noon), and whether the connection is healthy. Returns per-platform configured + connected state. Use this first when the user asks about their selling accounts.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+            {
+                "name": "amazon_seller_info",
+                "description": "Amazon seller account identity: seller id, which marketplaces (e.g. AE, SA) the account participates in, and participation status.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+            {
+                "name": "amazon_sales",
+                "description": "Amazon sales summary over the last N days: daily orders, units and revenue (Order Metrics API). Defaults to the last 30 days.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "days": {"type": "integer", "description": "Number of days to summarize (1-90, default 30)"}
+                    },
+                },
+            },
+            {
+                "name": "amazon_recent_orders",
+                "description": "List the most recent Amazon orders (created within the last N days). Includes order id, status, channel (FBA/FBM), unshipped items and total. No buyer personal data.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "days": {"type": "integer", "description": "Look back window (1-90, default 7)"},
+                        "max_orders": {"type": "integer", "description": "Max orders to return (default 20, max 100)"}
+                    },
+                },
+            },
+            {
+                "name": "amazon_inventory",
+                "description": "Amazon FBA inventory summary: available quantity per seller SKU, plus which SKUs are out of stock.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+            {
+                "name": "amazon_listing",
+                "description": "Fetch one Amazon listing's current state: product type, buyable status, selling price and (FBM) available quantity.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "seller_sku": {"type": "string", "description": "The seller SKU of the listing"}
+                    },
+                    "required": ["seller_sku"]
+                },
+            },
+            {
+                "name": "amazon_update_price",
+                "description": "Change the selling price of an Amazon listing (e.g. repricing, sales). Requires an existing listing. Currency defaults to AED.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "seller_sku": {"type": "string", "description": "The seller SKU to reprice"},
+                        "price": {"type": "number", "description": "New selling price (e.g. 129.99)"},
+                        "currency": {"type": "string", "description": "Currency code (default AED)"},
+                        "marketplace_id": {"type": "string", "description": "Optional marketplace id (defaults to the first configured one)"}
+                    },
+                    "required": ["seller_sku", "price"]
+                },
+            },
+            {
+                "name": "amazon_update_quantity",
+                "description": "Set the available quantity of an Amazon FBM listing (how many units are sellable). Uses a negative number to zero out stock.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "seller_sku": {"type": "string", "description": "The seller SKU to update"},
+                        "quantity": {"type": "integer", "description": "New available quantity (0 = out of stock)"}
+                    },
+                    "required": ["seller_sku", "quantity"]
+                },
+            },
+            {
+                "name": "noon_pricing",
+                "description": "Read noon pricing for one or more partner SKUs: current price, MSRP and is_active flag per country (ae/sa/eg).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "skus": {"type": "array", "items": {"type": "string"}, "description": "Partner SKUs to check"},
+                        "countries": {"type": "array", "items": {"type": "string"}, "description": "Optional country codes (ae, sa, eg). Defaults to configured countries"}
+                    },
+                    "required": ["skus"]
+                },
+            },
+            {
+                "name": "noon_stock",
+                "description": "Read noon available quantities for (warehouse, partner SKU) pairs. If no warehouses are passed, SALAR uses the configured warehouse code.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "skus": {"type": "array", "items": {"type": "string"}, "description": "Partner SKUs to check"},
+                        "warehouse_code": {"type": "string", "description": "Optional noon warehouse code (defaults to SALAR_NOON_WAREHOUSE_CODE)"}
+                    },
+                },
+            },
+            {
+                "name": "noon_update_price",
+                "description": "Create or update noon pricing for a partner SKU in one country: price (required), optional MSRP and active flag.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "sku": {"type": "string", "description": "Partner SKU"},
+                        "country_code": {"type": "string", "description": "Country: ae, sa or eg"},
+                        "price": {"type": "number", "description": "New selling price"},
+                        "msrp": {"type": "number", "description": "Optional MSRP"},
+                        "is_active": {"type": "boolean", "description": "Whether the offer is active (default keeps current state)"}
+                    },
+                    "required": ["sku", "country_code", "price"]
+                },
+            },
+            {
+                "name": "noon_update_stock",
+                "description": "Set noon available quantity for a partner SKU in a warehouse. IMPORTANT: the quantity is ABSOLUTE — it replaces the current value, it is not added to it.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "sku": {"type": "string", "description": "Partner SKU"},
+                        "quantity": {"type": "integer", "description": "New available quantity (0 = out of stock)"},
+                        "warehouse_code": {"type": "string", "description": "Optional warehouse code (defaults to SALAR_NOON_WAREHOUSE_CODE)"}
+                    },
+                    "required": ["sku", "quantity"]
+                },
+            },
+            {
+                "name": "marketplace_daily_summary",
+                "description": "One combined report across the connected marketplaces: Amazon sales over the last 2 days plus noon active-SKU and stock lowlights. Use for a daily business briefing.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
         ]
     }
 ]
@@ -1217,6 +1358,32 @@ async def execute_tool(name: str, args: Dict[str, Any], user_id: str, db_session
             return await _n8n_execute_workflow(args.get("workflow_id", ""), args.get("payload") or {}, user_id)
         elif name == "n8n_workflow_result":
             return await _n8n_workflow_result(args.get("execution_id"), args.get("workflow_id"), args.get("include_data", True), user_id)
+        elif name == "marketplace_status":
+            return await _marketplace_status(user_id)
+        elif name == "amazon_seller_info":
+            return await _amazon_seller_info(user_id)
+        elif name == "amazon_sales":
+            return await _amazon_sales(args.get("days") or 30, user_id)
+        elif name == "amazon_recent_orders":
+            return await _amazon_recent_orders(args.get("days") or 7, args.get("max_orders") or 20, user_id)
+        elif name == "amazon_inventory":
+            return await _amazon_inventory(user_id)
+        elif name == "amazon_listing":
+            return await _amazon_listing(args.get("seller_sku", ""), user_id)
+        elif name == "amazon_update_price":
+            return await _amazon_update_price(args.get("seller_sku", ""), args.get("price"), args.get("currency") or "AED", args.get("marketplace_id"), user_id)
+        elif name == "amazon_update_quantity":
+            return await _amazon_update_quantity(args.get("seller_sku", ""), args.get("quantity"), user_id)
+        elif name == "noon_pricing":
+            return await _noon_pricing(args.get("skus") or [], args.get("countries"), user_id)
+        elif name == "noon_stock":
+            return await _noon_stock(args.get("skus") or [], args.get("warehouse_code"), user_id)
+        elif name == "noon_update_price":
+            return await _noon_update_price(args.get("sku", ""), args.get("country_code", ""), args.get("price"), args.get("msrp"), args.get("is_active"), user_id)
+        elif name == "noon_update_stock":
+            return await _noon_update_stock(args.get("sku", ""), args.get("quantity"), args.get("warehouse_code"), user_id)
+        elif name == "marketplace_daily_summary":
+            return await _marketplace_daily_summary(user_id)
         else:
             return {"error": f"Unknown tool: {name}"}
     except Exception as e:
@@ -2603,3 +2770,348 @@ async def _n8n_workflow_result(
         return {"error": f"n8n {e.kind}: {e}"}
     finally:
         await client.close()
+
+
+# --------------------------------------------------------------------------- #
+# Seller marketplace integration (Amazon SP-API + noon Partner API)
+#
+# SALAR reads and manages the seller's Amazon / noon accounts over their
+# official REST APIs. Credentials come from SALAR_AMAZON_* / SALAR_NOON_* env
+# config or a per-user registration via /api/marketplace/*/connect. See
+# services/marketplace/ for the clients and
+# docs/marketplace/{amazon,noon}-seller-guide.md for setup.
+# --------------------------------------------------------------------------- #
+
+
+def _get_amazon_client(user_id: str):
+    from .marketplace import AmazonSPError, get_amazon_client
+
+    client = get_amazon_client(user_id)
+    if client is None:
+        raise AmazonSPError(
+            "No Amazon seller account configured. Set the SALAR_AMAZON_* env vars "
+            "(setup steps: docs/marketplace/amazon-seller-guide.md) or connect one "
+            "via POST /api/marketplace/amazon/connect.",
+            kind="invalid_config",
+        )
+    return client
+
+
+def _get_noon_client(user_id: str):
+    from .marketplace import NoonError, get_noon_client
+
+    client = get_noon_client(user_id)
+    if client is None:
+        raise NoonError(
+            "No noon seller account configured. Set the SALAR_NOON_* env vars "
+            "(setup steps: docs/marketplace/noon-seller-guide.md) or connect one "
+            "via POST /api/marketplace/noon/connect.",
+            kind="invalid_config",
+        )
+    return client
+
+
+async def _marketplace_status(user_id: str) -> Dict[str, Any]:
+    from .marketplace import (
+        AmazonSPError,
+        NoonError,
+        get_amazon_client,
+        get_noon_client,
+        resolve_amazon_config,
+        resolve_noon_config,
+    )
+
+    result: Dict[str, Any] = {}
+    for platform, get_client, error_type, resolve in (
+        ("amazon", get_amazon_client, AmazonSPError, resolve_amazon_config),
+        ("noon", get_noon_client, NoonError, resolve_noon_config),
+    ):
+        if not resolve(user_id) and not resolve(None):
+            result[platform] = {"configured": False, "connected": False}
+            continue
+        client = get_client(user_id)
+        if client is None:
+            result[platform] = {"configured": True, "connected": False, "error": "config present but incomplete"}
+            continue
+        try:
+            result[platform] = await client.health()
+        except error_type as exc:
+            result[platform] = {"configured": True, "connected": False, "error": f"{exc.kind}: {exc}"}
+        finally:
+            await client.close()
+    return result
+
+
+async def _amazon_seller_info(user_id: str) -> Dict[str, Any]:
+    from .marketplace import AmazonSPError
+
+    try:
+        client = _get_amazon_client(user_id)
+    except AmazonSPError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.get_seller_info()
+    except AmazonSPError as exc:
+        return {"error": f"amazon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _amazon_sales(days, user_id: str) -> Dict[str, Any]:
+    from .marketplace import AmazonSPError
+
+    try:
+        client = _get_amazon_client(user_id)
+    except AmazonSPError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.get_order_metrics(days=int(days or 30))
+    except AmazonSPError as exc:
+        return {"error": f"amazon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _amazon_recent_orders(days, max_orders, user_id: str) -> Dict[str, Any]:
+    from .marketplace import AmazonSPError
+
+    try:
+        client = _get_amazon_client(user_id)
+    except AmazonSPError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.list_recent_orders(days=int(days or 7), max_orders=int(max_orders or 20))
+    except AmazonSPError as exc:
+        return {"error": f"amazon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _amazon_inventory(user_id: str) -> Dict[str, Any]:
+    from .marketplace import AmazonSPError
+
+    try:
+        client = _get_amazon_client(user_id)
+    except AmazonSPError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.get_inventory()
+    except AmazonSPError as exc:
+        return {"error": f"amazon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _amazon_listing(seller_sku: str, user_id: str) -> Dict[str, Any]:
+    from .marketplace import AmazonSPError
+
+    if not seller_sku:
+        return {"error": "seller_sku is required"}
+    try:
+        client = _get_amazon_client(user_id)
+    except AmazonSPError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.get_listing(seller_sku)
+    except AmazonSPError as exc:
+        return {"error": f"amazon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _amazon_update_price(
+    seller_sku: str, price, currency: str, marketplace_id, user_id: str
+) -> Dict[str, Any]:
+    from .marketplace import AmazonSPError
+
+    if not seller_sku or price is None:
+        return {"error": "seller_sku and price are required"}
+    try:
+        amount = float(price)
+        if amount <= 0:
+            return {"error": "price must be a positive number"}
+    except (TypeError, ValueError):
+        return {"error": "price must be a number"}
+    try:
+        client = _get_amazon_client(user_id)
+    except AmazonSPError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.update_price(seller_sku, amount, currency=currency or "AED", marketplace_id=marketplace_id)
+    except AmazonSPError as exc:
+        return {"error": f"amazon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _amazon_update_quantity(seller_sku: str, quantity, user_id: str) -> Dict[str, Any]:
+    from .marketplace import AmazonSPError
+
+    if not seller_sku or quantity is None:
+        return {"error": "seller_sku and quantity are required"}
+    try:
+        qty = int(quantity)
+        if qty < 0:
+            return {"error": "quantity cannot be negative"}
+    except (TypeError, ValueError):
+        return {"error": "quantity must be a whole number"}
+    try:
+        client = _get_amazon_client(user_id)
+    except AmazonSPError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.update_quantity(seller_sku, qty)
+    except AmazonSPError as exc:
+        return {"error": f"amazon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _noon_pricing(skus, countries, user_id: str) -> Dict[str, Any]:
+    from .marketplace import NoonError
+
+    if isinstance(skus, str):
+        skus = [s.strip() for s in skus.split(",") if s.strip()]
+    skus = list(skus or [])
+    if not skus:
+        return {"error": "Pass at least one partner SKU (skus)"}
+    countries = list(countries) if isinstance(countries, (list, tuple)) else None
+    try:
+        client = _get_noon_client(user_id)
+    except NoonError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.get_pricing(skus, country_codes=countries)
+    except NoonError as exc:
+        return {"error": f"noon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _noon_stock(skus, warehouse_code, user_id: str) -> Dict[str, Any]:
+    from .marketplace import NoonError
+
+    if isinstance(skus, str):
+        skus = [s.strip() for s in skus.split(",") if s.strip()]
+    skus = list(skus or [])
+    pairs = [{"partner_sku": s, "warehouse_code": warehouse_code} for s in skus]
+    try:
+        client = _get_noon_client(user_id)
+    except NoonError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.get_stock(pairs)
+    except NoonError as exc:
+        return {"error": f"noon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _noon_update_price(
+    sku: str, country_code: str, price, msrp, is_active, user_id: str
+) -> Dict[str, Any]:
+    from .marketplace import NoonError
+
+    if not sku or not country_code or price is None:
+        return {"error": "sku, country_code and price are required"}
+    try:
+        amount = float(price)
+        if amount <= 0:
+            return {"error": "price must be a positive number"}
+    except (TypeError, ValueError):
+        return {"error": "price must be a number"}
+    item: Dict[str, Any] = {"partner_sku": sku, "country_code": str(country_code).lower(), "price": amount}
+    if msrp is not None:
+        try:
+            item["msrp"] = float(msrp)
+        except (TypeError, ValueError):
+            return {"error": "msrp must be a number"}
+    if is_active is not None:
+        item["is_active"] = bool(is_active)
+    try:
+        client = _get_noon_client(user_id)
+    except NoonError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.update_pricing([item])
+    except NoonError as exc:
+        return {"error": f"noon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _noon_update_stock(sku: str, quantity, warehouse_code, user_id: str) -> Dict[str, Any]:
+    from .marketplace import NoonError
+
+    if not sku or quantity is None:
+        return {"error": "sku and quantity are required"}
+    try:
+        qty = int(quantity)
+        if qty < 0:
+            return {"error": "quantity cannot be negative"}
+    except (TypeError, ValueError):
+        return {"error": "quantity must be a whole number"}
+    try:
+        client = _get_noon_client(user_id)
+    except NoonError as exc:
+        return {"error": str(exc)}
+    try:
+        return await client.update_stock(
+            [{"partner_sku": sku, "quantity": qty, "warehouse_code": warehouse_code}]
+        )
+    except NoonError as exc:
+        return {"error": f"noon {exc.kind}: {exc}"}
+    finally:
+        await client.close()
+
+
+async def _marketplace_daily_summary(user_id: str) -> Dict[str, Any]:
+    """Combined morning briefing across connected marketplaces."""
+    from .marketplace import AmazonSPError, NoonError, get_noon_client, resolve_noon_config
+
+    summary: Dict[str, Any] = {"generated": "utc", "amazon": {"configured": False}, "noon": {"configured": False}}
+
+    # Amazon: order metrics over the last 2 full days.
+    try:
+        client = _get_amazon_client(user_id)
+    except AmazonSPError as exc:
+        summary["amazon"]["error"] = str(exc)
+    else:
+        try:
+            metrics = await client.get_order_metrics(days=2)
+            summary["amazon"] = {
+                "configured": True,
+                "currency": metrics.get("currency"),
+                "totals_last_2_days": metrics.get("totals"),
+                "daily": metrics.get("daily"),
+            }
+        except AmazonSPError as exc:
+            summary["amazon"]["error"] = f"amazon {exc.kind}: {exc}"
+        finally:
+            await client.close()
+
+    # noon: connectivity + configured countries (detailed SKU pull needs a SKU list).
+    try:
+        client = get_noon_client(user_id)
+    except NoonError as exc:
+        summary["noon"]["error"] = str(exc)
+    else:
+        if client is None:
+            summary["noon"] = {"configured": False}
+        else:
+            try:
+                health = await client.health()
+                summary["noon"] = {
+                    "configured": True,
+                    "countries": health.get("countries"),
+                    "connected": health.get("connected"),
+                }
+                if not health.get("connected"):
+                    summary["noon"]["error"] = health.get("error")
+            except NoonError as exc:
+                summary["noon"]["error"] = f"noon {exc.kind}: {exc}"
+            finally:
+                await client.close()
+
+    summary["note"] = "Amazon totals cover the last 2 full days. For noon SKU-level detail, ask for noon stock/pricing on specific SKUs."
+    return summary
