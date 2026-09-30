@@ -53,8 +53,10 @@ noon controls API access through **partner onboarding**:
 ## Step 3 — Get your service-account key from the Developer Portal
 
 1. Open the noon **Developer Portal**: https://developer.noon.partners
-   (log in with the approved account).
-2. Follow the onboarding there → **create your project**.
+   (log in with the account approved by noon).
+2. Follow the onboarding there → **create your project** — and make sure your
+   API user carries the **Project Owner** role in *Users & Access → User
+   Access* (roles like Viewer can't use the API).
 3. Generate the **service-account key file**. It's a JSON document like:
 
 ```json
@@ -141,6 +143,9 @@ KSA).
 
 ### Fulfillment model quick notes
 
+- **Fees in brief**: noon charges **no setup or monthly fee**; its commission
+  is per category, roughly **4–27%** of the sale price (check Seller Lab for
+  your store's rate card).
 - **FBPI** (Fulfilled By Partner Integration): you fulfil orders from your own
   warehouse — the responsibilities map to the `stock` numbers SALAR manages.
 - **FBPO** (Fulfilled By Purchase Order): noon buys/buy stock — different
