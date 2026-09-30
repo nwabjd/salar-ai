@@ -198,17 +198,71 @@ def create_app(settings: Settings = None) -> FastAPI:
 
         if not hasattr(app.state, "coordinator"):
             try:
-                gemini = GeminiClient(active_settings.gemini_api_key, active_settings.gemini_model)
-                nim = None
-                if getattr(active_settings, "nim_api_key", None):
-                    from .services.nim import NIMProvider
-                    nim = NIMProvider(active_settings.nim_api_key, active_settings.nim_base_url)
-                    log.info("NIM provider ready — base: %s", active_settings.nim_base_url)
-                app.state.coordinator = AICoordinator(gemini)
-                app.state.nim = nim  # NIMProvider or None
-                log.info("SALAR ready — Gemini model: %s", active_settings.gemini_model)
+                gemini = None
+                if active_settings.gemini_api_key:
+                    gemini = GeminiClient(active_settings.gemini_api_key, active_settings.gemini_model)
+                from .services.openai_compat import OpenAICompatClient
+
+                # Reliable NIM fallback for the failover chain (text/tools only).
+                # Skipped when the primary LLM already points at the same endpoint.
+                nim_failover = None
+                nim_same_as_primary = (
+                    getattr(active_settings, "llm_api_base_url", None)
+                    and active_settings.llm_api_base_url.rstrip("/") == active_settings.nim_base_url.rstrip("/")
+                )
+                if (
+                    getattr(active_settings, "nim_api_key", None)
+                    and getattr(active_settings, "nim_enabled", True)
+                    and not nim_same_as_primary
+                ):
+                    nim_model = getattr(active_settings, "nim_llm_model", None) or active_settings.nim_default_model
+                    try:
+                        nim_failover = OpenAICompatClient(
+                            api_key=active_settings.nim_api_key,
+                            base_url=active_settings.nim_base_url,
+                            model=nim_model,
+                        )
+                    except Exception as e:
+                        log.warning("NIM failover LLM not wired: %s", e)
+                        nim_failover = None
+                primary_llm = gemini
+                if (
+                    getattr(active_settings, "llm_api_base_url", None)
+                    and getattr(active_settings, "llm_api_key", None)
+                    and getattr(active_settings, "llm_api_model", None)
+                ):
+                    alternates = []
+                    if nim_failover is not None:
+                        alternates.append(nim_failover)
+                    if gemini is not None:
+                        alternates.append(gemini)
+                    primary_llm = OpenAICompatClient(
+                        api_key=active_settings.llm_api_key,
+                        base_url=active_settings.llm_api_base_url,
+                        model=active_settings.llm_api_model,
+                        vision=gemini,
+                        alternates=alternates,
+                        retries=3,  # fail over fast (within a few seconds) when throttled
+                    )
+                    if gemini is None:
+                        log.warning("Primary LLM configured but no Gemini fallback for vision/STT/TTS")
+                    log.info(
+                        "Primary LLM: %s (model %s) — failover: %s — Gemini retained for vision/audio",
+                        active_settings.llm_api_base_url,
+                        active_settings.llm_api_model,
+                        [getattr(a, "model", type(a).__name__) for a in alternates] or ["none"],
+                    )
+                if primary_llm is None:
+                    raise ValueError(
+                        "No LLM configured: set SALAR_GEMINI_API_KEY or SALAR_LLM_API_BASE_URL+SALAR_LLM_API_KEY+SALAR_LLM_API_MODEL"
+                    )
+                app.state.gemini_fallback = gemini  # None unless Gemini configured
+                nim = nim_failover
+                app.state.coordinator = AICoordinator(primary_llm)
+                app.state.nim = nim  # OpenAICompatClient failover or None
+                log.info("SALAR ready — model: %s", getattr(primary_llm, "model", "?"))
             except Exception as e:
-                log.error("Gemini client init failed: %s", e)
+                log.error("LLM client init failed: %s", e)
                 raise
 
         from .services.core.events import CoreBus
@@ -359,6 +413,11 @@ def create_app(settings: Settings = None) -> FastAPI:
         if hasattr(app.state, "coordinator") and hasattr(app.state.coordinator, "gemini"):
             try:
                 await app.state.coordinator.gemini.close()
+            except Exception:
+                pass
+        if getattr(app.state, "gemini_fallback", None) is not None:
+            try:
+                await app.state.gemini_fallback.close()
             except Exception:
                 pass
         if hasattr(app.state, "whatsapp"):

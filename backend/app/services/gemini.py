@@ -2,12 +2,21 @@ import asyncio
 import base64
 import json
 import logging
+import random
 import struct
 from typing import AsyncIterator, Dict, List
 
 import httpx
 
 log = logging.getLogger(__name__)
+
+
+class GeminiBusyError(RuntimeError):
+    """Gemini is overloaded / rate-limited (HTTP 429/503) after all retries."""
+
+    def __init__(self, message: str, status: int):
+        super().__init__(message)
+        self.status = status
 
 
 class GeminiClient:
@@ -65,31 +74,45 @@ class GeminiClient:
             "finish_reason": candidate.get("finishReason", ""),
         }
 
-    async def _request_with_retry(self, url: str, body: dict, retries: int = 3) -> dict:
-        last_error = None
+    async def _request_with_retry(self, url: str, body: dict, retries: int = 6) -> dict:
+        last_status = None
+        last_detail = ""
         for attempt in range(retries):
             try:
                 r = await self._client.post(url, params={"key": self.api_key}, json=body)
                 if r.status_code == 200:
                     return r.json()
                 if r.status_code in (429, 503):
-                    wait = min(2 ** attempt + 1, 15)
-                    log.warning("Gemini %d (attempt %d/%d), retrying in %ds...", r.status_code, attempt + 1, retries, wait)
+                    last_status, last_detail = r.status_code, r.text[:200]
+                    retry_after = r.headers.get("retry-after")
+                    try:
+                        wait = min(int(retry_after), 30)
+                    except (TypeError, ValueError):
+                        wait = min(2 ** attempt + random.uniform(0.5, 1.5), 25)
+                    log.warning(
+                        "Gemini %d (attempt %d/%d), retrying in %.1fs...",
+                        r.status_code, attempt + 1, retries, wait,
+                    )
                     await asyncio.sleep(wait)
                     continue
                 log.error("Gemini HTTP %d: %s", r.status_code, r.text[:200])
                 r.raise_for_status()
             except httpx.TimeoutException as e:
-                last_error = e
+                last_status = last_status or 0
+                last_detail = f"timeout: {e}"
                 log.warning("Gemini timeout (attempt %d/%d): %s", attempt + 1, retries, e)
-                await asyncio.sleep(min(2 ** attempt, 8))
+                await asyncio.sleep(min(2 ** attempt + random.uniform(0.5, 1.5), 15))
             except httpx.HTTPStatusError:
                 raise
             except Exception as e:
-                last_error = e
+                last_status = last_status or 0
+                last_detail = str(e)[:200]
                 log.warning("Gemini connection error (attempt %d/%d): %s", attempt + 1, retries, e)
-                await asyncio.sleep(min(2 ** attempt, 8))
-        raise RuntimeError(f"Gemini failed after {retries} retries: {last_error}")
+                await asyncio.sleep(min(2 ** attempt + random.uniform(0.5, 1.5), 15))
+        raise GeminiBusyError(
+            f"Gemini unavailable after {retries} attempts (last HTTP {last_status}: {last_detail[:150]})",
+            status=last_status or 0,
+        )
 
     async def chat(self, messages: List[Dict[str, str]]) -> str:
         body = self._body(messages)

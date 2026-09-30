@@ -21,27 +21,6 @@ from app.services.marketplace import (
     resolve_noon_config,
 )
 
-AMAZON_ENV_KEYS = (
-    "SALAR_AMAZON_SPAPI_ENABLED",
-    "SALAR_AMAZON_SPAPI_REGION",
-    "SALAR_AMAZON_LWA_CLIENT_ID",
-    "SALAR_AMAZON_LWA_CLIENT_SECRET",
-    "SALAR_AMAZON_LWA_REFRESH_TOKEN",
-    "SALAR_AMAZON_IAM_ACCESS_KEY",
-    "SALAR_AMAZON_IAM_SECRET_KEY",
-    "SALAR_AMAZON_SPAPI_ROLE_ARN",
-    "SALAR_AMAZON_MARKETPLACE_IDS",
-    "SALAR_AMAZON_SELLER_ID",
-    "SALAR_NOON_ENABLED",
-    "SALAR_NOON_BASE_URL",
-    "SALAR_NOON_KEY_ID",
-    "SALAR_NOON_PRIVATE_KEY",
-    "SALAR_NOON_PROJECT_CODE",
-    "SALAR_NOON_KEY_FILE",
-    "SALAR_NOON_COUNTRY_CODES",
-    "SALAR_NOON_WAREHOUSE_CODE",
-)
-
 AMAZON_CFG = {
     "client_id": "cid",
     "client_secret": "csecret",
@@ -104,9 +83,10 @@ def _asyncio_run(coro):
 
 
 @pytest.fixture(autouse=True)
-def _clean_marketplace_state(monkeypatch):
-    for key in AMAZON_ENV_KEYS:
-        monkeypatch.delenv(key, raising=False)
+def _clean_marketplace_state():
+    # Env neutrality is handled process-wide by conftest._hermetic_marketplace_env
+    # (and monkeypatch auto-restores between tests, so nothing can leak across
+    # tests from test-body setenv calls). Only in-memory state needs resetting.
     for uid in ("u1", "u2"):
         state.marketplace_connections.pop(uid, None)
     yield

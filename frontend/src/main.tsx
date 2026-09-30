@@ -464,8 +464,11 @@ function Chat({ connected, onLive }: { connected: boolean; onLive: () => void })
         if (streamBuf.current) {
           const reply = streamBuf.current
           setMessages(current => [...current.slice(0, -1), userMsg, { id: 'err-' + Date.now(), role: 'assistant', content: reply + '\n\n[Stream interrupted]', created_at: new Date().toISOString() }])
+        } else if (msg && msg.trim() && msg.length <= 160) {
+          setError(msg)
+          setMessages(current => current.filter(m => m.id !== userMsg.id))
         } else {
-          setError(msg.includes('quota') ? msg : 'Connection lost — try again')
+          setError('Connection lost — try again')
           setMessages(current => current.filter(m => m.id !== userMsg.id))
         }
         finish()

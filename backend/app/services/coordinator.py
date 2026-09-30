@@ -2,7 +2,7 @@ import logging
 from typing import Iterable
 
 from .agents.policy import RESOURCEFUL_RESPONSE_POLICY
-from .gemini import GeminiClient
+from .gemini import GeminiBusyError, GeminiClient
 
 log = logging.getLogger(__name__)
 
@@ -104,6 +104,11 @@ class AICoordinator:
             return await self.gemini.chat(payload)
         except Exception as e:
             log.error("Gemini request failed: %s", e)
+            if isinstance(e, GeminiBusyError):
+                return (
+                    "The AI service is busy right now (limit reached). Your message was saved — "
+                    "give it a few seconds and try again."
+                )
             return (
                 "I'm having trouble connecting to the AI service. Your message was saved — "
                 "please try again in a moment."

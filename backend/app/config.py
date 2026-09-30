@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-3.1-flash-lite"
     gemini_live_model: str = "gemini-3.1-flash-live-preview"
+    # Primary LLM: optional OpenAI-compatible provider (Groq / OpenRouter / NIM / …).
+    # When SALAR_LLM_API_BASE_URL and SALAR_LLM_API_KEY and SALAR_LLM_API_MODEL are
+    # set, SALAR drives chat/tools/agents through that endpoint (low-latency keys
+    # land here) and the Gemini key above remains the fallback for vision/STT/TTS.
+    llm_api_base_url: Optional[str] = None
+    llm_api_key: Optional[str] = None
+    llm_api_model: Optional[str] = None
     openai_api_key: Optional[str] = None
     openai_realtime_model: str = "gpt-realtime"
     n8n_base_url: Optional[str] = None
@@ -83,6 +90,10 @@ class Settings(BaseSettings):
     nim_base_url: str = "https://integrate.api.nvidia.com/v1"
     nim_enabled: bool = True # auto-disabled if no key
     nim_default_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    # Optional NIM chat model used as the reliable fallback in the LLM failover
+    # chain (primary OpenAI-compatible provider -> NIM -> Gemini). Defaults to
+    # nim_default_model when unset.
+    nim_llm_model: Optional[str] = None
 
     # --- Seller marketplace (Amazon SP-API + noon Partner API) ---
     # Credentials come from the setup checklists (docs/marketplace/*). SALAR only

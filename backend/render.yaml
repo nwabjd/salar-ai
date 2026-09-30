@@ -17,6 +17,27 @@ services:
         sync: false
       - key: SALAR_GEMINI_API_KEY
         sync: false
+      # Primary LLM: optional OpenAI-compatible provider (e.g. Groq). When set,
+      # chat/tools run through it (low-latency) and the Gemini key above stays
+      # the fallback for vision/STT/TTS. Add the key value in the Render dashboard.
+      # Primary LLM (OpenAI-compatible /chat/completions). Recommended default:
+      # NVIDIA NIM llama-3.2-11b-vision-instruct (reliable, unlimited free tier):
+      #   SALAR_LLM_API_BASE_URL=https://integrate.api.nvidia.com/v1
+      #   SALAR_LLM_API_MODEL=meta/llama-3.2-11b-vision-instruct
+      # (Groq gpt-oss-20b is faster but its free TPM=8000 cap breaks SALAR's
+      # 105-tool multi-round agent loop — only usable on a paid/on_demand tier.)
+      - key: SALAR_LLM_API_BASE_URL
+        sync: false
+      - key: SALAR_LLM_API_KEY
+        sync: false
+      - key: SALAR_LLM_API_MODEL
+        sync: false
+      # NVIDIA NIM: optional second-tier failover. Leave empty unless the
+      # primary above is a different OpenAI-compatible provider.
+      - key: SALAR_NIM_API_KEY
+        sync: false
+      - key: SALAR_NIM_LLM_MODEL
+        sync: false
       # n8n workflow automation instance for the SALAR agent (self-hosted n8n,
       # driven over its public REST API). Optional: leave empty to rely on
       # per-user connections via /api/n8n/connect.

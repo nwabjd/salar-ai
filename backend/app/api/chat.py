@@ -18,6 +18,7 @@ from ..services.agents import PreparedAgentContext
 from ..services.agents.policy import RESOURCEFUL_RESPONSE_POLICY
 from ..services.agents.run_store import AgentRunStore
 from ..services.agent import TOOL_DEFINITIONS, execute_tool
+from ..services.gemini import GeminiBusyError
 from ..services.world_model import SituationEngine, WorldGraph
 from .deps import check_quota
 
@@ -756,8 +757,16 @@ async def chat_stream(
             if observed_action == "chat.cancelled":
                 return
             log.error("Agent stream failed: %s", type(e).__name__)
-            fallback = "The AI service is temporarily unavailable. Your message was saved — please try again."
-            yield f"data: {json.dumps({'type': 'error', 'detail': fallback, 'error': fallback, 'code': 'stream_failed'})}\n\n"
+            if isinstance(e, GeminiBusyError):
+                fallback = (
+                    "The AI service is busy right now (limit reached). Your message was saved — "
+                    "give it a few seconds and try again."
+                )
+                code = "gemini_busy"
+            else:
+                fallback = "The AI service is temporarily unavailable. Your message was saved — please try again."
+                code = "stream_failed"
+            yield f"data: {json.dumps({'type': 'error', 'detail': fallback, 'error': fallback, 'code': code})}\n\n"
         finally:
             save_db.close()
 
